@@ -7,13 +7,14 @@ export function reactToSnabbdomJsx(): ts.TransformerFactory<ts.SourceFile> {
   return (transformContext: ts.TransformationContext) => {
 
     let sourceFile: ts.SourceFile;
+    const compilerOptions = transformContext.getCompilerOptions();
 
     function visit(node: ts.Node): ts.VisitResult<ts.Node> {
 
       switch (node.kind) {
         case ts.SyntaxKind.CallExpression:
           const callNode = node as ts.CallExpression;
-          if ((<ts.Identifier>callNode.expression).text === 'h') {
+          if ((<ts.Identifier>callNode.expression).text === compilerOptions.jsxFactory) {
             const convertedArgs = convertReactToSnabbDom(callNode.arguments);
             node = ts.updateCall(callNode, callNode.expression, null, convertedArgs);
           }

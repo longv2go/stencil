@@ -617,9 +617,10 @@ export interface HostElement extends HTMLElement {
   // private methods
   _render: () => void;
   _initLoad: () => void;
-  _queueUpdate: () => void;
+  _queueUpdate: (cb?: Function) => void;
 
   // private properties
+  _uniqueId: number;
   _hasConnected?: boolean;
   _hasDestroyed?: boolean;
   _isLoaded?: boolean;

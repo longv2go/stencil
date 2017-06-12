@@ -26,8 +26,8 @@ export function initHostConstructor(plt: PlatformApi, HostElementConstructor: Ho
       }
     },
     _queueUpdate: {
-      value: function() {
-        queueUpdate(plt, (<HostElement>this));
+      value: function(cb?: Function) {
+        queueUpdate(plt, (<HostElement>this), cb);
       }
     },
     _initLoad: {

@@ -1,8 +1,7 @@
 import { initInstance } from './init';
 import { HostElement, PlatformApi } from '../../util/interfaces';
 
-
-export function queueUpdate(plt: PlatformApi, elm: HostElement) {
+export function queueUpdate(plt: PlatformApi, elm: HostElement, cb?: Function) {
   // only run patch if it isn't queued already
   if (!elm._isQueuedForUpdate) {
     elm._isQueuedForUpdate = true;
@@ -12,6 +11,7 @@ export function queueUpdate(plt: PlatformApi, elm: HostElement) {
 
       // vdom diff and patch the host element for differences
       update(plt, elm);
+      cb && cb();
     });
   }
 }

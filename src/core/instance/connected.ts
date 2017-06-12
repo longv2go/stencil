@@ -1,11 +1,13 @@
 import { HostElement, PlatformApi } from '../../util/interfaces';
 import { getParentElement } from '../../util/helpers';
-
+import * as perf from '../../util/performance';
 
 export function connectedCallback(plt: PlatformApi, elm: HostElement) {
   // do not reconnect if we've already created an instance for this element
 
   if (!elm._hasConnected) {
+    perf.mark(elm, 'render');
+
     // first time we've connected
     elm._hasConnected = true;
 
@@ -26,6 +28,7 @@ export function connectedCallback(plt: PlatformApi, elm: HostElement) {
     // add to the queue to load the bundle
     // it's important to have an async tick in here so we can
     // ensure the "mode" attribute has been added to the element
+
     plt.queue.add(() => {
 
       // get the mode the element which is loading
@@ -38,7 +41,13 @@ export function connectedCallback(plt: PlatformApi, elm: HostElement) {
 
         // we've fully loaded the component mode data
         // let's queue it up to be rendered next
-        elm._queueUpdate();
+        perf.mark(elm, 'render');
+        process.env.PERFORMANCE;
+        const updateCb = (process.env.PERFORMANCE === 'on') ?
+          () => perf.stop(elm, 'render', `${elm.tagName.toLocaleLowerCase()} - render`) :
+          undefined;
+
+        elm._queueUpdate(updateCb);
       });
     });
   }

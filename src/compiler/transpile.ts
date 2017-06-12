@@ -3,6 +3,7 @@ import { createFileMeta, writeFiles } from './util';
 import { componentClass } from './transformers/component-class';
 import { removeImports } from './transformers/remove-imports';
 import { reactToSnabbdomJsx } from './transformers/react-to-snabbdom-jsx';
+import { inlineEnvironmentVariables } from './transformers/inline-environment-variables';
 import * as ts from 'typescript';
 
 
@@ -90,6 +91,7 @@ export function transpileFiles(tsFilePaths: string[], config: CompilerConfig, ct
 
   const result = program.emit(undefined, tsHost.writeFile, undefined, false, {
     before: [
+      inlineEnvironmentVariables(),
       componentClass(ctx),
       removeImports(),
     ],

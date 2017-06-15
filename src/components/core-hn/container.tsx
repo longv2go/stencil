@@ -54,32 +54,10 @@ export class NewsContainer {
     // this is definitely not the best solution
     // working on something more elegant, but this
     // gets the job done for the moment
-    switch (type) {
-      case 'news':
-        this.firstSelectedClass = true;
-        this.secondSelectedClass = false;
-        this.thirdSelectedClass = false;
-        this.fourthSelectedClass = false;
-        break;
-      case 'show':
-        this.secondSelectedClass = true;
-        this.firstSelectedClass = false;
-        this.thirdSelectedClass = false;
-        this.fourthSelectedClass = false;
-        break;
-      case 'jobs':
-        this.thirdSelectedClass = true;
-        this.firstSelectedClass = false;
-        this.fourthSelectedClass = false;
-        this.secondSelectedClass = false;
-        break;
-      case 'ask':
-        this.fourthSelectedClass = true;
-        this.thirdSelectedClass = false;
-        this.secondSelectedClass = false;
-        this.firstSelectedClass = false;
-        break;
-    }
+    this.firstSelectedClass = (type === 'news');
+    this.secondSelectedClass = (type === 'show');
+    this.thirdSelectedClass = (type === 'jobs');
+    this.fourthSelectedClass = (type === 'ask');
 
     Ionic.controller('loading', { content: `fetching ${type} articles...` }).then((loading: any) => {
       loading.present().then(() => {

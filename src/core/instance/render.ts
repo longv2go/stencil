@@ -52,7 +52,9 @@ export function render(plt: PlatformApi, elm: HostElement, isInitialRender: bool
 
     if (vnodeHostData) {
       newVNode.vattrs = vnodeHostData['attrs'];
+      newVNode.vstyle = vnodeHostData['style'];
       newVNode.vclass = vnodeHostData['class'];
+      newVNode.vlisteners = vnodeHostData['on'];
     }
 
     if (vnodeChildren) {

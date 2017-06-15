@@ -49,7 +49,7 @@ export class FiberDot {
 
   render() {
     return (
-      this.hover ? '*' + this.text + '*' : this.text
+      <span>{this.hover ? '*' + this.text + '*' : this.text}</span>
     );
   }
 }

@@ -3,6 +3,8 @@ import { HAS_SLOTS, HAS_NAMED_SLOTS } from '../../util/constants';
 import * as ts from 'typescript';
 import * as util from './util';
 
+import { VDomCacheLevel } from '../../util/interfaces';
+
 
 export function jsxToVNode(ctx: BuildContext): ts.TransformerFactory<ts.SourceFile> {
 
@@ -10,20 +12,17 @@ export function jsxToVNode(ctx: BuildContext): ts.TransformerFactory<ts.SourceFi
 
     function visit(fileMeta: FileMeta, node: ts.Node): ts.VisitResult<ts.Node> {
 
-      switch (node.kind) {
-        case ts.SyntaxKind.CallExpression:
-          const callNode = node as ts.CallExpression;
-          if ((<ts.Identifier>callNode.expression).text === 'h') {
+      if (isHyperScriptCall(node as ts.Expression)) {
+        let callNode = node as ts.CallExpression;
+        const convertedArgs = convertJsxToVNode(fileMeta, callNode.arguments);
+        node = ts.updateCall(callNode, callNode.expression, null, convertedArgs);
 
-            const convertedArgs = convertJsxToVNode(fileMeta, callNode.arguments);
-            node = ts.updateCall(callNode, callNode.expression, null, convertedArgs);
-          }
-
-        default:
-          return ts.visitEachChild(node, (node) => {
-            return visit(fileMeta, node);
-          }, transformContext);
+        invalidateAncestorChildrenCache(node as ts.CallExpression);
       }
+
+      return ts.visitEachChild(node, (node) => {
+        return visit(fileMeta, node);
+      }, transformContext);
     }
 
     return (tsSourceFile) => {
@@ -33,33 +32,106 @@ export function jsxToVNode(ctx: BuildContext): ts.TransformerFactory<ts.SourceFi
   };
 }
 
+/**
+ *
+ * @param node
+ */
+function isHyperScriptCall(node: ts.Expression) {
+  if (node.kind !== ts.SyntaxKind.CallExpression) {
+    return false;
+  }
+  const callNode = node as ts.CallExpression;
+  return ((<ts.Identifier>callNode.expression).text === 'h');
+}
 
+function invalidateAncestorChildrenCache(node: ts.Node) {
+  let tempNode = node;
+
+  while (tempNode.parent) {
+    tempNode = tempNode.parent;
+    if (!isHyperScriptCall(node as ts.Expression)) {
+      continue;
+    }
+    const nodeCacheLevel = getVDomCacheLevel(tempNode as ts.CallExpression);
+    let newCacheLevel;
+    if (nodeCacheLevel < VDomCacheLevel.Children) {
+      return;
+    }
+    if (nodeCacheLevel === VDomCacheLevel.DataAndChildren) {
+      newCacheLevel = VDomCacheLevel.Data;
+    }
+    if (nodeCacheLevel === VDomCacheLevel.Children) {
+      newCacheLevel = VDomCacheLevel.None;
+    }
+    node = updateVDomCache(tempNode as ts.CallExpression, newCacheLevel);
+  }
+}
+
+/**
+ *
+ * @param node
+ * @param vDomCache
+ */
+function updateVDomCache(node: ts.CallExpression, vDomCache: VDomCacheLevel) {
+  const [tag, props, ...children] = node.arguments as ts.NodeArray<ts.Expression>;
+
+  const newProps = ts.updateObjectLiteral(props as ts.ObjectLiteralExpression, [
+    ts.createPropertyAssignment('x', ts.createLiteral(vDomCache))
+  ]);
+
+  const args = [].concat(tag, newProps, children);
+  return ts.updateCall(node, node.expression, null, args);
+}
+
+/**
+ *
+ * @param node
+ */
+function getVDomCacheLevel(node: ts.CallExpression): VDomCacheLevel {
+  const [, props] = node.arguments as ts.NodeArray<ts.Expression>;
+
+  const attrs: ts.ObjectLiteralElementLike[] = (<ts.ObjectLiteralExpression>props).properties;
+  const cacheAttrNode = attrs.find((attr: ts.PropertyAssignment) => util.getTextOfPropertyName(attr.name) === 'x');
+  const val = (<ts.PropertyAssignment>cacheAttrNode).initializer;
+
+  return parseInt((<ts.NumericLiteral>val).text, 10);
+}
+
+/**
+ *
+ * @param fileMeta
+ * @param args
+ */
 function convertJsxToVNode(fileMeta: FileMeta, args: ts.NodeArray<ts.Expression>): ts.Expression[] {
   const [tag, props, ...children] = args;
-  const tagName = (<ts.StringLiteral>tag).text;
+  const tagName = (<ts.StringLiteral>tag).text.toLowerCase();
   const namespace = getNamespace(tagName);
-  let newProps: ts.ObjectLiteralExpression;
+  let newProps: util.ObjectMap = {};
   let newArgs: ts.Expression[] = [tag];
+  let vDomCache = VDomCacheLevel.None;
 
   updateFileMetaWithSlots(fileMeta, tagName, props);
 
   // If call has props and it is an object -> h('div', {})
   if (props && props.kind === ts.SyntaxKind.ObjectLiteralExpression) {
     const jsxAttrs = util.objectLiteralToObjectMap(props as ts.ObjectLiteralExpression);
-
     newProps = parseJsxAttrs(jsxAttrs);
   }
 
   // If there is a namespace
   if (namespace !== undefined) {
-    newProps = newProps || ts.createObjectLiteral();
-    ts.updateObjectLiteral(newProps, [
-      ts.createPropertyAssignment('n', ts.createLiteral(namespace))
-    ]);
+    newProps.n = ts.createLiteral(namespace);
   }
 
+  if (isDataStatic(util.objectMapToObjectLiteral(newProps))) {
+    vDomCache = VDomCacheLevel.Data;
+  }
+  newProps.x = ts.createLiteral(vDomCache);
+
   // If there are no props then set the value as a zero
-  newArgs.push(newProps || ts.createLiteral(0));
+  newArgs.push(
+    util.objectMapToObjectLiteral(newProps)
+  );
 
   // If there are children then add them to the end of the arg list.
   if (children && children.length > 0) {
@@ -71,18 +143,24 @@ function convertJsxToVNode(fileMeta: FileMeta, args: ts.NodeArray<ts.Expression>
   return newArgs;
 }
 
-
+/**
+ *
+ * @param tagName
+ */
 function getNamespace(tagName: string): ts.StringLiteral | undefined {
-  const tag = tagName.toLowerCase();
-
-  if (tag === 'svg') {
+  if (tagName === 'svg') {
     ts.createLiteral('http://www.w3.org/2000/svg');
   }
 
   return undefined;
 }
 
-
+/**
+ *
+ * @param fileMeta
+ * @param tagName
+ * @param props
+ */
 function updateFileMetaWithSlots(fileMeta: FileMeta, tagName: string, props: ts.Expression) {
   // checking if there is a default slot and/or named slots in the compiler
   // so that during runtime there is less work to do
@@ -91,7 +169,7 @@ function updateFileMetaWithSlots(fileMeta: FileMeta, tagName: string, props: ts.
     return;
   }
 
-  if (tagName.toLowerCase() !== 'slot') {
+  if (tagName !== 'slot') {
     return;
   }
 
@@ -115,77 +193,67 @@ function updateFileMetaWithSlots(fileMeta: FileMeta, tagName: string, props: ts.
   }
 }
 
-
-function parseJsxAttrs(jsxAttrs: util.ObjectMap): ts.ObjectLiteralExpression {
+/**
+ *
+ * @param jsxAttrs
+ */
+function parseJsxAttrs(jsxAttrs: util.ObjectMap): util.ObjectMap {
   let vnodeInfo: util.ObjectMap = {};
   let classNameStr = '';
-  let styleStr = '';
   let eventListeners: any = null;
   let attrs: any = null;
   let props: any = null;
 
   for (var attrName in jsxAttrs) {
+
     var exp: ts.Expression = <any>jsxAttrs[attrName];
 
     var attrNameSplit = attrName.split('-');
+    attrName = attrName.toLowerCase();
 
-    if (isClassName(attrName)) {
+    if (attrName === 'class' || attrName === 'classname') {
       // class
       if (exp.kind === ts.SyntaxKind.StringLiteral) {
         classNameStr += ' ' + exp.getText().trim();
-      } else {
-        if (util.isInstanceOfObjectMap(exp)) {
-          vnodeInfo.c = util.objectMapToObjectLiteral(exp);
-        } else {
-          vnodeInfo.c = exp;
-        }
       }
+      vnodeInfo.c = exp;
+      continue;
+    }
 
-    } else if (isStyle(attrName)) {
-      // style
-      if (exp.kind === ts.SyntaxKind.StringLiteral) {
-        styleStr += ';' + exp.getText().trim();
-      } else {
-        if (util.isInstanceOfObjectMap(exp)) {
-          vnodeInfo.s = util.objectMapToObjectLiteral(exp);
-        } else {
-          vnodeInfo.s = exp;
-        }
-      }
+    if (attrName === 'style') {
+      vnodeInfo.style = exp;
+      continue;
+    }
 
-    } else if (isKey(attrName)) {
+    if (attrName === 'key') {
       // key
       vnodeInfo.k = exp;
+      continue;
+    }
 
-    } else if (isHyphenedEventListener(attrNameSplit, exp)) {
+    if (isHyphenedEventListener(attrNameSplit, exp)) {
       // on-click
       eventListeners = eventListeners || {};
       eventListeners[attrNameSplit.slice(1).join('-')] = exp;
+      continue;
+    }
 
-    } else if (isStandardizedEventListener(attrName, exp)) {
+    if (isStandardizedEventListener(attrName, exp)) {
       // onClick
       eventListeners = eventListeners || {};
       eventListeners[attrName.toLowerCase().substring(2)] = exp;
+      continue;
+    }
 
-    } else if (isAttr(attrName, exp)) {
+    if (isAttr(attrName, exp)) {
       // attrs
       attrs = attrs || {};
       attrs[attrName] = exp;
-
-    } else if (isPropsName(attrName)) {
-      // passed an actual "props" attribute
-      // probably containing an object of props data
-      if (util.isInstanceOfObjectMap(exp)) {
-        vnodeInfo.p = util.objectMapToObjectLiteral(exp);
-      } else {
-        vnodeInfo.p = exp;
-      }
-
-    } else {
-      // props
-      props = props || {};
-      props[attrName] = exp;
+      continue;
     }
+
+    props = props || {};
+    props[attrName] = exp;
   }
 
   classNameStr = classNameStr.replace(/['"]+/g, '').trim();
@@ -193,26 +261,24 @@ function parseJsxAttrs(jsxAttrs: util.ObjectMap): ts.ObjectLiteralExpression {
     vnodeInfo.c = classStringToClassObj(classNameStr);
   }
 
-  styleStr = styleStr.replace(/['"]+/g, '').trim();
-  if (styleStr.length) {
-    vnodeInfo.s = styleStringToStyleObj(styleStr);
-  }
-
   if (eventListeners) {
-    vnodeInfo.o = util.objectMapToObjectLiteral(eventListeners);
+    vnodeInfo.o = eventListeners;
   }
 
   if (attrs) {
-    vnodeInfo.a = util.objectMapToObjectLiteral(attrs);
+    vnodeInfo.a = attrs;
   }
 
   if (props) {
-    vnodeInfo.p = util.objectMapToObjectLiteral(props);
+    vnodeInfo.p = props;
   }
-
-  return util.objectMapToObjectLiteral(vnodeInfo);
+  return vnodeInfo;
 }
 
+/**
+ *
+ * @param items
+ */
 function updateVNodeChildren(items: ts.Expression[]): ts.Expression[] {
   return items.map(node => {
     switch (node.kind) {
@@ -230,23 +296,32 @@ function updateVNodeChildren(items: ts.Expression[]): ts.Expression[] {
   });
 }
 
+/**
+ *
+ * @param objectLiteral
+ */
+function isDataStatic(objectLiteral: ts.ObjectLiteralExpression): boolean {
+  const attrs: ts.ObjectLiteralElementLike[] = objectLiteral.properties;
 
-function isClassName(attrName: string) {
-  attrName = attrName.toLowerCase();
-  return (attrName === 'class' || attrName === 'classname');
+  return attrs.every((attr: ts.PropertyAssignment) => {
+    switch (attr.initializer.kind) {
+      case ts.SyntaxKind.ObjectLiteralExpression:
+        return isDataStatic(attr.initializer as ts.ObjectLiteralExpression);
+      case ts.SyntaxKind.Identifier:
+      case ts.SyntaxKind.PropertyAccessExpression:
+      case ts.SyntaxKind.CallExpression:
+        return false;
+      default:
+        return true;
+    }
+  });
 }
 
-
-function isStyle(attrName: string) {
-  return (attrName.toLowerCase() === 'style');
-}
-
-
-function isKey(attrName: string) {
-  return (attrName.toLowerCase() === 'key');
-}
-
-
+/**
+ *
+ * @param attrNameSplit
+ * @param exp
+ */
 function isHyphenedEventListener(attrNameSplit: string[], exp: ts.Expression) {
   if (exp.kind !== ts.SyntaxKind.FunctionExpression && exp.kind !== ts.SyntaxKind.CallExpression) {
     return false;
@@ -299,13 +374,6 @@ function isAttr(attrName: string, exp: ts.Expression) {
   return false;
 }
 
-
-function isPropsName(attrName: string) {
-  attrName = attrName.toLowerCase();
-  return (attrName === 'props');
-}
-
-
 function classStringToClassObj(className: string) {
   const obj = className
     .split(' ')
@@ -316,20 +384,6 @@ function classStringToClassObj(className: string) {
     }, <{[key: string]: ts.BooleanLiteral}>{});
 
   return util.objectMapToObjectLiteral(obj);
-}
-
-function styleStringToStyleObj(styles: string) {
-  styles;
-  // TODO
-  // const obj = styles
-  //   .split(';')
-  //   .reduce((obj: {[key: string]: ts.BooleanLiteral}, style: string): {[key: string]: ts.BooleanLiteral} => {
-  //     const o = Object.assign({}, obj);
-  //     o[className] = ts.createTrue();
-  //     return o;
-  //   }, <{[key: string]: ts.BooleanLiteral}>{});
-
-  return util.objectMapToObjectLiteral({});
 }
 
 const KNOWN_EVENT_LISTENERS = ['onabort', 'onanimationend', 'onanimationiteration', 'onanimationstart', 'onauxclick', 'onbeforecopy', 'onbeforecut', 'onbeforepaste', 'onbeforeunload', 'onblur', 'oncancel', 'oncanplay', 'oncanplaythrough', 'onchange', 'onclick', 'onclose', 'oncontextmenu', 'oncopy', 'oncuechange', 'oncut', 'ondblclick', 'ondevicemotion', 'ondeviceorientation', 'ondeviceorientationabsolute', 'ondrag', 'ondragend', 'ondragenter', 'ondragleave', 'ondragover', 'ondragstart', 'ondrop', 'ondurationchange', 'onemptied', 'onended', 'onerror', 'onfocus', 'ongotpointercapture', 'onhashchange', 'oninput', 'oninvalid', 'onkeydown', 'onkeypress', 'onkeyup', 'onlanguagechange', 'onload', 'onloadeddata', 'onloadedmetadata', 'onloadstart', 'onlostpointercapture', 'onmessage', 'onmousedown', 'onmouseenter', 'onmouseleave', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup', 'onmousewheel', 'onoffline', 'ononline', 'onpagehide', 'onpageshow', 'onpaste', 'onpause', 'onplay', 'onplaying', 'onpointercancel', 'onpointerdown', 'onpointerenter', 'onpointerleave', 'onpointermove', 'onpointerout', 'onpointerover', 'onpointerup', 'onpopstate', 'onprogress', 'onratechange', 'onrejectionhandled', 'onreset', 'onresize', 'onscroll', 'onsearch', 'onseeked', 'onseeking', 'onselect', 'onselectstart', 'onshow', 'onstalled', 'onstorage', 'onsubmit', 'onsuspend', 'ontimeupdate', 'ontoggle', 'ontransitionend', 'onunhandledrejection', 'onunload', 'onvolumechange', 'onwaiting', 'onwebkitanimationend', 'onwebkitanimationiteration', 'onwebkitanimationstart', 'onwebkitfullscreenchange', 'onwebkitfullscreenerror', 'onwebkittransitionend', 'onwheel'];

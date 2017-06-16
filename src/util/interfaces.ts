@@ -916,3 +916,10 @@ export interface IdleOptions {
 export interface BundleCallbacks {
   [bundleId: string]: Function[];
 }
+
+export enum VDomCacheLevel {
+  None = 0,
+  Data = 1,
+  Children = 2,
+  DataAndChildren = 3
+}

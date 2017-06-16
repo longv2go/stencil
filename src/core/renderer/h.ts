@@ -8,7 +8,7 @@
  */
 
 import { VNode as VNodeObj } from './vnode';
-import { VNode, VNodeProdData } from '../../util/interfaces';
+import { VNode, VNodeProdData, VDomCacheLevel } from '../../util/interfaces';
 
 const stack: any[] = [];
 
@@ -70,12 +70,12 @@ export function h(nodeName: string, vnodeData: VNodeProdData, child?: any) {
     vnode.vkey = vnodeData.k;
     vnode.vnamespace = vnodeData.n;
 
-    // x = undefined: always check both data and children
-    // x = 0 skip checking only data on update
-    // x = 1 skip checking only children on update
-    // x = 2 skip checking both data and children on update
-    vnode.skipDataOnUpdate = vnodeData.x === 0 || vnodeData.x === 2;
-    vnode.skipChildrenOnUpdate = vnodeData.x > 0;
+    // x = 0: always check both data and children
+    // x = 1 skip checking only data on update
+    // x = 2 skip checking only children on update
+    // x = 3 skip checking both data and children on update
+    vnode.skipDataOnUpdate = vnodeData.x === VDomCacheLevel.Data || vnodeData.x === VDomCacheLevel.Children;
+    vnode.skipChildrenOnUpdate = vnodeData.x > VDomCacheLevel.Data;
 
   } else {
     // no data object was provided

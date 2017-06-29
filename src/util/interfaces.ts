@@ -229,6 +229,13 @@ export interface ScrollDetail extends GestureDetail {
 }
 
 
+export interface SegmentButtonEvent {
+  detail: {
+    segmentButton: any;
+  };
+}
+
+
 export interface ScrollCallback {
   (detail?: ScrollDetail): boolean|void;
 }

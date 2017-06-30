@@ -33,6 +33,7 @@ export class Nav {
 
   pop() {
     console.log('Popping');
+    if(this.stack.length == 1) { return; }
     this.stack = this.stack.slice(0, -1)
   }
 

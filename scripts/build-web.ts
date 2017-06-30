@@ -28,6 +28,7 @@ const BUNDLES = [
   { components: ['ion-loading', 'ion-loading-controller'] },
   { components: ['ion-menu'], priority: 'low' },
   { components: ['ion-modal', 'ion-modal-controller'] },
+  { components: ['ion-nav'] },
   { components: ['ion-note'] },
   { components: ['ion-slides', 'ion-slide'] },
   { components: ['ion-spinner'] },
@@ -37,7 +38,8 @@ const BUNDLES = [
   { components: ['fiber-demo', 'fiber-triangle', 'fiber-dot'] },
   { components: ['news-list', 'news-container', 'comments-page', 'comments-list'] },
   { components: ['stencil-site', 'landing-page', 'site-header', 'docs-page', 'demos-page'] },
-  { components: ['tabs-demo-app', 'feed-page', 'friends-page', 'settings-page'] }
+  { components: ['tabs-demo-app', 'feed-page', 'friends-page', 'settings-page'] },
+  { components: ['nav-demo-app', 'nav-demo-page'] }
 ];
 
 

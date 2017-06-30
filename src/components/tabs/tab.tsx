@@ -103,7 +103,7 @@ export class Tab {
   render() {
     const RootComponent = this.root;
     return [
-      <RootComponent />,
+      <ion-nav root={this.root} />,
       <div class="nav-decor"></div>
     ]
   }

@@ -12,10 +12,9 @@ export class WorkerManager {
   private roundRobin: number[] = [];
   private numWorkers: number;
   private taskId = 0;
-  taskResolves: Map<number, Function> = new Map();
+  private taskResolves: Map<number, Function> = new Map();
   private mainThreadWorker: Process;
   private mainThreadContext: WorkerBuildContext;
-
 
   constructor(private sys: StencilSystem, public logger: Logger) {}
 
@@ -30,7 +29,7 @@ export class WorkerManager {
         for (var i = 0; i < this.numWorkers; i++) {
           var worker = this.sys.createWorker();
           worker.on('message', (msg: WorkerMessage) => {
-            mainReceivedMessageFromWorker(this, msg);
+            mainReceivedMessageFromWorker(this.logger, this.taskResolves, msg);
           });
 
           this.workers.push(worker);
@@ -57,7 +56,7 @@ export class WorkerManager {
         },
         pid: 0,
         send: (msg: WorkerMessage) => {
-          mainReceivedMessageFromWorker(this, msg);
+          mainReceivedMessageFromWorker(this.logger, this.taskResolves, msg);
           return true;
         }
       };
@@ -123,7 +122,7 @@ export class WorkerManager {
           worker.kill('SIGKILL');
           worker = this.workers[workerId] = this.sys.createWorker();
           worker.on('message', (msg: WorkerMessage) => {
-            mainReceivedMessageFromWorker(this, msg);
+            mainReceivedMessageFromWorker(this.logger, this.taskResolves, msg);
           });
         }
         worker.send(msg);
@@ -235,14 +234,14 @@ function workerReceivedMessageFromMain(sys: StencilSystem, logger: Logger, ctx: 
 }
 
 
-function mainReceivedMessageFromWorker(workerManager: WorkerManager, msg: WorkerMessage) {
-  const taskResolve = workerManager.taskResolves.get(msg.taskId);
+function mainReceivedMessageFromWorker(logger: Logger, taskResolves: Map<number, Function>, msg: WorkerMessage) {
+  const taskResolve = taskResolves.get(msg.taskId);
   if (taskResolve) {
     taskResolve(msg.resolveData);
-    workerManager.taskResolves.delete(msg.taskId);
+    taskResolves.delete(msg.taskId);
 
   } else {
-    workerManager.logger.error(`error resolving worker task id: ${msg.taskId}`);
+    logger.error(`error resolving worker task id: ${msg.taskId}`);
   }
 }
 

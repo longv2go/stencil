@@ -1,4 +1,4 @@
-import { access, createModuleFileMeta, isTsSourceFile, readFile } from './util';
+import { access, isTsSourceFile, readFile, writeFiles } from './util';
 import { CompilerConfig, CompileResult, CompileResults, Logger, StencilSystem, WorkerBuildContext } from './interfaces';
 // import { generateManifest } from './manifest';
 // import { setupCompilerWatch } from './watch';
@@ -19,7 +19,8 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
 
   const compileResults: CompileResults = {
     moduleFiles: [],
-    diagnostics: []
+    diagnostics: [],
+    includedSassFiles: []
   };
 
   return Promise.all(compilerConfig.include.map(includePath => {
@@ -36,8 +37,12 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
         logger[d.level](d.msg);
         d.stack && logger.debug(d.stack);
       });
+      return Promise.resolve();
     }
 
+    return copySourceSassFilesToDest(sys, compilerConfig, compileResults.includedSassFiles);
+
+  }).then(() => {
     return compileResults;
   });
 
@@ -111,16 +116,7 @@ function compileDirectory(sys: StencilSystem, logger: Logger, dir: string, compi
               // woot! we found a typescript file that needs to be transpiled
               // let's send this over to our worker manager who can
               // then assign a worker to this exact file
-              workerManager.compileFile(compilerConfig, readPath).then(compileWorkerResult => {
-                // awesome, our worker friend finished the job and responded
-                // let's resolve and let the main thread take it from here
-                if (compileWorkerResult.moduleFile) {
-                  compileResults.moduleFiles.push(compileWorkerResult.moduleFile);
-                }
-                if (compileWorkerResult.diagnostics) {
-                  compileResults.diagnostics = compileResults.diagnostics.concat(compileWorkerResult.diagnostics);
-                }
-
+              compileFile(workerManager, compilerConfig, readPath, compileResults).then(() => {
                 resolve();
               });
 
@@ -145,11 +141,35 @@ function compileDirectory(sys: StencilSystem, logger: Logger, dir: string, compi
 }
 
 
+function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfig, filePath: string, compileResults: CompileResults) {
+  // within MAIN thread
+  // let's send this over to our worker manager who can
+  // then assign a worker to this exact file
+  return workerManager.compileFile(compilerConfig, filePath).then(compileWorkerResult => {
+    // awesome, our worker friend finished the job and responded
+    // let's resolve and let the main thread take it from here
+    if (compileWorkerResult.moduleFile) {
+      compileResults.moduleFiles.push(compileWorkerResult.moduleFile);
+    }
+    if (compileWorkerResult.diagnostics) {
+      compileResults.diagnostics = compileResults.diagnostics.concat(compileWorkerResult.diagnostics);
+    }
+    if (compileWorkerResult.includedSassFiles) {
+      compileWorkerResult.includedSassFiles.forEach(includedSassFile => {
+        if (compileResults.includedSassFiles.indexOf(includedSassFile) === -1) {
+          compileResults.includedSassFiles.push(includedSassFile);
+        }
+      });
+    }
+  });
+}
+
+
 export function compileFileWorker(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, filePath: string) {
-  // within worker thread
+  // within WORKER thread
   return transpile(sys, logger, ctx, compilerConfig, filePath).then(compileResult => {
 
-    return processIncludedStyles(sys, logger, ctx, compilerConfig, compileResult).then(() => {
+    return processIncludedStyles(sys, logger, compilerConfig, compileResult).then(() => {
       return compileResult;
     });
 
@@ -166,7 +186,7 @@ export function compileFileWorker(sys: StencilSystem, logger: Logger, ctx: Worke
 }
 
 
-function processIncludedStyles(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, compileResult: CompileResult) {
+function processIncludedStyles(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, compileResult: CompileResult) {
   if (!compileResult || !compileResult.moduleFile) {
     return Promise.resolve(null);
   }
@@ -180,7 +200,7 @@ function processIncludedStyles(sys: StencilSystem, logger: Logger, ctx: WorkerBu
   logger.debug(`compile, processStyles, destDir ${destDir}`);
 
   const promises: Promise<any>[] = [];
-  compileResult.includedSassFiles = [];
+  compileResult.includedSassFiles = compileResult.includedSassFiles || [];
 
   const modeNames = Object.keys(moduleFile.cmpMeta.styleMeta);
   modeNames.forEach(modeName => {
@@ -191,47 +211,74 @@ function processIncludedStyles(sys: StencilSystem, logger: Logger, ctx: WorkerBu
         const scssFileName = sys.path.basename(styleUrl);
         const scssFilePath = sys.path.join(moduleFile.srcDir, scssFileName);
         promises.push(
-          getIncludedSassFiles(sys, logger, ctx, compileResult, scssFilePath)
+          getIncludedSassFiles(sys, logger, compileResult, scssFilePath)
         );
       });
     }
 
   });
 
-  return Promise.all(promises).then(() => {
-    const files = new Map<string, string>();
-    const promises: Promise<any>[] = [];
+  return Promise.all(promises);
 
-    compileResult.includedSassFiles.forEach(includedSassFile => {
+  // return Promise.all(promises).then(() => {
+  //   const promises: Promise<any>[] = [];
+
+  //   compileResult.includedSassFiles.forEach(includedSassFile => {
+
+  //     compilerConfig.include.forEach(includeDir => {
+  //       if (includedSassFile.indexOf(includeDir) === 0) {
+  //         const src = includedSassFile;
+  //         const relative = includedSassFile.replace(includeDir, '');
+  //         const dest = sys.path.join(destDir, relative);
+
+  //         promises.push(readFile(sys, src).then(content => {
+  //           files.set(dest, content);
+  //         }));
+  //       }
+  //     });
+
+  //   });
+
+  //   return Promise.all(promises).then(() => {
+  //     // return writeFiles(sys, files).catch(err => {
+  //     //   compileResult.diagnostics = compileResult.diagnostics || [];
+  //     //   compileResult.diagnostics.push({
+  //     //     msg: `processIncludedStyles, writeFiles: ${err}`,
+  //     //     level: 'error'
+  //     //   });
+  //     // });
+  //   });
+  // });
+}
+
+
+function copySourceSassFilesToDest(sys: StencilSystem, compilerConfig: CompilerConfig, includedSassFiles: string[]): Promise<any> {
+  if (!compilerConfig.writeCompiledToDisk) {
+    return Promise.resolve();
+  }
+
+  const files = new Map<string, string>();
+
+  return Promise.all(includedSassFiles.map(sassSrcPath => {
+    return readFile(sys, sassSrcPath).then(sassSrcText => {
+      let relative = sassSrcPath;
 
       compilerConfig.include.forEach(includeDir => {
-        if (includedSassFile.indexOf(includeDir) === 0) {
-          const src = includedSassFile;
-          const relative = includedSassFile.replace(includeDir, '');
-          const dest = sys.path.join(destDir, relative);
-
-          promises.push(readFile(sys, src).then(content => {
-            files.set(dest, content);
-          }));
-        }
+        relative = relative.replace(includeDir, '');
       });
 
+      const sassDestPath = sys.path.join(compilerConfig.compilerOptions.outDir, relative);
+      files.set(sassDestPath, sassSrcText);
     });
 
-    return Promise.all(promises).then(() => {
-      // return writeFiles(sys, files).catch(err => {
-      //   compileResult.diagnostics = compileResult.diagnostics || [];
-      //   compileResult.diagnostics.push({
-      //     msg: `processIncludedStyles, writeFiles: ${err}`,
-      //     level: 'error'
-      //   });
-      // });
-    });
+  })).then(() => {
+
+    return writeFiles(sys, files);
   });
 }
 
 
-function getIncludedSassFiles(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compileResult: CompileResult, scssFilePath: string) {
+function getIncludedSassFiles(sys: StencilSystem, logger: Logger, compileResult: CompileResult, scssFilePath: string) {
   return new Promise(resolve => {
 
     const sassConfig = {
@@ -253,9 +300,6 @@ function getIncludedSassFiles(sys: StencilSystem, logger: Logger, ctx: WorkerBui
         result.stats.includedFiles.forEach((includedFile: string) => {
           if (compileResult.includedSassFiles.indexOf(includedFile) === -1) {
             compileResult.includedSassFiles.push(includedFile);
-
-            const fileMeta = createModuleFileMeta(sys, ctx, includedFile, '');
-            fileMeta.recompileOnChange = true;
           }
         });
       }

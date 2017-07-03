@@ -14,6 +14,8 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
 
   const timeSpan = logger.createTimeSpan(`build, ${buildConfig.isDevMode ? 'dev' : 'prod'} mode, started`);
 
+  buildConfig.writeCompiledToDisk = false;
+
   // use the same build context object throughout the build
   mainCtx = mainCtx || {};
 
@@ -33,7 +35,6 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
     if (!buildConfig.isDevMode) {
       // in prod mode, be sure to first empty the dest dir
       logger.debug(`empty bundles dir: ${buildConfig.destDir}`);
-
       return emptyDir(sys, buildConfig.destDir);
     }
 
@@ -45,7 +46,7 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
       logger,
       buildConfig.collections,
       buildConfig.rootDir,
-      buildConfig.compiledDir);
+      buildConfig.destDir);
 
   }).then(dependentManifests => {
 
@@ -105,7 +106,7 @@ return results;
 function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) {
   const config: CompilerConfig = {
     compilerOptions: {
-      outDir: buildConfig.compiledDir,
+      outDir: buildConfig.destDir,
       module: 'commonjs',
       target: 'es5',
       rootDir: buildConfig.srcDir

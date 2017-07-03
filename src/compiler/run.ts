@@ -9,8 +9,6 @@ export function run(taskName: string, opts: TaskOptions) {
   const sys = opts.sys;
   const stencilConfig = opts.stencilConfig;
 
-  const compiledDir = sys.path.join(rootDir, 'tmp');
-
   const namespace = stencilConfig.namespace;
   const srcDir = sys.path.join(rootDir, stencilConfig.src ? stencilConfig.src : 'src');
   const destDir = sys.path.join(rootDir, stencilConfig.dest ? stencilConfig.dest : 'dist');
@@ -27,7 +25,6 @@ export function run(taskName: string, opts: TaskOptions) {
     numWorkers: opts.numWorkers,
     preamble,
     rootDir: rootDir,
-    compiledDir,
     namespace,
     srcDir,
     destDir,

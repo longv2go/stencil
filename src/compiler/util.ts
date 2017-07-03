@@ -236,50 +236,58 @@ export function ensureDirs(sys: StencilSystem, filePaths: string[]) {
 
 
 export function remove(sys: StencilSystem, fsPath: string) {
-  return new Promise((resolve, reject) => {
+  return new Promise(resolve => {
     sys.fs.stat(fsPath, (err, stats) => {
       if (err) {
-        reject(err);
+        resolve();
 
       } else if (stats.isFile()) {
-        sys.fs.unlink(fsPath, (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
+        sys.fs.unlink(fsPath, () => {
+          resolve();
         });
 
       } else {
         // read all directory files
         sys.fs.readdir(fsPath, (err, files) => {
           if (err) {
-            reject(err);
+            resolve();
 
           } else {
             Promise.all(files.map(file => remove(sys, sys.path.join(fsPath, file)))).then(() => {
               // delete all sub files/directories
-              sys.fs.rmdir(fsPath, err => {
-                if (err) {
-                  reject(err);
-                } else {
-                  resolve();
-                }
+              sys.fs.rmdir(fsPath, () => {
+                resolve();
               });
             });
           }
         });
       }
     });
-  }).catch(err => {
-    console.log(err);
   });
 }
 
 
 export function emptyDir(sys: StencilSystem, path: string): Promise<any> {
-  return remove(sys, path).then(() => {
-    return ensureDir(sys, path);
+  return access(sys, path).then(pathExists => {
+    if (pathExists) {
+      // path already exists, so let's remove all sub files/directories
+      return new Promise(resolve => {
+        sys.fs.readdir(path, (err, files) => {
+          if (err) {
+            return Promise.resolve();
+          }
+          return Promise.all(files.map(fsPath => {
+            return remove(sys, sys.path.join(path, fsPath));
+          })).then(() => {
+            resolve();
+          });
+        });
+      });
+
+    } else {
+      // make sure it was created if it didn't already exist
+      return ensureDir(sys, sys.path.join(path, 'file.tmp'));
+    }
   });
 }
 

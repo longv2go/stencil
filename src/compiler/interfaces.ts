@@ -10,6 +10,7 @@ export interface CompilerConfig {
   isDevMode?: boolean;
   bundles?: Bundle[];
   isWatch?: boolean;
+  writeCompiledToDisk?: boolean;
 }
 
 
@@ -89,6 +90,7 @@ export interface ModuleResults {
 export interface CompileResults {
   moduleFiles?: ModuleFileMeta[];
   diagnostics?: Diagnostic[];
+  includedSassFiles?: string[];
 }
 
 

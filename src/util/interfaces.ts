@@ -430,8 +430,8 @@ export type Collection = string;
 export interface BuildConfig {
   sys: StencilSystem;
   logger: Logger;
+  writeCompiledToDisk?: boolean;
   rootDir: string;
-  compiledDir: string;
   namespace: string;
   srcDir: string;
   destDir: string;

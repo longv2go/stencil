@@ -120,22 +120,7 @@ export function generateManifest(sys: StencilSystem, logger: Logger, config: Com
 }
 
 
-// export function getManifest(sys: StencilSystem, logger: Logger, config: BundlerConfig, ctx: WorkerBuildContext): Promise<Manifest> {
-//   // if (ctx.results.manifest) {
-//   //   return Promise.resolve(ctx.results.manifest);
-//   // }
-
-//   ctx.results.manifestPath = sys.path.join(config.srcDir, MANIFEST_FILE_NAME);
-
-//   logger.debug(`manifest, getManifest: ${ctx.results.manifestPath}`);
-
-//   return readFile(sys, ctx.results.manifestPath).then(manifestStr => {
-//     return ctx.results.manifest = JSON.parse(manifestStr);
-//   });
-// }
-
-
-export function generateDependentManifests(sys: StencilSystem, logger: Logger, collections: Collection[], rootDir: string, compiledDir: string) {
+export function generateDependentManifests(sys: StencilSystem, logger: Logger, collections: Collection[], rootDir: string, destDir: string) {
   return Promise.all(collections.map(collection => {
 
     const manifestJsonFile = resolveFrom(sys, rootDir, collection);
@@ -144,18 +129,18 @@ export function generateDependentManifests(sys: StencilSystem, logger: Logger, c
     return readFile(sys, manifestJsonFile).then(manifestJsonContent => {
       const manifest: Manifest = JSON.parse(manifestJsonContent);
 
-      return updateManifestUrls(logger, sys, manifest, manifestDir, compiledDir);
+      return updateManifestUrls(logger, sys, manifest, manifestDir, destDir);
     });
 
   }));
 }
 
 
-export function updateManifestUrls(logger: Logger, sys: StencilSystem, manifest: Manifest, manifestDir: string, compiledDir: string): Manifest {
+export function updateManifestUrls(logger: Logger, sys: StencilSystem, manifest: Manifest, manifestDir: string, destDir: string): Manifest {
   logger.debug(`manifest, updateManifestUrls, manifestDir: ${manifestDir}`);
 
   const components = (manifest.components || []).map((comp: ComponentMeta) => {
-    const styleMeta = updateStyleUrls(sys, comp.styleMeta, manifestDir, compiledDir);
+    const styleMeta = updateStyleUrls(sys, comp.styleMeta, manifestDir, destDir);
 
     return {
       ...comp,
@@ -171,12 +156,12 @@ export function updateManifestUrls(logger: Logger, sys: StencilSystem, manifest:
 }
 
 
-function updateStyleUrls(sys: StencilSystem, styleMeta: StyleMeta, manifestDir: string, compiledDir: string): StyleMeta {
+function updateStyleUrls(sys: StencilSystem, styleMeta: StyleMeta, manifestDir: string, destDir: string): StyleMeta {
   return Object.keys(styleMeta || {}).reduce((styleData: StyleMeta, styleMode: string) => {
     const style = styleMeta[styleMode];
 
     const styleUrls = style.styleUrls
-      .map((styleUrl: string) => sys.path.relative(compiledDir, sys.path.join(manifestDir, styleUrl)));
+      .map((styleUrl: string) => sys.path.relative(destDir, sys.path.join(manifestDir, styleUrl)));
 
     styleData[styleMode] = {
       ...style,

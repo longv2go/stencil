@@ -8,6 +8,9 @@ import { WorkerManager } from './worker-manager';
 
 export function collection(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
   // use the same build context object throughout the build
+
+  buildConfig.writeCompiledToDisk = true;
+
   mainCtx = mainCtx || {};
 
   if (!mainCtx.workerManager) {
@@ -26,7 +29,7 @@ export function collection(buildConfig: BuildConfig, mainCtx?: MainBuildContext)
       buildConfig.logger,
       buildConfig.collections,
       buildConfig.rootDir,
-      buildConfig.compiledDir);
+      buildConfig.destDir);
 
   }).then(() => {
 

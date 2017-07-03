@@ -1,4 +1,4 @@
-import { BuildContext, FileMeta, Logger } from '../interfaces';
+import { WorkerBuildContext, ModuleFileMeta, Logger } from '../interfaces';
 import { getComponentDecoratorData } from './component-decorator';
 import { getListenDecoratorMeta } from './listen-decorator';
 import { getMethodDecoratorMeta } from './method-decorator';
@@ -8,11 +8,11 @@ import { getStateDecoratorMeta } from './state-decorator';
 import * as ts from 'typescript';
 
 
-export function componentClass(logger: Logger, ctx: BuildContext): ts.TransformerFactory<ts.SourceFile> {
+export function componentClass(logger: Logger, ctx: WorkerBuildContext): ts.TransformerFactory<ts.SourceFile> {
 
   return (transformContext) => {
 
-    function visitClass(fileMeta: FileMeta, classNode: ts.ClassDeclaration) {
+    function visitClass(fileMeta: ModuleFileMeta, classNode: ts.ClassDeclaration) {
       const cmpMeta = getComponentDecoratorData(logger, classNode);
 
       if (cmpMeta) {
@@ -40,7 +40,7 @@ export function componentClass(logger: Logger, ctx: BuildContext): ts.Transforme
     }
 
 
-    function visit(fileMeta: FileMeta, node: ts.Node): ts.VisitResult<ts.Node> {
+    function visit(fileMeta: ModuleFileMeta, node: ts.Node): ts.VisitResult<ts.Node> {
       switch (node.kind) {
 
         case ts.SyntaxKind.ClassDeclaration:
@@ -55,7 +55,7 @@ export function componentClass(logger: Logger, ctx: BuildContext): ts.Transforme
 
 
     return (tsSourceFile) => {
-      const fileMeta = ctx.files.get(tsSourceFile.fileName);
+      const fileMeta = ctx.moduleFiles.get(tsSourceFile.fileName);
       if (fileMeta && fileMeta.hasCmpClass) {
         return visit(fileMeta, tsSourceFile) as ts.SourceFile;
       }

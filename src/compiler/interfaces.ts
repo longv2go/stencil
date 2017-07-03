@@ -1,24 +1,26 @@
 export * from '../util/interfaces';
-import { ComponentMeta, Manifest, Bundle, Logger, StencilSystem } from '../util/interfaces';
+import { ComponentMeta, Manifest, Bundle } from '../util/interfaces';
+import { WorkerManager } from './worker-manager';
 
 
 export interface CompilerConfig {
-  compilerOptions: {
-    declaration?: boolean;
-    lib?: string[];
-    module?: 'es2015' | 'commonjs';
-    rootDir?: string;
-    outDir?: string;
-    sourceMap?: boolean;
-    target?: 'es5' | 'es2015';
-  };
+  compilerOptions: CompilerOptions;
   include: string[];
   exclude?: string[];
   isDevMode?: boolean;
   bundles?: Bundle[];
-  sys: StencilSystem;
-  logger: Logger;
   isWatch?: boolean;
+}
+
+
+export interface CompilerOptions {
+  declaration?: boolean;
+  lib?: string[];
+  module?: 'es2015' | 'commonjs';
+  rootDir?: string;
+  outDir?: string;
+  sourceMap?: boolean;
+  target?: 'es5' | 'es2015';
 }
 
 
@@ -27,8 +29,6 @@ export interface BundlerConfig {
   srcDir: string;
   destDir: string;
   isDevMode?: boolean;
-  logger: Logger;
-  sys: StencilSystem;
   attachRegistryTo?: 'core'|'loader';
   isWatch?: boolean;
   attrCase?: number;
@@ -42,45 +42,88 @@ export interface FileMeta {
   filePath: string;
   srcDir: string;
   srcText: string;
-  jsFilePath: string;
-  jsText: string;
-  isTsSourceFile: boolean;
-  isScssSourceFile: boolean;
-  hasCmpClass: boolean;
-  cmpMeta: ComponentMeta;
-  cmpClassName: string;
   isWatching: boolean;
   recompileOnChange: boolean;
   rebundleOnChange: boolean;
+}
+
+
+export interface ModuleFileMeta extends FileMeta {
+  jsFilePath: string;
+  jsText: string;
+  isTsSourceFile: boolean;
+  hasCmpClass: boolean;
+  cmpMeta: ComponentMeta;
+  cmpClassName: string;
   transpiledCount: number;
 }
 
 
-export interface BuildContext {
-  files?: Map<string, FileMeta>;
-  results?: Results;
-
-  isCompilerWatchInitialized?: boolean;
-  isBundlerWatchInitialized?: boolean;
+export interface StyleFileMeta extends FileMeta {
+  cssFilePath: string;
+  cssText: string;
+  isScssSourceFile: boolean;
 }
 
 
-export interface StylesResults {
-  [bundleId: string]: {
-    [modeName: string]: string;
-  };
+export interface MainBuildContext {
+  workerManager?: WorkerManager;
+  results?: Results;
+}
+
+
+export interface WorkerBuildContext {
+  moduleFiles?: Map<string, ModuleFileMeta>;
+  styleFiles?: Map<string, StyleFileMeta>;
 }
 
 
 export interface ModuleResults {
-  [bundleId: string]: string;
+  bundles?: {
+    [bundleId: string]: string;
+  };
+  diagnostics?: Diagnostic[];
+}
+
+
+export interface CompileResults {
+  moduleFiles?: ModuleFileMeta[];
+  diagnostics?: Diagnostic[];
+}
+
+
+export interface CompileResult {
+  moduleFile?: ModuleFileMeta;
+  diagnostics?: Diagnostic[];
+  includedSassFiles?: string[];
+}
+
+
+export interface StylesResults {
+  bundles?: {
+    [bundleId: string]: {
+      [modeName: string]: string;
+    };
+  };
+  diagnostics?: Diagnostic[];
+}
+
+
+export interface Diagnostic {
+  msg: string;
+  level: 'error'|'warn';
+  filePath?: string;
+  start?: number;
+  length?: number;
+  category?: any;
+  code?: number;
+  stack?: string;
 }
 
 
 export interface Results {
-  errors?: string[];
-  files?: string[];
+  compileResults?: CompileResults;
+  diagnostics?: Diagnostic[];
   manifest?: Manifest;
-  manifestPath?: string;
   componentRegistry?: string;
 }

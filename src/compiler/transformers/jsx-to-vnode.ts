@@ -1,14 +1,14 @@
-import { BuildContext, FileMeta } from '../interfaces';
+import { WorkerBuildContext, ModuleFileMeta } from '../interfaces';
 import { HAS_SLOTS, HAS_NAMED_SLOTS, SLOT_TAG } from '../../util/constants';
 import * as ts from 'typescript';
 import * as util from './util';
 
 
-export function jsxToVNode(ctx: BuildContext): ts.TransformerFactory<ts.SourceFile> {
+export function jsxToVNode(ctx: WorkerBuildContext): ts.TransformerFactory<ts.SourceFile> {
 
   return (transformContext: ts.TransformationContext) => {
 
-    function visit(fileMeta: FileMeta, node: ts.Node, parentNamespace: string): ts.VisitResult<ts.Node> {
+    function visit(fileMeta: ModuleFileMeta, node: ts.Node, parentNamespace: string): ts.VisitResult<ts.Node> {
 
       switch (node.kind) {
         case ts.SyntaxKind.CallExpression:
@@ -32,14 +32,14 @@ export function jsxToVNode(ctx: BuildContext): ts.TransformerFactory<ts.SourceFi
     }
 
     return (tsSourceFile) => {
-      const fileMeta = ctx.files.get(tsSourceFile.fileName);
+      const fileMeta = ctx.moduleFiles.get(tsSourceFile.fileName);
       return visit(fileMeta, tsSourceFile, null) as ts.SourceFile;
     };
   };
 }
 
 
-function convertJsxToVNode(fileMeta: FileMeta, callNode: ts.CallExpression, data: ParentData) {
+function convertJsxToVNode(fileMeta: ModuleFileMeta, callNode: ts.CallExpression, data: ParentData) {
   const [tag, props, ...children] = callNode.arguments;
   const tagName = (<ts.StringLiteral>tag).text.trim().toLowerCase();
   let newArgs: ts.Expression[] = [];
@@ -193,7 +193,7 @@ function parseJsxAttrs(vnodeData: VNodeData, jsxAttrs: util.ObjectMap) {
 }
 
 
-function updateFileMetaWithSlots(fileMeta: FileMeta, props: ts.Expression) {
+function updateFileMetaWithSlots(fileMeta: ModuleFileMeta, props: ts.Expression) {
   // checking if there is a default slot and/or named slots in the compiler
   // so that during runtime there is less work to do
 

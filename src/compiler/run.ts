@@ -1,9 +1,10 @@
 import { build } from './build';
 import { collection } from './collection';
 import { BuildConfig, TaskOptions } from './interfaces';
+import { setupWorkerProcess } from './worker-manager';
 
 
-export function run(task: string, opts: TaskOptions) {
+export function run(taskName: string, opts: TaskOptions) {
   const rootDir = opts.rootDir;
   const sys = opts.sys;
   const stencilConfig = opts.stencilConfig;
@@ -17,47 +18,38 @@ export function run(task: string, opts: TaskOptions) {
   const collections = stencilConfig.collections;
   const preamble = stencilConfig.preamble;
 
-  switch (task) {
+  const buildConfig: BuildConfig = {
+    sys: sys,
+    logger: opts.logger,
+    isDevMode: opts.isDevMode,
+    isWatch: opts.isWatch,
+    process: opts.process,
+    numWorkers: opts.numWorkers,
+    preamble,
+    rootDir: rootDir,
+    compiledDir,
+    namespace,
+    srcDir,
+    destDir,
+    bundles,
+    collections
+  };
+
+  switch (taskName) {
     case 'build':
-
-      const buildConfig: BuildConfig = {
-        sys: sys,
-        logger: opts.logger,
-        isDevMode: opts.isDevMode,
-        isWatch: opts.isWatch,
-        preamble,
-        rootDir: rootDir,
-        compiledDir,
-        namespace,
-        srcDir,
-        destDir,
-        bundles,
-        collections
-      };
-
       build(buildConfig);
       break;
 
     case 'collection':
-      const collectionConfig: BuildConfig = {
-        sys: sys,
-        logger: opts.logger,
-        isDevMode: opts.isDevMode,
-        isWatch: opts.isWatch,
-        preamble,
-        rootDir: rootDir,
-        compiledDir,
-        namespace,
-        srcDir,
-        destDir,
-        bundles,
-        collections
-      };
+      collection(buildConfig);
+      break;
 
-      collection(collectionConfig);
+    case 'worker':
+      setupWorkerProcess(buildConfig.sys, buildConfig.logger, buildConfig.process);
       break;
 
     default:
-      throw 'Command expected for stencil';
+      buildConfig.logger.error(`Invalid stencil command: "${taskName}". Valid commands: build, collection`);
+      break;
   }
 }

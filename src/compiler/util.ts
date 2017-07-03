@@ -1,24 +1,26 @@
-import { BuildContext, FileMeta, Results, StencilSystem } from './interfaces';
+import { WorkerBuildContext, ModuleFileMeta, StencilSystem, StyleFileMeta } from './interfaces';
 
 
-export function getFileMeta(sys: StencilSystem, ctx: BuildContext, filePath: string): Promise<FileMeta> {
-  const fileMeta = ctx.files.get(filePath);
-  if (fileMeta) {
-    return Promise.resolve(fileMeta);
-  }
+export function getFileMeta(sys: StencilSystem, ctx: WorkerBuildContext, filePath: string): Promise<ModuleFileMeta> {
+  return Promise.resolve().then(() => {
+    const fileMeta = ctx.moduleFiles.get(filePath);
+    if (fileMeta) {
+      return fileMeta;
+    }
 
-  return readFile(sys, filePath).then(srcText => {
-    return createFileMeta(sys, ctx, filePath, srcText);
+    return readFile(sys, filePath).then(srcText => {
+      return createModuleFileMeta(sys, ctx, filePath, srcText);
+    });
   });
 }
 
 
-export function createFileMeta(sys: StencilSystem, ctx: BuildContext, filePath: string, srcText: string) {
-  ctx.files = ctx.files || new Map();
+export function createModuleFileMeta(sys: StencilSystem, ctx: WorkerBuildContext, filePath: string, srcText: string) {
+  ctx.moduleFiles = ctx.moduleFiles || new Map();
 
-  let fileMeta = ctx.files.get(filePath);
-  if (!fileMeta) {
-    fileMeta = {
+  let moduleFile = ctx.moduleFiles.get(filePath);
+  if (!moduleFile) {
+    moduleFile = {
       fileName: sys.path.basename(filePath),
       filePath: filePath,
       fileExt: sys.path.extname(filePath),
@@ -27,7 +29,6 @@ export function createFileMeta(sys: StencilSystem, ctx: BuildContext, filePath: 
       jsFilePath: null,
       jsText: null,
       isTsSourceFile: isTsSourceFile(filePath),
-      isScssSourceFile: isScssSourceFile(filePath),
       hasCmpClass: false,
       cmpMeta: null,
       cmpClassName: null,
@@ -37,14 +38,40 @@ export function createFileMeta(sys: StencilSystem, ctx: BuildContext, filePath: 
       transpiledCount: 0
     };
 
-    ctx.files.set(filePath, fileMeta);
+    ctx.moduleFiles.set(filePath, moduleFile);
   }
 
-  if (fileMeta.isTsSourceFile) {
-    fileMeta.hasCmpClass = hasCmpClass(fileMeta.srcText, fileMeta.filePath);
+  if (moduleFile.isTsSourceFile) {
+    moduleFile.hasCmpClass = hasCmpClass(moduleFile.srcText, moduleFile.filePath);
   }
 
-  return fileMeta;
+  return moduleFile;
+}
+
+
+export function createStyleFileMeta(sys: StencilSystem, ctx: WorkerBuildContext, filePath: string, srcText: string): StyleFileMeta {
+  ctx.styleFiles = ctx.styleFiles || new Map();
+
+  let styleFiles = ctx.styleFiles.get(filePath);
+  if (!styleFiles) {
+    styleFiles = {
+      fileName: sys.path.basename(filePath),
+      filePath: filePath,
+      fileExt: sys.path.extname(filePath),
+      srcDir: sys.path.dirname(filePath),
+      srcText: srcText,
+      cssFilePath: null,
+      cssText: null,
+      isScssSourceFile: isScssSourceFile(filePath),
+      isWatching: false,
+      recompileOnChange: false,
+      rebundleOnChange: false
+    };
+
+    ctx.styleFiles.set(filePath, styleFiles);
+  }
+
+  return styleFiles;
 }
 
 
@@ -61,7 +88,7 @@ export function readFile(sys: StencilSystem, filePath: string) {
 }
 
 
-export function writeFile(sys: StencilSystem, filePath: string, content: string) {
+export function writeFile(sys: StencilSystem, filePath: string, content: string): Promise<any> {
   return new Promise((resolve, reject) => {
     sys.fs.writeFile(filePath, content, (err) => {
       if (err) {
@@ -208,13 +235,50 @@ export function ensureDirs(sys: StencilSystem, filePaths: string[]) {
 }
 
 
-export function removeFilePath(sys: StencilSystem, path: string): Promise<any> {
-  return sys.fs.remove(path);
+export function remove(sys: StencilSystem, fsPath: string) {
+  return new Promise((resolve, reject) => {
+    sys.fs.stat(fsPath, (err, stats) => {
+      if (err) {
+        reject(err);
+
+      } else if (stats.isFile()) {
+        sys.fs.unlink(fsPath, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+
+      } else {
+        // read all directory files
+        sys.fs.readdir(fsPath, (err, files) => {
+          if (err) {
+            reject(err);
+
+          } else {
+            Promise.all(files.map(file => remove(sys, sys.path.join(fsPath, file)))).then(() => {
+              // delete all sub files/directories
+              sys.fs.rmdir(fsPath, err => {
+                if (err) {
+                  reject(err);
+                } else {
+                  resolve();
+                }
+              });
+            });
+          }
+        });
+      }
+    });
+  }).catch(err => {
+    console.log(err);
+  });
 }
 
 
 export function emptyDir(sys: StencilSystem, path: string): Promise<any> {
-  return sys.fs.remove(path).then(() => {
+  return remove(sys, path).then(() => {
     return ensureDir(sys, path);
   });
 }
@@ -252,12 +316,4 @@ export function hasCmpClass(sourceText: string, filePath: string) {
   }
 
   return true;
-}
-
-
-export function logError(results: Results, msg: any) {
-  results.errors = results.errors || [];
-  results.errors.push(msg);
-
-  return results;
 }

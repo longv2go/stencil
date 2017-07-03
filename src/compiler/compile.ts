@@ -1,182 +1,270 @@
-import { BuildContext, CompilerConfig, Results } from './interfaces';
-import { createFileMeta, getFileMeta, isTsSourceFile, logError, readFile, writeFiles, access } from './util';
-import { generateManifest } from './manifest';
-import { setupCompilerWatch } from './watch';
-import { transpile, transpileFiles } from './transpile';
+import { access, createModuleFileMeta, isTsSourceFile, readFile } from './util';
+import { CompilerConfig, CompileResult, CompileResults, Logger, StencilSystem, WorkerBuildContext } from './interfaces';
+// import { generateManifest } from './manifest';
+// import { setupCompilerWatch } from './watch';
+import { transpile } from './transpile';
+import { WorkerManager } from './worker-manager';
 
 
-/**
- * Inputs a source directory of components (.ts/.scss files)
- * and compiles them into reusable ionic components. Output directory
- * contains that transpiled files that are now separate .js files, and
- * copies over all .scss files each component requires. Think
- * typescript's "tsc" command, but for ionic components.
- *
- * This command also creates a manifest.json file, which includes
- * everything 3rd party tooling need to know about each component at
- * "build" time. The manifest.json also includes paths to all the files
- * each component uses, and meta data like modes, properties, etc.
- */
-export function compile(config: CompilerConfig, ctx: BuildContext = {}): Promise<Results> {
-  validateCompile(config);
+export function compile(sys: StencilSystem, logger: Logger, workerManager: WorkerManager, compilerConfig: CompilerConfig) {
+  // within main thread
+  logger.debug(`compile, include: ${compilerConfig.include}`);
+  logger.debug(`compile, outDir: ${compilerConfig.compilerOptions.outDir}`);
 
-  config.logger.debug(`compile, include: ${config.include}`);
-  config.logger.debug(`compile, outDir: ${config.compilerOptions.outDir}`);
+  compilerConfig.include = compilerConfig.include || [];
 
-  if (!ctx.files) {
-    ctx.files = new Map();
+  if (!compilerConfig.exclude) {
+    compilerConfig.exclude = ['node_modules', 'bower_components'];
   }
 
-  ctx.results = {
-    files: []
+  const compileResults: CompileResults = {
+    moduleFiles: [],
+    diagnostics: []
   };
 
-  config.include = config.include || [];
-
-  if (!config.exclude) {
-    config.exclude = ['node_modules', 'bower_components'];
-  }
-
-  const scanDirPromises = config.include.map(includePath => {
-    return scanDirectory(includePath, config, ctx);
-  });
-
-  return Promise.all(scanDirPromises)
-    .then(() => {
-      return transpile(config, ctx);
-
-    }).then(() => {
-      return processStyles(config, ctx);
-
-    }).then(() => {
-      return generateManifest(config, ctx);
-
-    }).then(() => {
-      return setupCompilerWatch(config, ctx, config.sys.typescript.sys);
-
-    }).then(() => {
-      config.logger.info('compile, done');
-      return ctx.results;
-
-    });
-}
-
-
-export function compileWatch(config: CompilerConfig, ctx: BuildContext, changedFiles: string[]) {
-  const scanDirs: string[] = [];
-  changedFiles.forEach(filePath => {
-    if (isTsSourceFile(filePath)) {
-      const dirPath = config.sys.path.dirname(filePath);
-      if (scanDirs.indexOf(dirPath) === -1) {
-        scanDirs.push(dirPath);
+  return Promise.all(compilerConfig.include.map(includePath => {
+    return access(sys, includePath).then(pathExists => {
+      if (!pathExists) {
+        return Promise.resolve(null);
       }
-    }
-  });
-
-  const scanDirPromises = scanDirs.map(dirPath => {
-    return scanDirectory(dirPath, config, ctx);
-  });
-
-  return Promise.all(scanDirPromises)
-    .then(() => {
-
-      const tsFilesToRetranspile: string[] = [];
-
-      ctx.files.forEach(f => {
-        if (f.isTsSourceFile && f.transpiledCount === 0) {
-          tsFilesToRetranspile.push(f.filePath);
-          f.transpiledCount++;
-        }
-      });
-
-      return transpileFiles(tsFilesToRetranspile, config, ctx);
-
-    }).then(() => {
-      return processStyles(config, ctx);
-
-    }).then(() => {
-      return generateManifest(config, ctx);
-
-    }).then(() => {
-      return setupCompilerWatch(config, ctx, config.sys.typescript.sys);
-
-    }).then(() => {
-      config.logger.info('compile, done');
-      return ctx.results;
-
+      return compileDirectory(sys, logger, includePath, compilerConfig, workerManager, compileResults);
     });
+
+  })).then(() => {
+    if (compileResults.diagnostics && compileResults.diagnostics.length > 0) {
+      compileResults.diagnostics.forEach(d => {
+        logger[d.level](d.msg);
+        d.stack && logger.debug(d.stack);
+      });
+    }
+
+    return compileResults;
+  });
+
+  // return Promise.all(scanDirPromises)
+  //   .then(() => {
+  //     return transpile(config, ctx);
+
+  //   }).then(() => {
+  //     return processStyles(config, ctx);
+
+  //   }).then(() => {
+  //     return generateManifest(config, ctx);
+
+  //   }).then(() => {
+  //     return setupCompilerWatch(config, ctx, config.sys.typescript.sys);
+
+  //   }).then(() => {
+  //     config.logger.info('compile, done');
+  //     return ctx.results;
+
+  //   });
 }
 
 
-function scanDirectory(dir: string, config: CompilerConfig, ctx: BuildContext): Promise<any> {
+function compileDirectory(sys: StencilSystem, logger: Logger, dir: string, compilerConfig: CompilerConfig, workerManager: WorkerManager, compileResults: CompileResults): Promise<any> {
+  return new Promise(resolve => {
+    // loop through this directory and sub directories looking for
+    // files that need to be transpiled
+    logger.debug(`compileDirectory: ${dir}`);
 
-  return access(config.sys, dir).then(pathExists => {
-    if (!pathExists) {
-      return Promise.resolve(null);
-    }
+    sys.fs.readdir(dir, (err, files) => {
+      if (err) {
+        compileResults.diagnostics.push({
+          msg: `compileDirectory, fs.readdir: ${dir}, ${err}`,
+          level: 'error'
+        });
+        resolve();
+        return;
+      }
 
-    return new Promise(resolve => {
+      const promises: Promise<any>[] = [];
 
-      config.logger.debug(`compile, scanDirectory: ${dir}`);
+      files.forEach(dirItem => {
+        // let's loop through each of the files we've found so far
+        const readPath = sys.path.join(dir, dirItem);
 
-      config.sys.fs.readdir(dir, (err, files) => {
-        if (err) {
-          logError(ctx.results, err);
-          resolve();
+        if (!isValidDirectory(compilerConfig, readPath)) {
+          // don't bother continuing for invalid directories
           return;
         }
 
-        const promises: Promise<any>[] = [];
+        promises.push(new Promise(resolve => {
 
-        files.forEach(dirItem => {
-          const readPath = config.sys.path.join(dir, dirItem);
+          sys.fs.stat(readPath, (err, stats) => {
+            if (err) {
+              // derp, not sure what's up here, let's just print out the error
+              compileResults.diagnostics.push({
+                msg: `compileDirectory, fs.stat: ${readPath}, ${err}`,
+                level: 'error'
+              });
+              resolve();
 
-          if (!isValidDirectory(config, readPath)) {
-            return;
-          }
-
-          promises.push(new Promise(resolve => {
-
-            config.sys.fs.stat(readPath, (err, stats) => {
-              if (err) {
-                logError(ctx.results, err);
+            } else if (stats.isDirectory()) {
+              // looks like it's yet another directory
+              // let's keep drilling down
+              compileDirectory(sys, logger, readPath, compilerConfig, workerManager, compileResults).then(() => {
                 resolve();
+              });
 
-              } else if (stats.isDirectory()) {
-                scanDirectory(readPath, config, ctx).then(() => {
-                  resolve();
-                });
+            } else if (isTsSourceFile(readPath)) {
+              // woot! we found a typescript file that needs to be transpiled
+              // let's send this over to our worker manager who can
+              // then assign a worker to this exact file
+              workerManager.compileFile(compilerConfig, readPath).then(compileWorkerResult => {
+                // awesome, our worker friend finished the job and responded
+                // let's resolve and let the main thread take it from here
+                if (compileWorkerResult.moduleFile) {
+                  compileResults.moduleFiles.push(compileWorkerResult.moduleFile);
+                }
+                if (compileWorkerResult.diagnostics) {
+                  compileResults.diagnostics = compileResults.diagnostics.concat(compileWorkerResult.diagnostics);
+                }
 
-              } else if (isTsSourceFile(readPath)) {
-                getFileMeta(config.sys, ctx, readPath).then(fileMeta => {
-                  fileMeta.recompileOnChange = true;
-
-                  if (fileMeta.filePath && fileMeta.hasCmpClass) {
-                    if (ctx.results.files.indexOf(fileMeta.filePath) === -1) {
-                      ctx.results.files.push(fileMeta.filePath);
-                    }
-                  }
-
-                  resolve();
-                });
-
-              } else {
                 resolve();
-              }
-            });
+              });
 
+            } else {
+              // idk, don't care, just resolve
+              resolve();
+            }
+          });
+
+        }));
+
+      });
+
+      Promise.all(promises).then(() => {
+        // cool, all the recursive scan directories have finished
+        // let this resolve and start bubbling up the resolves
+        resolve();
+      });
+    });
+
+  });
+}
+
+
+export function compileFileWorker(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, filePath: string) {
+  // within worker thread
+  return transpile(sys, logger, ctx, compilerConfig, filePath).then(compileResult => {
+
+    return processIncludedStyles(sys, logger, ctx, compilerConfig, compileResult).then(() => {
+      return compileResult;
+    });
+
+  }).catch(err => {
+    const compileResult: CompileResult = {
+      diagnostics: [{
+        msg: err.toString(),
+        level: 'error',
+        stack: err.stack
+      }]
+    };
+    return compileResult;
+  });
+}
+
+
+function processIncludedStyles(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, compileResult: CompileResult) {
+  if (!compileResult || !compileResult.moduleFile) {
+    return Promise.resolve(null);
+  }
+  const moduleFile = compileResult.moduleFile;
+  if (!moduleFile.isTsSourceFile || !moduleFile.cmpMeta || !moduleFile.cmpMeta.styleMeta) {
+    return Promise.resolve(null);
+  }
+
+  const destDir = compilerConfig.compilerOptions.outDir;
+
+  logger.debug(`compile, processStyles, destDir ${destDir}`);
+
+  const promises: Promise<any>[] = [];
+  compileResult.includedSassFiles = [];
+
+  const modeNames = Object.keys(moduleFile.cmpMeta.styleMeta);
+  modeNames.forEach(modeName => {
+    const modeMeta = Object.assign({}, moduleFile.cmpMeta.styleMeta[modeName]);
+
+    if (modeMeta.styleUrls) {
+      modeMeta.styleUrls.forEach(styleUrl => {
+        const scssFileName = sys.path.basename(styleUrl);
+        const scssFilePath = sys.path.join(moduleFile.srcDir, scssFileName);
+        promises.push(
+          getIncludedSassFiles(sys, logger, ctx, compileResult, scssFilePath)
+        );
+      });
+    }
+
+  });
+
+  return Promise.all(promises).then(() => {
+    const files = new Map<string, string>();
+    const promises: Promise<any>[] = [];
+
+    compileResult.includedSassFiles.forEach(includedSassFile => {
+
+      compilerConfig.include.forEach(includeDir => {
+        if (includedSassFile.indexOf(includeDir) === 0) {
+          const src = includedSassFile;
+          const relative = includedSassFile.replace(includeDir, '');
+          const dest = sys.path.join(destDir, relative);
+
+          promises.push(readFile(sys, src).then(content => {
+            files.set(dest, content);
           }));
-
-        });
-
-        Promise.all(promises).then(() => {
-          resolve();
-        });
+        }
       });
 
     });
-  });
 
+    return Promise.all(promises).then(() => {
+      // return writeFiles(sys, files).catch(err => {
+      //   compileResult.diagnostics = compileResult.diagnostics || [];
+      //   compileResult.diagnostics.push({
+      //     msg: `processIncludedStyles, writeFiles: ${err}`,
+      //     level: 'error'
+      //   });
+      // });
+    });
+  });
+}
+
+
+function getIncludedSassFiles(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compileResult: CompileResult, scssFilePath: string) {
+  return new Promise(resolve => {
+
+    const sassConfig = {
+      file: scssFilePath,
+      outFile: `${scssFilePath}.tmp`
+    };
+
+    if (compileResult.includedSassFiles.indexOf(scssFilePath) === -1) {
+      compileResult.includedSassFiles.push(scssFilePath);
+    }
+
+    logger.debug(`compile, getIncludedSassFiles: ${scssFilePath}`);
+
+    sys.sass.render(sassConfig, (err, result) => {
+      if (err) {
+        logger.error(`sass.render, getIncludedSassFiles, ${err}`);
+
+      } else {
+        result.stats.includedFiles.forEach((includedFile: string) => {
+          if (compileResult.includedSassFiles.indexOf(includedFile) === -1) {
+            compileResult.includedSassFiles.push(includedFile);
+
+            const fileMeta = createModuleFileMeta(sys, ctx, includedFile, '');
+            fileMeta.recompileOnChange = true;
+          }
+        });
+      }
+
+      // always resolve
+      resolve();
+    });
+
+  });
 }
 
 
@@ -187,120 +275,4 @@ function isValidDirectory(config: CompilerConfig, filePath: string) {
     }
   }
   return true;
-}
-
-
-function processStyles(config: CompilerConfig, ctx: BuildContext) {
-  const destDir = config.compilerOptions.outDir;
-
-  config.logger.debug(`compile, processStyles, destDir ${destDir}`);
-
-  const promises: Promise<any>[] = [];
-
-  const includedSassFiles: string[] = [];
-
-  ctx.files.forEach(f => {
-    if (!f.isTsSourceFile || !f.cmpMeta || !f.cmpMeta.styleMeta) return;
-
-    const modeNames = Object.keys(f.cmpMeta.styleMeta);
-
-    modeNames.forEach(modeName => {
-      const modeMeta = Object.assign({}, f.cmpMeta.styleMeta[modeName]);
-
-      if (modeMeta.styleUrls) {
-        modeMeta.styleUrls.forEach(styleUrl => {
-          const scssFileName = config.sys.path.basename(styleUrl);
-          const scssFilePath = config.sys.path.join(f.srcDir, scssFileName);
-          promises.push(getIncludedSassFiles(config, ctx, includedSassFiles, scssFilePath));
-        });
-      }
-
-    });
-  });
-
-  return Promise.all(promises).then(() => {
-    const files = new Map<string, string>();
-    const promises: Promise<any>[] = [];
-
-    includedSassFiles.forEach(includedSassFile => {
-
-      config.include.forEach(includeDir => {
-        if (includedSassFile.indexOf(includeDir) === 0) {
-          const src = includedSassFile;
-          const relative = includedSassFile.replace(includeDir, '');
-          const dest = config.sys.path.join(destDir, relative);
-
-          promises.push(readFile(config.sys, src).then(content => {
-            files.set(dest, content);
-          }));
-        }
-      });
-
-    });
-
-    return Promise.all(promises).then(() => {
-      return writeFiles(config.sys, files);
-    });
-  });
-}
-
-
-function getIncludedSassFiles(config: CompilerConfig, ctx: BuildContext, includedSassFiles: string[], scssFilePath: string) {
-  return new Promise((resolve, reject) => {
-
-    const sassConfig = {
-      file: scssFilePath
-    };
-
-    if (ctx.results.files.indexOf(scssFilePath) === -1) {
-      ctx.results.files.push(scssFilePath);
-    }
-
-    config.logger.debug(`compile, getIncludedSassFiles: ${scssFilePath}`);
-
-    config.sys.sass.render(sassConfig, (err, result) => {
-      if (err) {
-        logError(ctx.results, err);
-        reject(err);
-
-      } else {
-        result.stats.includedFiles.forEach((includedFile: string) => {
-          if (includedSassFiles.indexOf(includedFile) === -1) {
-            includedSassFiles.push(includedFile);
-            const fileMeta = createFileMeta(config.sys, ctx, includedFile, '');
-            fileMeta.recompileOnChange = true;
-          }
-
-          if (ctx.results.files.indexOf(includedFile) === -1) {
-            ctx.results.files.push(includedFile);
-          }
-        });
-
-        resolve();
-      }
-    });
-
-  });
-}
-
-
-function validateCompile(config: CompilerConfig) {
-  if (!config.sys) {
-    throw 'config.sys required';
-  }
-  if (!config.sys.fs) {
-    throw 'config.sys.fs required';
-  }
-  if (!config.sys.path) {
-    throw 'config.sys.path required';
-  }
-  if (!config.sys.sass) {
-    throw 'config.sys.sass required';
-  }
-  if (!config.sys.rollup) {
-    throw 'config.sys.rollup required';
-  }
-  if (!config.sys.typescript) {
-    throw 'config.sys.typescript required';
-  }
 }

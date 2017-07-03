@@ -1,46 +1,64 @@
 import { BUNDLES_DIR, HYDRATED_CSS } from '../util/constants';
-import { BundlerConfig, StylesResults, BuildContext, ComponentMeta, Manifest, Bundle } from './interfaces';
-import { createFileMeta, writeFiles } from './util';
+import { BundlerConfig, Logger, ComponentMeta, Manifest, Bundle, StencilSystem, StylesResults, WorkerBuildContext } from './interfaces';
+import { createStyleFileMeta, readFile, writeFile } from './util';
 import { formatCssBundleFileName, generateBundleId } from '../util/data-serialize';
+import { WorkerManager } from './worker-manager';
 
 
-export function bundleStyles(config: BundlerConfig, ctx: BuildContext, userManifest: Manifest) {
-  config.logger.debug(`bundleStyles`);
+export function bundleStyles(logger: Logger, config: BundlerConfig, workerManager: WorkerManager, userManifest: Manifest) {
+  logger.debug(`bundleStyles`);
 
-  const stylesResults: StylesResults = {};
-  const filesToWrite = new Map<string, string>();
+  const stylesResults: StylesResults = {
+    bundles: {},
+    diagnostics: []
+  };
 
   // go through each bundle the user wants created
   // and create css files for each mode for each bundle
   return Promise.all(userManifest.bundles.map(userBundle => {
-    return generateBundleCss(config, ctx, userManifest, userBundle, stylesResults, filesToWrite);
+    return generateBundleCss(config, workerManager, userManifest, userBundle, stylesResults).then(bundleStylesResults => {
+      if (bundleStylesResults.bundles) {
+        Object.assign(stylesResults.bundles, bundleStylesResults.bundles);
+      }
+
+      if (bundleStylesResults.diagnostics) {
+        stylesResults.diagnostics = stylesResults.diagnostics.concat(bundleStylesResults.diagnostics);
+      }
+    });
 
   })).then(() => {
-    return writeFiles(config.sys, filesToWrite);
-
-  }).then(() => {
     return stylesResults;
   });
 }
 
 
-function generateBundleCss(config: BundlerConfig, ctx: BuildContext, userManifest: Manifest, userBundle: Bundle, stylesResults: StylesResults, filesToWrite: Map<string, string>) {
+function generateBundleCss(bundlerConfig: BundlerConfig, workerManager: WorkerManager, userManifest: Manifest, userBundle: Bundle, stylesResults: StylesResults) {
   // multiple modes can be on each component
   // and multiple components can be in each bundle
   // create css files with the common modes for the bundle's components
 
   // collect only the component meta data this bundle needs
-  const bundleComponentMeta = userBundle.components.map(userBundleComponentTag => {
+  const bundleComponentMeta = userBundle.components.sort().map(userBundleComponentTag => {
     const foundComponentMeta = userManifest.components.find(manifestComponent => (
       manifestComponent.tagNameMeta === userBundleComponentTag
     ));
 
     if (!foundComponentMeta) {
-      throw new Error(`The component tag '${userBundleComponentTag}' is defined in a bundle but no component was found with this tag.`);
+      stylesResults.diagnostics = stylesResults.diagnostics || [];
+      stylesResults.diagnostics.push({
+        msg: `The component tag "${userBundleComponentTag.toLowerCase()}" is defined in a bundle but no component was found with this tag.`,
+        level: 'error'
+      });
     }
     return foundComponentMeta;
-  });
+  }).filter(c => c);
 
+  return workerManager.generateBundleCss(bundlerConfig, bundleComponentMeta);
+}
+
+
+export function generateBundleCssWorker(sys: StencilSystem, ctx: WorkerBuildContext, bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
+  // within worker
   // figure out all of the possible modes this bundle has
   let bundleModes: string[] = [];
   bundleComponentMeta
@@ -54,19 +72,31 @@ function generateBundleCss(config: BundlerConfig, ctx: BuildContext, userManifes
   });
   bundleModes = bundleModes.sort();
 
+  const stylesResults: StylesResults = {
+    bundles: {}
+  };
+
   // go through each mode this bundle has
   // and create a css file for this each mode in this bundle
   return Promise.all(bundleModes.map(modeName => {
-    return generateModeCss(config, ctx, bundleComponentMeta, userBundle, modeName, stylesResults, filesToWrite);
+    return generateModeCss(sys, bundlerConfig, ctx, bundleComponentMeta, userBundle, modeName, stylesResults);
   }));
 }
 
 
-function generateModeCss(config: BundlerConfig, ctx: BuildContext, bundleComponentMeta: ComponentMeta[], userBundle: Bundle, modeName: string, stylesResults: StylesResults, filesToWrite: Map<string, string>) {
+function generateModeCss(
+  sys: StencilSystem,
+  bundlerConfig: BundlerConfig,
+  ctx: WorkerBuildContext,
+  bundleComponentMeta: ComponentMeta[],
+  userBundle: Bundle,
+  modeName: string,
+  stylesResults: StylesResults
+) {
   // loop through each component in this bundle
   // and create a css file for all the same modes
   return Promise.all(bundleComponentMeta.map(cmpMeta => {
-    return generateComponentModeStyles(config, ctx, cmpMeta, modeName);
+    return generateComponentModeStyles(sys, bundlerConfig, ctx, cmpMeta, modeName, stylesResults);
 
   })).then(modeStyles => {
     // we've gone through each component in this bundle
@@ -74,7 +104,9 @@ function generateModeCss(config: BundlerConfig, ctx: BuildContext, bundleCompone
     let styleContent = modeStyles.join('\n\n').trim();
 
     // check if we even built anything
-    if (!styleContent.length) return;
+    if (!styleContent.length) {
+      return Promise.resolve();
+    }
 
     // tack on the visibility inherit css each component tag should get
     styleContent += appendVisibilityCss(bundleComponentMeta);
@@ -83,9 +115,9 @@ function generateModeCss(config: BundlerConfig, ctx: BuildContext, bundleCompone
 
     // we've built up some css content for this mode
     // ensure we've got some good objects before we start assigning stuff
-    const stylesResult = stylesResults[bundleId] = stylesResults[bundleId] || {};
+    const stylesResult = stylesResults.bundles[bundleId] = stylesResults.bundles[bundleId] || {};
 
-    if (config.isDevMode) {
+    if (bundlerConfig.isDevMode) {
       // dev mode has filename from the bundled tag names
       stylesResult[modeName] = modeName + '.' + (userBundle.components.sort().join('.') + '.' + modeName).toLowerCase();
 
@@ -96,24 +128,24 @@ function generateModeCss(config: BundlerConfig, ctx: BuildContext, bundleCompone
 
     } else {
       // in prod mode, create bundle id from hashing the content
-      stylesResult[modeName] = config.sys.generateContentHash(styleContent);
+      stylesResult[modeName] = sys.generateContentHash(styleContent);
     }
 
     // create the file name and path of where the bundle will be saved
     const styleFileName = formatCssBundleFileName(stylesResult[modeName]);
-    const styleFilePath = config.sys.path.join(config.destDir, BUNDLES_DIR, config.namespace.toLowerCase(), styleFileName);
+    const styleFilePath = sys.path.join(
+      bundlerConfig.destDir,
+      BUNDLES_DIR,
+      bundlerConfig.namespace.toLowerCase(),
+      styleFileName
+    );
 
-    filesToWrite.set(styleFilePath, styleContent);
+    return writeFile(sys, styleFilePath, styleContent);
   });
 }
 
 
-function generateComponentModeStyles(config: BundlerConfig, ctx: BuildContext, cmpMeta: ComponentMeta, modeName: string) {
-  // generate all of the css this mode uses for this component
-  if (!cmpMeta.styleMeta || !cmpMeta.styleMeta[modeName]) {
-    return Promise.resolve('');
-  }
-
+function generateComponentModeStyles(sys: StencilSystem, bundlerConfig: BundlerConfig, ctx: WorkerBuildContext, cmpMeta: ComponentMeta, modeName: string, stylesResults: StylesResults) {
   const modeStyleMeta = cmpMeta.styleMeta[modeName];
 
   const promises: Promise<any>[] = [];
@@ -128,19 +160,23 @@ function generateComponentModeStyles(config: BundlerConfig, ctx: BuildContext, c
 
         styleCollection[styleUrl] = '';
 
-        const ext = config.sys.path.extname(styleUrl).toLowerCase();
+        const ext = sys.path.extname(styleUrl).toLowerCase();
 
         if (ext === '.scss' || ext === '.sass') {
           // sass file needs to be compiled
-          promises.push(compileScssFile(config, ctx, styleUrl, styleCollection));
+          promises.push(compileScssFile(sys, bundlerConfig, ctx, styleUrl, styleCollection, stylesResults));
 
         } else if (ext === '.css') {
           // plain ol' css file
-          promises.push(readCssFile(config, ctx, styleUrl, styleCollection));
+          promises.push(readCssFile(sys, bundlerConfig, ctx, styleUrl, styleCollection, stylesResults));
 
         } else {
           // idk
-          config.logger.error(`${styleUrl} is not a supported style url`);
+          stylesResults.diagnostics = stylesResults.diagnostics || [];
+          stylesResults.diagnostics.push({
+            msg: `${styleUrl} is not a supported style url`,
+            level: 'error'
+          });
         }
       });
     }
@@ -166,65 +202,75 @@ interface StyleCollection {
 }
 
 
-function compileScssFile(config: BundlerConfig, ctx: BuildContext, styleUrl: string, styleCollection: StyleCollection) {
+function compileScssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, ctx: WorkerBuildContext, styleUrl: string, styleCollection: StyleCollection, stylesResults: StylesResults) {
   // this is a Sass file that needs to be compiled
-  return new Promise((resolve, reject) => {
-    const scssFilePath = config.sys.path.join(config.srcDir, styleUrl);
-    const scssFileName = config.sys.path.basename(styleUrl);
-    const fileMeta = createFileMeta(config.sys, ctx, scssFilePath, '');
-    fileMeta.rebundleOnChange = true;
+  return new Promise(resolve => {
+    const scssFilePath = sys.path.join(bundlerConfig.srcDir, styleUrl);
+    const scssFileName = sys.path.basename(styleUrl);
+    const styleFile = createStyleFileMeta(sys, ctx, scssFilePath, '');
+    styleFile.rebundleOnChange = true;
 
     const sassConfig = {
       file: scssFilePath,
-      outputStyle: config.isDevMode ? 'expanded' : 'compressed',
+      outputStyle: bundlerConfig.isDevMode ? 'expanded' : 'compressed',
     };
 
-    config.sys.sass.render(sassConfig, (err, result) => {
+    sys.sass.render(sassConfig, (err, result) => {
       if (err) {
-        reject(`bundleStyles, nodeSass.render: ${err}`);
+        stylesResults.diagnostics = stylesResults.diagnostics || [];
+
+        stylesResults.diagnostics.push({
+          filePath: scssFilePath,
+          msg: `${err}`,
+          level: 'error'
+        });
 
       } else {
-        let cssContent = result.css.toString().trim().replace(/\\/g, '\\\\');
+        styleFile.cssText = result.css.toString().trim().replace(/\\/g, '\\\\');
 
-        if (config.isDevMode) {
-          styleCollection[styleUrl] = `/********** ${scssFileName} **********/\n\n${cssContent}\n\n`;
+        if (bundlerConfig.isDevMode) {
+          styleCollection[styleUrl] = `/********** ${scssFileName} **********/\n\n${styleFile.cssText}\n\n`;
 
         } else {
-          styleCollection[styleUrl] = cssContent;
+          styleCollection[styleUrl] = styleFile.cssText;
         }
-
-        resolve();
       }
+
+      resolve();
     });
   });
 }
 
 
-function readCssFile(config: BundlerConfig, ctx: BuildContext, styleUrl: string, styleCollection: StyleCollection) {
+function readCssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, ctx: WorkerBuildContext, styleUrl: string, styleCollection: StyleCollection, stylesResults: StylesResults) {
   // this is just a plain css file
   // only open it up for its content
-  return new Promise((resolve) => {
-    const cssFilePath = config.sys.path.join(config.srcDir, styleUrl);
-    const cssFileName = config.sys.path.basename(styleUrl);
-    const fileMeta = createFileMeta(config.sys, ctx, cssFilePath, '');
-    fileMeta.rebundleOnChange = true;
+  const cssFilePath = sys.path.join(bundlerConfig.srcDir, styleUrl);
+  const cssFileName = sys.path.basename(styleUrl);
 
-    config.sys.fs.readFile(cssFilePath, 'utf-8', (err, cssContent) => {
-      if (err) {
-        config.logger.error(`bundleStyles, unable to open: ${cssFilePath}`);
-        config.logger.debug(err);
+  if (ctx.styleFiles.has(cssFilePath)) {
+    return Promise.resolve();
+  }
 
-      } else {
-        cssContent = cssContent.toString().trim();
+  const styleFile = createStyleFileMeta(sys, ctx, cssFilePath, '');
+  styleFile.rebundleOnChange = true;
 
-        if (config.isDevMode) {
-          styleCollection[styleUrl] = `/********** ${cssFileName} **********/\n\n${cssContent}\n\n`;
-        } else {
-          styleCollection[styleUrl] = cssContent;
-        }
-      }
+  return readFile(sys, cssFilePath).then(cssText => {
+    styleFile.cssText = cssText.toString().trim();
 
-      resolve();
+    if (bundlerConfig.isDevMode) {
+      styleCollection[styleUrl] = `/********** ${cssFileName} **********/\n\n${styleFile.cssText}\n\n`;
+    } else {
+      styleCollection[styleUrl] = styleFile.cssText;
+    }
+
+  }).catch(err => {
+    stylesResults.diagnostics = stylesResults.diagnostics || [];
+
+    stylesResults.diagnostics.push({
+      filePath: cssFilePath,
+      msg: `Error opening file. ${err}`,
+      level: 'error'
     });
   });
 }

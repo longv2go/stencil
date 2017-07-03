@@ -1,92 +1,138 @@
-import { BundlerConfig, ModuleResults, Manifest, Bundle, Logger } from './interfaces';
+import { BundlerConfig, Bundle, ComponentMeta, Manifest, ModuleResults, Logger, StencilSystem, WorkerBuildContext } from './interfaces';
 import { BUNDLES_DIR } from '../util/constants';
 import { formatDefineComponents, formatJsBundleFileName, generateBundleId } from '../util/data-serialize';
-import { writeFiles } from './util';
+import { writeFile } from './util';
+import { WorkerManager } from './worker-manager';
 
 
-export function bundleModules(config: BundlerConfig, userManifest: Manifest) {
-  config.logger.debug(`bundleModules`);
+export function bundleModules(logger: Logger, bundlerConfig: BundlerConfig, workerManager: WorkerManager, userManifest: Manifest) {
+  logger.debug(`bundleModules`);
 
-  const moduleResults: ModuleResults = {};
-  const filesToWrite = new Map<string, string>();
+  const moduleResults: ModuleResults = {
+    bundles: {},
+    diagnostics: []
+  };
 
   return Promise.all(userManifest.bundles.map(userBundle => {
-    return generateDefineComponents(config, userManifest, userBundle, moduleResults, filesToWrite);
+    return generateDefineComponents(bundlerConfig, workerManager, userManifest, userBundle, moduleResults);
   })).then(() => {
-    return writeFiles(config.sys, filesToWrite);
-  }).then(() => {
     return moduleResults;
   });
 }
 
 
-function generateDefineComponents(config: BundlerConfig, userManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults, filesToWrite: Map<string, string>) {
+function generateDefineComponents(bundlerConfig: BundlerConfig, workerManager: WorkerManager, userManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults) {
+  const bundleComponentMeta = userBundle.components.map(userBundleComponentTag => {
+    const cmpMeta = userManifest.components.find(c => c.tagNameMeta === userBundleComponentTag);
+    if (!cmpMeta) {
+      moduleResults.diagnostics.push({
+        msg: `Unable to find component "${cmpMeta.tagNameMeta}" in available config and collection`,
+        level: 'error'
+      });
+    }
+    return cmpMeta;
+  }).filter(c => !!c);
+
+  return workerManager.generateDefineComponents(bundlerConfig, bundleComponentMeta).then(bundleModuleResults => {
+    if (bundleModuleResults.bundles) {
+      Object.assign(moduleResults.bundles, bundleModuleResults.bundles);
+    }
+
+    if (bundleModuleResults.diagnostics) {
+      moduleResults.diagnostics = moduleResults.diagnostics.concat(bundleModuleResults.diagnostics);
+    }
+  });
+}
+
+
+export function generateDefineComponentsWorker(sys: StencilSystem, ctx: WorkerBuildContext, bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
+  const moduleResults: ModuleResults = {
+    bundles: {}
+  };
+
   // loop through each bundle the user wants and create the "defineComponents"
-  return bundleComponentModules(config, userManifest, userBundle).then(jsModuleContent => {
+  return bundleComponentModules(sys, ctx, bundleComponentMeta, moduleResults).then(jsModuleContent => {
 
     const bundleId = generateBundleId(userBundle.components);
-
-    // collect only the component meta data this bundle needs
-    const bundleComponentMeta = userBundle.components.map(userBundleComponentTag => {
-      return userManifest.components.find(manifestComponent => manifestComponent.tagNameMeta === userBundleComponentTag);
-    });
 
     // format all the JS bundle content
     // insert the already bundled JS module into the defineComponents function
     let moduleContent = formatDefineComponents(
-      config.namespace, TMP_BUNDLE_ID,
+      bundlerConfig.namespace, STENCIL_BUNDLE_ID,
       jsModuleContent, bundleComponentMeta
     );
 
-    if (config.isDevMode) {
+    if (bundlerConfig.isDevMode) {
       // dev mode has filename from the bundled tag names
-      moduleResults[bundleId] = userBundle.components.sort().join('.').toLowerCase();
+      moduleResults.bundles[bundleId] = userBundle.components.sort().join('.').toLowerCase();
 
-      if (moduleResults[bundleId].length > 40) {
+      if (moduleResults.bundles[bundleId].length > 40) {
         // can get a lil too long, so let's simmer down
-        moduleResults[bundleId] = moduleResults[bundleId].substr(0, 40);
+        moduleResults.bundles[bundleId] = moduleResults.bundles[bundleId].substr(0, 40);
       }
 
     } else {
       // minify the JS content in prod mode
-      const minifyResults = config.sys.uglify.minify(moduleContent);
+      const minifyResults = sys.uglify.minify(moduleContent);
 
       if (minifyResults.error) {
-        config.logger.error(`minify: ${minifyResults.error.message}`);
+        moduleResults.diagnostics = moduleResults.diagnostics || [];
+        moduleResults.diagnostics.push({
+          msg: minifyResults.error.message,
+          level: 'error'
+        });
 
       } else {
         moduleContent = minifyResults.code;
       }
 
       // in prod mode, create bundle id from hashing the content
-      moduleResults[bundleId] = config.sys.generateContentHash(moduleContent);
+      moduleResults.bundles[bundleId] = sys.generateContentHash(moduleContent);
     }
 
     // replace the known bundle id template with the newly created bundle id
-    moduleContent = moduleContent.replace(MODULE_ID_REGEX, moduleResults[bundleId]);
+    moduleContent = moduleContent.replace(MODULE_ID_REGEX, moduleResults.bundles[bundleId]);
 
     // create the file name and path of where the bundle will be saved
-    const moduleFileName = formatJsBundleFileName(moduleResults[bundleId]);
-    const moduleFilePath = config.sys.path.join(config.destDir, BUNDLES_DIR, config.namespace.toLowerCase(), moduleFileName);
+    const moduleFileName = formatJsBundleFileName(moduleResults.bundles[bundleId]);
+    const moduleFilePath = sys.path.join(bundlerConfig.destDir, BUNDLES_DIR, bundlerConfig.namespace.toLowerCase(), moduleFileName);
 
-    filesToWrite.set(moduleFilePath, moduleContent);
+    return writeFile(sys, moduleFilePath, moduleContent).then(() => {
+      return moduleResults;
+
+    }).catch(err => {
+      // writeFile error
+      moduleResults.diagnostics = moduleResults.diagnostics || [];
+      moduleResults.diagnostics.push({
+        msg: err.toString(),
+        level: 'error'
+      });
+      return moduleResults;
+    });
+
+  }).catch(err => {
+    // bundleComponentModules error
+    moduleResults.diagnostics = moduleResults.diagnostics || [];
+    moduleResults.diagnostics.push({
+      msg: err.toString(),
+      level: 'error'
+    });
+    return moduleResults;
   });
 }
 
 
-function bundleComponentModules(config: BundlerConfig, userManifest: Manifest, userBundle: Bundle) {
+function bundleComponentModules(sys: StencilSystem, ctx: WorkerBuildContext, bundleComponentMeta: ComponentMeta[], moduleResults: ModuleResults) {
   const entryFileLines: string[] = [];
 
   // loop through all the components this bundle needs
   // and generate a string of the JS file to be generated
-  userBundle.components.forEach(userBundleComponentTag => {
+  bundleComponentMeta.sort((a, b) => {
+    if (a.tagNameMeta.toLowerCase() < b.tagNameMeta.toLowerCase()) return -1;
+    if (a.tagNameMeta.toLowerCase() > b.tagNameMeta.toLowerCase()) return 1;
+    return 0;
 
-    // look up the component meta data for the tag the user wants in this bundle
-    const cmpMeta = userManifest.components.find(c => c.tagNameMeta === userBundleComponentTag);
-    if (!cmpMeta) {
-      throw `bundleComponentModules, unable to find component "${cmpMeta.tagNameMeta}" in available config and collection`;
-    }
-
+  }).forEach(cmpMeta => {
     // create a full path to the modules to import
     let importPath = cmpMeta.componentUrl;
 
@@ -101,24 +147,23 @@ function bundleComponentModules(config: BundlerConfig, userManifest: Manifest, u
   const entryContent = entryFileLines.join('\n');
 
   // start the bundler on our temporary file
-  return config.sys.rollup.rollup({
-    entry: TMP_BUNDLE_ID,
+  return sys.rollup.rollup({
+    entry: STENCIL_BUNDLE_ID,
     plugins: [
-      config.sys.rollup.plugins.nodeResolve({
+      sys.rollup.plugins.nodeResolve({
         jsnext: true,
         main: true
       }),
-      config.sys.rollup.plugins.commonjs({
+      sys.rollup.plugins.commonjs({
         include: 'node_modules/**',
         sourceMap: false
       }),
-      entryInMemoryPlugin(TMP_BUNDLE_ID, entryContent)
+      entryInMemoryPlugin(STENCIL_BUNDLE_ID, entryContent),
+      transpiledInMemoryPlugin(ctx)
     ],
-    onwarn: createOnWarnFn(config.logger)
+    onwarn: createOnWarnFn(moduleResults)
 
   }).catch(err => {
-    config.logger.error('bundleComponentModules, rollup error');
-    err && err.stack && config.logger.error(err.stack);
     throw err;
   })
 
@@ -134,7 +179,7 @@ function bundleComponentModules(config: BundlerConfig, userManifest: Manifest, u
 }
 
 
-function createOnWarnFn(logger: Logger) {
+function createOnWarnFn(moduleResults: ModuleResults) {
   const previousWarns: {[key: string]: boolean} = {};
 
   return function onWarningMessage(warning: any) {
@@ -143,7 +188,47 @@ function createOnWarnFn(logger: Logger) {
     }
     previousWarns[warning.message] = true;
 
-    logger.warn(`rollup: ${warning}`);
+    moduleResults.diagnostics = moduleResults.diagnostics || [];
+    moduleResults.diagnostics.push({
+      msg: warning,
+      level: 'warn'
+    });
+  };
+}
+
+
+function transpiledInMemoryPlugin(ctx: WorkerBuildContext) {
+  return {
+    name: 'transpiledInMemoryPlugin',
+    resolveId(importee: string): string {
+      let fileMeta = ctx.moduleFiles.get(importee);
+      if (fileMeta && fileMeta.jsText) {
+        return importee;
+      }
+
+      var mapIter = ctx.moduleFiles.values();
+      while (fileMeta = mapIter.next().value) {
+        if (fileMeta.jsFilePath === importee && fileMeta.jsText) {
+          return importee;
+        }
+      }
+      return null;
+    },
+    load(sourcePath: string): string {
+      let fileMeta = ctx.moduleFiles.get(sourcePath);
+      if (fileMeta && fileMeta.jsText) {
+        return fileMeta.jsText;
+      }
+
+      var mapIter = ctx.moduleFiles.values();
+      while (fileMeta = mapIter.next().value) {
+        if (fileMeta.jsFilePath === sourcePath && fileMeta.jsText) {
+          return fileMeta.jsText;
+        }
+      }
+
+      return null;
+    }
   };
 }
 
@@ -169,5 +254,5 @@ function entryInMemoryPlugin(entryKey: string, entryFileContent: string) {
 }
 
 
-const TMP_BUNDLE_ID = '__STENCIL__BUNDLE__ID__';
-const MODULE_ID_REGEX = new RegExp(TMP_BUNDLE_ID, 'g');
+const STENCIL_BUNDLE_ID = '__STENCIL__BUNDLE__ID__';
+const MODULE_ID_REGEX = new RegExp(STENCIL_BUNDLE_ID, 'g');

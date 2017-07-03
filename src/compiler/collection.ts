@@ -1,13 +1,19 @@
 import { BuildConfig } from '../util/interfaces';
-import { BuildContext, CompilerConfig } from './interfaces';
+import { CompilerConfig, MainBuildContext } from './interfaces';
 import { compile } from './compile';
 import { generateDependentManifests } from './manifest';
-import { removeFilePath } from './util';
+import { validateBuildConfig } from './build';
+import { WorkerManager } from './worker-manager';
 
 
-export function collection(buildConfig: BuildConfig, ctx?: BuildContext) {
+export function collection(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
   // use the same build context object throughout the build
-  ctx = ctx || {};
+  mainCtx = mainCtx || {};
+
+  if (!mainCtx.workerManager) {
+    mainCtx.workerManager = new WorkerManager(buildConfig.sys, buildConfig.logger);
+    mainCtx.workerManager.connect(buildConfig.numWorkers);
+  }
 
   buildConfig.logger.info(`build, ${buildConfig.isDevMode ? 'dev' : 'prod'} mode`);
 
@@ -16,27 +22,27 @@ export function collection(buildConfig: BuildConfig, ctx?: BuildContext) {
     validateBuildConfig(buildConfig);
 
     return generateDependentManifests(
-      buildConfig.logger,
       buildConfig.sys,
+      buildConfig.logger,
       buildConfig.collections,
       buildConfig.rootDir,
       buildConfig.compiledDir);
 
   }).then(() => {
 
-    return compileProject(buildConfig, ctx).then(results => {
-      if (results.errors && results.errors.length > 0) {
-        results.errors.forEach(err => {
-          buildConfig.logger.error(err);
-        });
-        throw 'build error';
-      }
+    return compileProject(buildConfig, mainCtx.workerManager).then(() => {
+      // if (results.errors && results.errors.length > 0) {
+      //   results.errors.forEach(err => {
+      //     buildConfig.logger.error(err);
+      //   });
+      //   throw 'build error';
+      // }
     });
 
   }).then(() => {
 
     // remove temp compiled dir
-    removeFilePath(buildConfig.sys, buildConfig.compiledDir);
+    // removeFilePath(buildConfig.sys, buildConfig.compiledDir);
     buildConfig.logger.info(`build, done`);
 
   }).catch(err => {
@@ -46,7 +52,7 @@ export function collection(buildConfig: BuildConfig, ctx?: BuildContext) {
 }
 
 
-function compileProject(buildConfig: BuildConfig, ctx: BuildContext) {
+function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) {
   const config: CompilerConfig = {
     compilerOptions: {
       outDir: buildConfig.destDir,
@@ -63,47 +69,9 @@ function compileProject(buildConfig: BuildConfig, ctx: BuildContext) {
       'test'
     ],
     isDevMode: buildConfig.isDevMode,
-    logger: buildConfig.logger,
     bundles: buildConfig.bundles,
-    isWatch: buildConfig.isWatch,
-    sys: buildConfig.sys
+    isWatch: buildConfig.isWatch
   };
 
-  return compile(config, ctx);
-}
-
-
-
-function validateBuildConfig(buildConfig: BuildConfig) {
-  if (!buildConfig.srcDir) {
-    throw `config.srcDir required`;
-  }
-  if (!buildConfig.sys) {
-    throw 'config.sys required';
-  }
-  if (!buildConfig.sys.fs) {
-    throw 'config.sys.fs required';
-  }
-  if (!buildConfig.sys.path) {
-    throw 'config.sys.path required';
-  }
-  if (!buildConfig.sys.sass) {
-    throw 'config.sys.sass required';
-  }
-  if (!buildConfig.sys.rollup) {
-    throw 'config.sys.rollup required';
-  }
-  if (!buildConfig.sys.typescript) {
-    throw 'config.sys.typescript required';
-  }
-
-  // ensure we've at least got empty objects
-  buildConfig.bundles = buildConfig.bundles || [];
-  buildConfig.collections = buildConfig.collections || [];
-
-  // default to "App" namespace if one wasn't provided
-  buildConfig.namespace = (buildConfig.namespace || 'App').trim();
-
-  // default to "bundles" directory if one wasn't provided
-  buildConfig.namespace = (buildConfig.namespace || 'bundles').trim();
+  return compile(buildConfig.sys, buildConfig.logger, workerManager, config);
 }

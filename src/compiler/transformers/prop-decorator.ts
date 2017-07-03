@@ -1,9 +1,9 @@
-import { FileMeta, Logger, PropMeta, PropOptions } from '../interfaces';
+import { ModuleFileMeta, Logger, PropMeta, PropOptions } from '../interfaces';
 import { TYPE_NUMBER, TYPE_BOOLEAN } from '../../util/constants';
 import * as ts from 'typescript';
 
 
-export function getPropDecoratorMeta(logger: Logger, fileMeta: FileMeta, classNode: ts.ClassDeclaration) {
+export function getPropDecoratorMeta(logger: Logger, fileMeta: ModuleFileMeta, classNode: ts.ClassDeclaration) {
   fileMeta.cmpMeta.propsMeta = [];
 
   const decoratedMembers = classNode.members.filter(n => n.decorators && n.decorators.length);

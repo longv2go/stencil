@@ -1,41 +1,23 @@
-import { ATTR_DASH_CASE, ATTR_LOWER_CASE, BUNDLES_DIR } from '../util/constants';
-import { BundlerConfig, BuildContext, Manifest, Results } from './interfaces';
+import { ATTR_DASH_CASE, ATTR_LOWER_CASE } from '../util/constants';
+import { BundlerConfig, Logger, MainBuildContext, Manifest, Results, StencilSystem } from './interfaces';
 import { bundleModules } from './bundle-modules';
 import { bundleStyles } from './bundle-styles';
-import { emptyDir } from './util';
 import { generateComponentRegistry } from './bundle-registry';
-import { setupBundlerWatch } from './watch';
 
 
-export function bundle(config: BundlerConfig, ctx: BuildContext = {}): Promise<Results> {
-  validateConfig(config);
+export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: BundlerConfig, mainCtx: MainBuildContext): Promise<Results> {
+  validateConfig(bundlerConfig);
 
-  const userManifest = validateUserManifest(config.manifest);
+  const userManifest = validateUserManifest(bundlerConfig.manifest);
 
-  config.logger.debug(`bundle, srcDir: ${config.srcDir}`);
-  config.logger.debug(`bundle, destDir: ${config.destDir}`);
-
-  ctx.results = {
-    files: []
-  };
+  logger.debug(`bundle, srcDir: ${bundlerConfig.srcDir}`);
+  logger.debug(`bundle, destDir: ${bundlerConfig.destDir}`);
 
   return Promise.resolve().then(() => {
-    if (!config.isDevMode) {
-      // in prod mode, be sure to first empty the
-      // bundles dest dir
-      const projectBundlesDir = config.sys.path.join(config.destDir, BUNDLES_DIR, config.namespace.toLowerCase());
-
-      config.logger.debug(`bundle, empty bundles dir: ${projectBundlesDir}`);
-
-      return emptyDir(config.sys, projectBundlesDir);
-    }
-    return Promise.resolve();
-
-  }).then(() => {
     // kick off style and module bundling at the same time
     return Promise.all([
-      bundleStyles(config, ctx, userManifest),
-      bundleModules(config, userManifest)
+      bundleStyles(logger, bundlerConfig, mainCtx.workerManager, userManifest),
+      bundleModules(logger, bundlerConfig, mainCtx.workerManager, userManifest)
     ]);
 
   }).then(bundleResults => {
@@ -43,48 +25,18 @@ export function bundle(config: BundlerConfig, ctx: BuildContext = {}): Promise<R
     const styleResults = bundleResults[0];
     const moduleResults = bundleResults[1];
 
-    return generateComponentRegistry(config, ctx, styleResults, moduleResults);
+    return generateComponentRegistry(sys, bundlerConfig, styleResults, moduleResults);
 
   })
   .then(() => {
-    return setupBundlerWatch(config, ctx, config.sys.typescript.sys);
+    logger.info('bundle, done');
 
-  })
-  .then(() => {
-    config.logger.info('bundle, done');
-
-    return ctx.results;
+    return mainCtx.results;
   });
 }
 
 
-export function bundleWatch(config: BundlerConfig, ctx: BuildContext, changedFiles: string[]) {
-  config.logger.debug(`bundle, bundleWatch: ${changedFiles}`);
-
-  return bundle(config, ctx);
-}
-
-
 function validateConfig(config: BundlerConfig) {
-  if (!config.sys) {
-    throw 'config.sys required';
-  }
-  if (!config.sys.fs) {
-    throw 'config.sys.fs required';
-  }
-  if (!config.sys.path) {
-    throw 'config.sys.path required';
-  }
-  if (!config.sys.sass) {
-    throw 'config.sys.sass required';
-  }
-  if (!config.sys.rollup) {
-    throw 'config.sys.rollup required';
-  }
-  if (!config.sys.typescript) {
-    throw 'config.sys.typescript required';
-  }
-
   config.attrCase = normalizeAttrCase(config.attrCase);
 }
 

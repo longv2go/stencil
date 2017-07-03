@@ -14,7 +14,7 @@ export class CmdLogger implements Logger {
     this.level = opts.level;
   }
 
-  get level(): string {
+  get level() {
     return this._level;
   }
 
@@ -29,24 +29,28 @@ export class CmdLogger implements Logger {
     this._level = s;
   }
 
-  debug(msg: string): void {
+  debug(msg: string) {
     this.log('debug', msg);
   }
 
-  info(msg: string): void {
+  info(msg: string) {
     this.log('info', msg);
   }
 
-  ok(msg: string): void {
+  ok(msg: string) {
     this.log('ok', msg);
   }
 
-  warn(msg: string): void {
+  warn(msg: string) {
     this.log('warn', msg);
   }
 
-  error(msg: string): void {
+  error(msg: string) {
     this.log('error', msg);
+  }
+
+  dim(msg: string) {
+    return this.chalk.dim(msg);
   }
 
   private shouldLog(level: string): boolean {
@@ -74,24 +78,76 @@ export class CmdLogger implements Logger {
   private log(level: string, msg: string): void {
     if (this.shouldLog(level) && msg) {
 
-      let prefix = level.toUpperCase();
-      while (prefix.length < 5) {
-        prefix += ' ';
+      let prefix = '';
+      if (level === 'info') {
+        const date = new Date();
+        prefix = ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2) + ':' + ('0' + date.getSeconds()).slice(-2);
+
+      } else {
+        prefix = ' ' + level.toUpperCase();
+        while (prefix.length < 7) {
+          prefix += ' ';
+        }
       }
 
       msg = wordWrap(msg.toString(), prefix.length + 4, this.ttyWidth);
 
       const color = this.getStatusColor(level);
       const statusColor = color.bold.bgBlack;
-      const b = this.chalk.dim;
 
-      this.stream.write(b('[') + statusColor(prefix) + b(']') + '  ' + msg + '\n');
+      this.stream.write(this.dim('[') + statusColor(prefix) + this.dim(']') + '  ' + msg + '\n');
     }
+  }
+
+  createTimeSpan(startMsg: string): any {
+    return new TimeSpan(this, startMsg);
   }
 }
 
 
-const LOG_LEVELS: string[] = ['debug', 'info', 'ok', 'warn', 'error'];
+export class TimeSpan {
+  private logger: Logger;
+  private start: number;
+
+  constructor(logger: Logger, startMsg: string) {
+    this.logger = logger;
+    this.start = Date.now();
+    let msg = `${startMsg} ${logger.dim('...')}`;
+
+    this.logger.info(msg);
+  }
+
+  finish(finishMsg: string) {
+    let msg = finishMsg;
+
+    msg += ' ' + this.logger.dim(this.timeSuffix());
+
+    this.logger.info(msg);
+  }
+
+  private timeSuffix() {
+    const duration = Date.now() - this.start;
+    let time: string;
+
+    if (duration > 1000) {
+      time = 'in ' + (duration / 1000).toFixed(2) + ' s';
+
+    } else {
+      let ms = parseFloat((duration).toFixed(3));
+      if (ms > 0) {
+        time = 'in ' + duration + ' ms';
+      } else {
+        time = 'in less than 1 ms';
+      }
+    }
+
+    return time;
+  }
+
+}
+
+
+const LOG_LEVELS = ['debug', 'info', 'ok', 'warn', 'error'];
 
 
 function isLogLevel(l: string) {

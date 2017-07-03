@@ -1,10 +1,10 @@
-import { BundlerConfig, BuildContext, Collection, ComponentMeta, CompilerConfig,
+import { WorkerBuildContext, Collection, ComponentMeta, CompilerConfig,
   Logger, Manifest, Bundle, StencilSystem, StyleMeta } from './interfaces';
 import { ensureDir, readFile, writeFile } from './util';
 import { resolveFrom } from './resolve-from';
 
 
-export function generateManifest(config: CompilerConfig, ctx: BuildContext) {
+export function generateManifest(sys: StencilSystem, logger: Logger, config: CompilerConfig, ctx: WorkerBuildContext) {
   const manifest: Manifest = {
     components: [],
     bundles: []
@@ -12,7 +12,7 @@ export function generateManifest(config: CompilerConfig, ctx: BuildContext) {
 
   const destDir = config.compilerOptions.outDir;
 
-  config.logger.debug(`manifest, generateManifest, destDir: ${destDir}`);
+  logger.debug(`manifest, generateManifest, destDir: ${destDir}`);
 
   // normalize bundle component tags
   config.bundles.forEach(b => {
@@ -21,12 +21,12 @@ export function generateManifest(config: CompilerConfig, ctx: BuildContext) {
       return;
     }
 
-    config.logger.error(`manifest, generateManifest: missing bundle components array, instead received: ${b.components}`);
+    logger.error(`manifest, generateManifest: missing bundle components array, instead received: ${b.components}`);
 
     b.components = [];
   });
 
-  ctx.files.forEach(f => {
+  ctx.moduleFiles.forEach(f => {
     if (!f.isTsSourceFile || !f.cmpMeta || !f.cmpMeta.tagNameMeta) return;
 
     let includeComponent = false;
@@ -42,9 +42,9 @@ export function generateManifest(config: CompilerConfig, ctx: BuildContext) {
     const cmpMeta: ComponentMeta = Object.assign({}, <any>f.cmpMeta);
 
     cmpMeta.componentClass = f.cmpClassName;
-    cmpMeta.componentUrl = f.jsFilePath.replace(destDir + config.sys.path.sep, '');
+    cmpMeta.componentUrl = f.jsFilePath.replace(destDir + sys.path.sep, '');
 
-    const componentDir = config.sys.path.dirname(cmpMeta.componentUrl);
+    const componentDir = sys.path.dirname(cmpMeta.componentUrl);
 
     if (cmpMeta.styleMeta) {
       const modeNames = Object.keys(cmpMeta.styleMeta);
@@ -53,7 +53,7 @@ export function generateManifest(config: CompilerConfig, ctx: BuildContext) {
         const cmpMode = cmpMeta.styleMeta[modeName];
         if (cmpMode.styleUrls) {
           cmpMode.styleUrls = cmpMode.styleUrls.map(styleUrl => {
-            return config.sys.path.join(componentDir, styleUrl);
+            return sys.path.join(componentDir, styleUrl);
           });
         }
       });
@@ -107,35 +107,35 @@ export function generateManifest(config: CompilerConfig, ctx: BuildContext) {
     return 0;
   });
 
-  const manifestFile = config.sys.path.join(config.compilerOptions.outDir, MANIFEST_FILE_NAME);
-  ctx.results.manifest = manifest;
+  const manifestFile = sys.path.join(config.compilerOptions.outDir, MANIFEST_FILE_NAME);
+  // ctx.results.manifest = manifest;
 
   const manifestJson = JSON.stringify(manifest, null, 2);
 
-  config.logger.debug(`manifest, generateManifest, writing json: ${manifestFile}`);
+  logger.debug(`manifest, generateManifest, writing json: ${manifestFile}`);
 
-  return ensureDir(config.sys, manifestFile).then(() => {
-    return writeFile(config.sys, manifestFile, manifestJson);
+  return ensureDir(sys, manifestFile).then(() => {
+    return writeFile(sys, manifestFile, manifestJson);
   });
 }
 
 
-export function getManifest(config: BundlerConfig, ctx: BuildContext): Promise<Manifest> {
-  if (ctx.results.manifest) {
-    return Promise.resolve(ctx.results.manifest);
-  }
+// export function getManifest(sys: StencilSystem, logger: Logger, config: BundlerConfig, ctx: WorkerBuildContext): Promise<Manifest> {
+//   // if (ctx.results.manifest) {
+//   //   return Promise.resolve(ctx.results.manifest);
+//   // }
 
-  ctx.results.manifestPath = config.sys.path.join(config.srcDir, MANIFEST_FILE_NAME);
+//   ctx.results.manifestPath = sys.path.join(config.srcDir, MANIFEST_FILE_NAME);
 
-  config.logger.debug(`manifest, getManifest: ${ctx.results.manifestPath}`);
+//   logger.debug(`manifest, getManifest: ${ctx.results.manifestPath}`);
 
-  return readFile(config.sys, ctx.results.manifestPath).then(manifestStr => {
-    return ctx.results.manifest = JSON.parse(manifestStr);
-  });
-}
+//   return readFile(sys, ctx.results.manifestPath).then(manifestStr => {
+//     return ctx.results.manifest = JSON.parse(manifestStr);
+//   });
+// }
 
 
-export function generateDependentManifests(logger: Logger, sys: StencilSystem, collections: Collection[], rootDir: string, compiledDir: string) {
+export function generateDependentManifests(sys: StencilSystem, logger: Logger, collections: Collection[], rootDir: string, compiledDir: string) {
   return Promise.all(collections.map(collection => {
 
     const manifestJsonFile = resolveFrom(sys, rootDir, collection);

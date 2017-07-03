@@ -1,8 +1,8 @@
-import { FileMeta, ListenMeta, Logger } from '../interfaces';
+import { ModuleFileMeta, ListenMeta, Logger } from '../interfaces';
 import * as ts from 'typescript';
 
 
-export function getListenDecoratorMeta(logger: Logger, fileMeta: FileMeta, classNode: ts.ClassDeclaration) {
+export function getListenDecoratorMeta(logger: Logger, fileMeta: ModuleFileMeta, classNode: ts.ClassDeclaration) {
   fileMeta.cmpMeta.listenersMeta = [];
 
   const decoratedMembers = classNode.members.filter(n => n.decorators && n.decorators.length);
@@ -64,7 +64,7 @@ export function getListenDecoratorMeta(logger: Logger, fileMeta: FileMeta, class
 }
 
 
-function validateListener(fileMeta: FileMeta, eventName: string, rawListenMeta: ListenMeta, methodName: string, memberNode: ts.ClassElement) {
+function validateListener(fileMeta: ModuleFileMeta, eventName: string, rawListenMeta: ListenMeta, methodName: string, memberNode: ts.ClassElement) {
   eventName = eventName.trim();
   if (!eventName) return;
 

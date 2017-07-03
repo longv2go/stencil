@@ -1,75 +1,108 @@
-import { BuildConfig, Manifest } from '../util/interfaces';
-import { BuildContext, BundlerConfig, CompilerConfig } from './interfaces';
-import { bundle } from './bundle';
+import { BuildConfig/*, Manifest*/ } from '../util/interfaces';
+import { CompilerConfig, Results, MainBuildContext } from './interfaces';
+// import { bundle } from './bundle';
 import { compile } from './compile';
-import { generateDependentManifests, mergeManifests, updateManifestUrls } from './manifest';
-import { generateProjectCore } from './build-project-core';
-import { removeFilePath } from './util';
+import { generateDependentManifests/*, mergeManifests, updateManifestUrls*/ } from './manifest';
+// import { generateProjectCore } from './build-project-core';
+import { WorkerManager } from './worker-manager';
+import { emptyDir } from './util';
 
 
-export function build(buildConfig: BuildConfig, ctx?: BuildContext) {
+export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
+  const sys = buildConfig.sys;
+  const logger = buildConfig.logger;
+
+  const timeSpan = logger.createTimeSpan(`build, ${buildConfig.isDevMode ? 'dev' : 'prod'} mode, started`);
+
   // use the same build context object throughout the build
-  ctx = ctx || {};
+  mainCtx = mainCtx || {};
 
-  buildConfig.logger.info(`build, ${buildConfig.isDevMode ? 'dev' : 'prod'} mode`);
+  const results: Results = {};
+
+  if (!mainCtx.workerManager) {
+    // create a worker manager if one doesn't already exit
+    // this assigns which worker specific files should be handled by
+    mainCtx.workerManager = new WorkerManager(buildConfig.sys, buildConfig.logger);
+    mainCtx.workerManager.connect(buildConfig.numWorkers);
+  }
 
   return Promise.resolve().then(() => {
     // validate our data is good to go
     validateBuildConfig(buildConfig);
 
+    if (!buildConfig.isDevMode) {
+      // in prod mode, be sure to first empty the dest dir
+      logger.debug(`empty bundles dir: ${buildConfig.destDir}`);
+
+      return emptyDir(sys, buildConfig.destDir);
+    }
+
+    return Promise.resolve();
+
+  }).then(() => {
     return generateDependentManifests(
-      buildConfig.logger,
-      buildConfig.sys,
+      sys,
+      logger,
       buildConfig.collections,
       buildConfig.rootDir,
       buildConfig.compiledDir);
 
   }).then(dependentManifests => {
 
-    return compileProject(buildConfig, ctx).then(results => {
-      if (results.errors && results.errors.length > 0) {
-        results.errors.forEach(err => {
-          buildConfig.logger.error(err);
-        });
-        throw 'build error';
-      }
+    return compileProject(buildConfig, mainCtx.workerManager).then(() => {
 
-      const resultsManifest = results.manifest || {};
 
-      const localManifest = updateManifestUrls(
-        buildConfig.logger,
-        buildConfig.sys,
-        resultsManifest,
-        buildConfig.compiledDir,
-        buildConfig.compiledDir
-      );
-      return mergeManifests([].concat((localManifest || []), dependentManifests));
+      dependentManifests;
+return results;
+      // const resultsManifest = compileResults.manifest || {};
+
+      // const localManifest = updateManifestUrls(
+      //   buildConfig.logger,
+      //   buildConfig.sys,
+      //   resultsManifest,
+      //   buildConfig.compiledDir,
+      //   buildConfig.compiledDir
+      // );
+      // return mergeManifests([].concat((localManifest || []), dependentManifests));
 
     });
 
-  }).then(manifest => {
-    // bundle all of the components into their separate files
-    return bundleProject(buildConfig, ctx, manifest);
-
-  }).then(bundleProjectResults => {
-    // generate the core loader and aux files for this project
-    return generateProjectCore(buildConfig, bundleProjectResults.componentRegistry);
-
-  }).then(() => {
-    // remove temp compiled dir
-    // remove is async but no need to wait on it
-    removeFilePath(buildConfig.sys, buildConfig.compiledDir);
-
-    buildConfig.logger.info(`build, done`);
-
   }).catch(err => {
     buildConfig.logger.error(err);
-    err.stack && buildConfig.logger.error(err.stack);
+
+  }).then(() => {
+    mainCtx.workerManager.disconnect();
+
+    if (buildConfig.isWatch) {
+      timeSpan.finish(`build finished, watching files ...`);
+    } else {
+      timeSpan.finish(`build finished`);
+    }
   });
+
+  // .then(manifest => {
+  //   // bundle all of the components into their separate files
+  //   return bundleProject(buildConfig, mainCtx, manifest);
+
+  // }).then(bundleProjectResults => {
+  //   // generate the core loader and aux files for this project
+  //   return generateProjectCore(buildConfig, bundleProjectResults.componentRegistry);
+
+  // }).then(() => {
+  //   // remove temp compiled dir
+  //   // remove is async but no need to wait on it
+  //   // removeFilePath(buildConfig.sys, buildConfig.compiledDir);
+
+  //   buildConfig.logger.info(`build, done`);
+
+  // }).catch(err => {
+  //   buildConfig.logger.error(err);
+  //   err.stack && buildConfig.logger.error(err.stack);
+  // });
 }
 
 
-function compileProject(buildConfig: BuildConfig, ctx: BuildContext) {
+function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) {
   const config: CompilerConfig = {
     compilerOptions: {
       outDir: buildConfig.compiledDir,
@@ -82,37 +115,32 @@ function compileProject(buildConfig: BuildConfig, ctx: BuildContext) {
     ],
     exclude: [
       'node_modules',
-      'compiler',
       'test'
     ],
     isDevMode: buildConfig.isDevMode,
-    logger: buildConfig.logger,
     bundles: buildConfig.bundles,
-    isWatch: buildConfig.isWatch,
-    sys: buildConfig.sys
+    isWatch: buildConfig.isWatch
   };
 
-  return compile(config, ctx);
+  return compile(buildConfig.sys, buildConfig.logger, workerManager, config);
 }
 
 
-function bundleProject(buildConfig: BuildConfig, ctx: BuildContext, manifest: Manifest) {
-  const config: BundlerConfig = {
-    namespace: buildConfig.namespace,
-    srcDir: buildConfig.compiledDir,
-    destDir: buildConfig.destDir,
-    manifest: manifest,
-    sys: buildConfig.sys,
-    isDevMode: buildConfig.isDevMode,
-    isWatch: buildConfig.isWatch,
-    logger: buildConfig.logger
-  };
+// function bundleProject(buildConfig: BuildConfig, mainCtx: MainBuildContext, manifest: Manifest) {
+//   const config: BundlerConfig = {
+//     namespace: buildConfig.namespace,
+//     srcDir: buildConfig.compiledDir,
+//     destDir: buildConfig.destDir,
+//     manifest: manifest,
+//     isDevMode: buildConfig.isDevMode,
+//     isWatch: buildConfig.isWatch
+//   };
 
-  return bundle(config, ctx);
-}
+//   return bundle(buildConfig.sys, buildConfig.logger, config, mainCtx);
+// }
 
 
-function validateBuildConfig(buildConfig: BuildConfig) {
+export function validateBuildConfig(buildConfig: BuildConfig) {
   if (!buildConfig.srcDir) {
     throw `config.srcDir required`;
   }

@@ -440,6 +440,8 @@ export interface BuildConfig {
   isDevMode: boolean;
   isWatch: boolean;
   preamble: string;
+  process: Process;
+  numWorkers: number;
 }
 
 
@@ -449,6 +451,10 @@ export interface Logger {
   ok(msg: string): void;
   warn(msg: string): void;
   error(msg: string): void;
+  dim(msg: string): string;
+  createTimeSpan(startMsg: string): {
+    finish(finishedMsg: string): void;
+  };
 }
 
 
@@ -951,15 +957,17 @@ export interface StencilSystem {
     parse(hydrateOptions: HydrateOptions): Window;
     serialize(): string;
   };
+  createWorker?(): Process;
   fs?: {
     access(path: string, callback: (err: any) => void): void;
     mkdir(path: string, callback?: (err?: any) => void): void;
     readdir(path: string, callback?: (err: any, files: string[]) => void): void;
     readFile(filename: string, encoding: string, callback: (err: any, data: string) => void): void;
     readFileSync(filename: string, encoding: string): string;
+    rmdir(path: string, callback?: (err?: any) => void): void;
     stat(path: string, callback?: (err: any, stats: { isFile(): boolean; isDirectory(): boolean; }) => any): void;
+    unlink(path: string, callback?: (err?: any) => void): void;
     writeFile(filename: string, data: any, callback?: (err: any) => void): void;
-    remove(path: string): Promise<void>;
   };
   generateContentHash?(content: string): string;
   getClientCoreFile?(opts: {staticName: string, es5?: boolean, devMode: boolean}): Promise<string>;
@@ -971,6 +979,7 @@ export interface StencilSystem {
     basename(p: string, ext?: string): string;
     dirname(p: string): string;
     extname(p: string): string;
+    isAbsolute(p: string): boolean;
     join(...paths: string[]): string;
     relative(from: string, to: string): string;
     resolve(...pathSegments: any[]): string;
@@ -1022,6 +1031,15 @@ export interface StencilSystem {
 }
 
 
+export interface Process {
+  connected: boolean;
+  kill(signal?: string): void;
+  on(event: string, listener: Function): any;
+  pid: number;
+  send(message: any): boolean;
+}
+
+
 export interface TaskOptions {
   rootDir: string;
   sys: StencilSystem;
@@ -1029,6 +1047,8 @@ export interface TaskOptions {
   stencilConfig: StencilConfig;
   isDevMode: boolean;
   isWatch: boolean;
+  process: any;
+  numWorkers: number;
 }
 
 

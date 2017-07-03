@@ -1,5 +1,5 @@
-import { BuildContext, CompilerConfig } from './interfaces';
-import { createFileMeta, writeFiles } from './util';
+import { WorkerBuildContext, CompilerConfig, Logger, ModuleFileMeta, StencilSystem, CompileResult, Diagnostic } from './interfaces';
+import { createModuleFileMeta, getFileMeta } from './util';
 import { componentClass } from './transformers/component-class';
 import { jsxToVNode } from './transformers/jsx-to-vnode';
 import { removeImports } from './transformers/remove-imports';
@@ -7,44 +7,20 @@ import { updateLifecycleMethods } from './transformers/update-lifecycle-methods'
 import * as ts from 'typescript';
 
 
-export function transpile(config: CompilerConfig, ctx: BuildContext): Promise<any> {
-  config.logger.debug(`transpile, include: ${config.include}`);
+export function transpile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, tsFileName: string) {
+  logger.debug(`transpile: ${tsFileName}`);
 
-  const tsFilePaths = getTsFilePaths(ctx);
-
-  ctx.files.forEach(f => {
-    if (f.isTsSourceFile) {
-      f.transpiledCount++;
-    }
+  return getFileMeta(sys, ctx, tsFileName).then(moduleFile => {
+    return transpileFile(sys, logger, ctx, compilerConfig, moduleFile);
   });
-
-  return transpileFiles(tsFilePaths, config, ctx);
 }
 
 
-export function transpileFiles(tsFilePaths: string[], config: CompilerConfig, ctx: BuildContext): Promise<any> {
-  if (!tsFilePaths.length) {
-    config.logger.debug(`transpile, no files`);
-    return Promise.resolve();
-  }
-
-  tsFilePaths.forEach(tsFileName => {
-    config.logger.debug(`transpile: ${tsFileName}`);
-  });
-
-  const sourcesMap = new Map<string, ts.SourceFile>();
-
-  ctx.files.forEach((fileMeta, filePath) => {
-    const sourceFile = ts.createSourceFile(filePath, fileMeta.srcText, ts.ScriptTarget.ES2015);
-    sourcesMap.set(filePath, sourceFile);
-  });
-
-  const outputs = new Map<string, string>();
-
-  const tsCompilerOptions = createTsCompilerConfigs(config);
+function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta) {
+  const tsCompilerOptions = createTsCompilerConfigs(compilerConfig);
 
   const tsHost: ts.CompilerHost = {
-    getSourceFile: (filePath) => sourcesMap.get(filePath),
+    getSourceFile: (filePath) => ts.createSourceFile(filePath, moduleFile.srcText, ts.ScriptTarget.ES2015),
     getDefaultLibFileName: () => 'lib.d.ts',
     getCurrentDirectory: () => '',
     getDirectories: () => [],
@@ -53,46 +29,41 @@ export function transpileFiles(tsFilePaths: string[], config: CompilerConfig, ct
     getNewLine: () => '\n',
 
     fileExists: (filePath) => {
-      return ctx.files.has(filePath);
+      return ctx.moduleFiles.has(filePath);
     },
 
     readFile: (filePath) => {
-      let fileMeta = ctx.files.get(filePath);
-      if (fileMeta) {
-        return fileMeta.srcText;
+      let moduleFile = ctx.moduleFiles.get(filePath);
+      if (moduleFile) {
+        // already have this file in-memory
+        return moduleFile.srcText;
       }
-      fileMeta = createFileMeta(config.sys, ctx, filePath, config.sys.fs.readFileSync(filePath, 'utf-8'));
-      fileMeta.recompileOnChange = true;
-      return fileMeta.srcText;
+
+      // file not in-memory yet
+      moduleFile = createModuleFileMeta(sys, ctx, filePath, sys.fs.readFileSync(filePath, 'utf-8'));
+      moduleFile.recompileOnChange = true;
+      return moduleFile.srcText;
     },
 
     writeFile: (jsFilePath: string, jsText: string, writeByteOrderMark: boolean, onError: any, sourceFiles: ts.SourceFile[]): void => {
       sourceFiles.forEach(s => {
-        const fileMeta = ctx.files.get(s.fileName);
-        if (fileMeta) {
-          fileMeta.recompileOnChange = true;
-          fileMeta.jsFilePath = jsFilePath;
-          fileMeta.jsText = jsText;
+        const moduleFile = ctx.moduleFiles.get(s.fileName);
+        if (moduleFile) {
+          moduleFile.recompileOnChange = true;
+          moduleFile.jsFilePath = jsFilePath;
+          moduleFile.jsText = jsText;
         }
       });
-
-      if (jsText && jsText.trim().length) {
-        outputs.set(jsFilePath, jsText);
-      }
 
       writeByteOrderMark; onError;
     }
   };
 
-  const program = ts.createProgram(tsFilePaths, tsCompilerOptions, tsHost);
-
-  if (program.getSyntacticDiagnostics().length > 0) {
-    return Promise.reject(program.getSyntacticDiagnostics());
-  }
+  const program = ts.createProgram([moduleFile.filePath], tsCompilerOptions, tsHost);
 
   const result = program.emit(undefined, tsHost.writeFile, undefined, false, {
     before: [
-      componentClass(config.logger, ctx),
+      componentClass(logger, ctx),
       removeImports(),
       updateLifecycleMethods()
     ],
@@ -101,23 +72,31 @@ export function transpileFiles(tsFilePaths: string[], config: CompilerConfig, ct
     ]
   });
 
-  if (result.diagnostics.length > 0) {
-    return Promise.reject(result.diagnostics);
-  }
-
-  config.logger.debug(`transpile, files to write: ${outputs.size}`);
-
-  return writeFiles(config.sys, outputs);
+  return <CompileResult>{
+    moduleFile: moduleFile,
+    diagnostics: result.diagnostics.map(d => {
+      const diagnostic: Diagnostic = {
+        msg: d.messageText.toString(),
+        level: 'error',
+        filePath: d.file && d.file.fileName,
+        start: d.start,
+        length: d.length,
+        category: d.category,
+        code: d.code
+      };
+      return diagnostic;
+    })
+  };
 }
 
 
-function createTsCompilerConfigs(config: CompilerConfig) {
-  const tsCompilerOptions: ts.CompilerOptions = Object.assign({}, (<any>config.compilerOptions));
+function createTsCompilerConfigs(compilerConfig: CompilerConfig) {
+  const tsCompilerOptions: ts.CompilerOptions = Object.assign({}, (<any>compilerConfig.compilerOptions));
 
   tsCompilerOptions.noImplicitUseStrict = true;
   tsCompilerOptions.moduleResolution = ts.ModuleResolutionKind.NodeJs;
   tsCompilerOptions.module = ts.ModuleKind.ES2015;
-  tsCompilerOptions.target = getTsScriptTarget(config.compilerOptions.target);
+  tsCompilerOptions.target = getTsScriptTarget(compilerConfig.compilerOptions.target);
   tsCompilerOptions.isolatedModules = true;
   tsCompilerOptions.allowSyntheticDefaultImports = true;
   tsCompilerOptions.allowJs = true;
@@ -136,19 +115,6 @@ function createTsCompilerConfigs(config: CompilerConfig) {
   }
 
   return tsCompilerOptions;
-}
-
-
-function getTsFilePaths(ctx: BuildContext) {
-  const filePaths: string[] = [];
-
-  ctx.files.forEach(fileMeta => {
-    if (fileMeta.isTsSourceFile && fileMeta.hasCmpClass) {
-      filePaths.push(fileMeta.filePath);
-    }
-  });
-
-  return filePaths;
 }
 
 

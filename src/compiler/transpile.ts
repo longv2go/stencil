@@ -1,4 +1,4 @@
-import { WorkerBuildContext, CompilerConfig, Logger, ModuleFileMeta, StencilSystem, CompileResult, Diagnostic } from './interfaces';
+import { WorkerBuildContext, CompilerConfig, Logger, ModuleFileMeta, StencilSystem, CompileResults, Diagnostic } from './interfaces';
 import { createModuleFileMeta, getFileMeta } from './util';
 import { componentClass } from './transformers/component-class';
 import { jsxToVNode } from './transformers/jsx-to-vnode';
@@ -18,6 +18,10 @@ export function transpile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildCo
 
 function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta) {
   const tsCompilerOptions = createTsCompilerConfigs(compilerConfig);
+
+  const compileResults: CompileResults = {
+    jsFiles: {}
+  };
 
   const tsHost: ts.CompilerHost = {
     getSourceFile: (filePath) => ts.createSourceFile(filePath, moduleFile.srcText, ts.ScriptTarget.ES2015),
@@ -52,8 +56,12 @@ function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildConte
           moduleFile.recompileOnChange = true;
           moduleFile.jsFilePath = jsFilePath;
           moduleFile.jsText = jsText;
+
+          processIncludedStyles(sys, logger, compilerConfig, moduleFile, compileResults);
         }
       });
+
+      compileResults.jsFiles[jsFilePath] = jsText;
 
       writeByteOrderMark; onError;
     }
@@ -72,21 +80,88 @@ function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildConte
     ]
   });
 
-  return <CompileResult>{
-    moduleFile: moduleFile,
-    diagnostics: result.diagnostics.map(d => {
-      const diagnostic: Diagnostic = {
-        msg: d.messageText.toString(),
-        level: 'error',
-        filePath: d.file && d.file.fileName,
-        start: d.start,
-        length: d.length,
-        category: d.category,
-        code: d.code
-      };
-      return diagnostic;
-    })
-  };
+  compileResults.diagnostics = result.diagnostics.map(d => {
+    const diagnostic: Diagnostic = {
+      msg: d.messageText.toString(),
+      level: 'error',
+      filePath: d.file && d.file.fileName,
+      start: d.start,
+      length: d.length,
+      category: d.category,
+      code: d.code
+    };
+    return diagnostic;
+  });
+
+  return compileResults;
+}
+
+
+function processIncludedStyles(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, compileResults: CompileResults) {
+  if (!moduleFile.isTsSourceFile || !moduleFile.cmpMeta || !moduleFile.cmpMeta.styleMeta) {
+    return Promise.resolve(null);
+  }
+
+  const destDir = compilerConfig.compilerOptions.outDir;
+
+  logger.debug(`compile, processStyles, destDir ${destDir}`);
+
+  const promises: Promise<any>[] = [];
+  compileResults.includedSassFiles = compileResults.includedSassFiles || [];
+
+  const modeNames = Object.keys(moduleFile.cmpMeta.styleMeta);
+  modeNames.forEach(modeName => {
+    const modeMeta = Object.assign({}, moduleFile.cmpMeta.styleMeta[modeName]);
+
+    if (modeMeta.styleUrls) {
+      modeMeta.styleUrls.forEach(styleUrl => {
+        const scssFileName = sys.path.basename(styleUrl);
+        const scssFilePath = sys.path.join(moduleFile.srcDir, scssFileName);
+        promises.push(
+          getIncludedSassFiles(sys, logger, compileResults, scssFilePath)
+        );
+      });
+    }
+
+  });
+
+  return Promise.all(promises);
+}
+
+
+function getIncludedSassFiles(sys: StencilSystem, logger: Logger, compileResults: CompileResults, scssFilePath: string) {
+  return new Promise(resolve => {
+
+    const sassConfig = {
+      file: scssFilePath,
+      outFile: `${scssFilePath}.tmp`
+    };
+
+    compileResults.includedSassFiles = compileResults.includedSassFiles || [];
+
+    if (compileResults.includedSassFiles.indexOf(scssFilePath) === -1) {
+      compileResults.includedSassFiles.push(scssFilePath);
+    }
+
+    logger.debug(`compile, getIncludedSassFiles: ${scssFilePath}`);
+
+    sys.sass.render(sassConfig, (err, result) => {
+      if (err) {
+        logger.error(`sass.render, getIncludedSassFiles, ${err}`);
+
+      } else {
+        result.stats.includedFiles.forEach((includedFile: string) => {
+          if (compileResults.includedSassFiles.indexOf(includedFile) === -1) {
+            compileResults.includedSassFiles.push(includedFile);
+          }
+        });
+      }
+
+      // always resolve
+      resolve();
+    });
+
+  });
 }
 
 

@@ -1,4 +1,4 @@
-import { Bundle, BundlerConfig, CompilerConfig, CompileResult, ComponentMeta, Logger,
+import { Bundle, BundlerConfig, CompilerConfig, CompileResults, ComponentMeta, Logger,
   ModuleResults, Process, StencilSystem, StylesResults, WorkerBuildContext } from './interfaces';
 import { compileFileWorker } from './compile';
 import { generateDefineComponentsWorker } from './bundle-modules';
@@ -76,7 +76,7 @@ export class WorkerManager {
     }
   }
 
-  compileFile(compilerConfig: CompilerConfig, filePath: string): Promise<CompileResult> {
+  compileFile(compilerConfig: CompilerConfig, filePath: string): Promise<CompileResults> {
     const f = this.getFile(filePath);
 
     return this.sendTaskToWorker(f.workerId, {

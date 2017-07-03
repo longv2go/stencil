@@ -120,7 +120,8 @@ function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) 
     ],
     isDevMode: buildConfig.isDevMode,
     bundles: buildConfig.bundles,
-    isWatch: buildConfig.isWatch
+    isWatch: buildConfig.isWatch,
+    writeCompiledToDisk: buildConfig.writeCompiledToDisk
   };
 
   return compile(buildConfig.sys, buildConfig.logger, workerManager, config);

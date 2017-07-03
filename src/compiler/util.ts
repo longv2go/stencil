@@ -108,7 +108,11 @@ export function copyFile(sys: StencilSystem, src: string, dest: string) {
 }
 
 
-export function writeFiles(sys: StencilSystem, files: Map<string, string>) {
+export function writeFiles(sys: StencilSystem, files: Map<string, string>): Promise<any> {
+  if (!files.size) {
+    return Promise.resolve();
+  }
+
   const paths: string[] = [];
 
   files.forEach((content, filePath) => {

@@ -107,7 +107,7 @@ export function copyFile(sys: StencilSystem, src: string, dest: string) {
 
 
 export function writeFiles(sys: StencilSystem, files: Map<string, string>): Promise<any> {
-  if (!files.size) {
+  if (!files || !files.size) {
     return Promise.resolve();
   }
 

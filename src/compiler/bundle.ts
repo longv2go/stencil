@@ -1,35 +1,56 @@
 import { ATTR_DASH_CASE, ATTR_LOWER_CASE } from '../util/constants';
 import { BundlerConfig, Logger, MainBuildContext, Manifest, Results, StencilSystem } from './interfaces';
-import { bundleModules } from './bundle-modules';
+// import { bundleModules } from './bundle-modules';
 import { bundleStyles } from './bundle-styles';
-import { generateComponentRegistry } from './bundle-registry';
+// import { generateComponentRegistry } from './bundle-registry';
 
 
 export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: BundlerConfig, mainCtx: MainBuildContext): Promise<Results> {
-  validateConfig(bundlerConfig);
-
-  const userManifest = validateUserManifest(bundlerConfig.manifest);
+  // within MAIN thread
+  const timeSpan = logger.createTimeSpan(`bundle started`);
 
   logger.debug(`bundle, srcDir: ${bundlerConfig.srcDir}`);
   logger.debug(`bundle, destDir: ${bundlerConfig.destDir}`);
 
   return Promise.resolve().then(() => {
+    validateConfig(bundlerConfig);
+
+    const userManifest = validateUserManifest(bundlerConfig.manifest);
+
+sys;
     // kick off style and module bundling at the same time
     return Promise.all([
       bundleStyles(logger, bundlerConfig, mainCtx.workerManager, userManifest),
-      bundleModules(logger, bundlerConfig, mainCtx.workerManager, userManifest)
+      // bundleModules(logger, bundlerConfig, mainCtx.workerManager, userManifest)
     ]);
 
   }).then(bundleResults => {
     // both styles and modules are done bundling
     const styleResults = bundleResults[0];
-    const moduleResults = bundleResults[1];
+    if (styleResults.diagnostics && styleResults.diagnostics.length) {
+      styleResults.diagnostics.forEach(d => {
+        logger[d.level](d.msg);
+        d.stack && logger.debug(d.stack);
+      });
+    }
 
-    return generateComponentRegistry(sys, bundlerConfig, styleResults, moduleResults);
+    // const moduleResults = bundleResults[1];
+    // if (moduleResults.diagnostics && moduleResults.diagnostics.length) {
+    //   moduleResults.diagnostics.forEach(d => {
+    //     logger[d.level](d.msg);
+    //     d.stack && logger.debug(d.stack);
+    //   });
+    // }
+
+    // return generateComponentRegistry(sys, bundlerConfig, styleResults, moduleResults);
 
   })
+  .catch(err => {
+    logger.error(err);
+    err.stack && logger.debug(err.stack);
+  })
   .then(() => {
-    logger.info('bundle, done');
+    timeSpan.finish('bundle, done');
 
     return mainCtx.results;
   });

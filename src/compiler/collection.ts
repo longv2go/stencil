@@ -42,7 +42,7 @@ export function collection(buildConfig: BuildConfig, mainCtx?: MainBuildContext)
     mainCtx.workerManager.disconnect();
 
     if (buildConfig.isWatch) {
-      timeSpan.finish(`collection finished, watching files ...`);
+      timeSpan.finish(`collection ready, watching files ...`);
 
     } else {
       timeSpan.finish(`collection finished`);

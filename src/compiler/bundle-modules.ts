@@ -66,9 +66,9 @@ export function generateDefineComponentsWorker(sys: StencilSystem, ctx: WorkerBu
       // dev mode has filename from the bundled tag names
       moduleResults.bundles[bundleId] = userBundle.components.sort().join('.').toLowerCase();
 
-      if (moduleResults.bundles[bundleId].length > 40) {
+      if (moduleResults.bundles[bundleId].length > 50) {
         // can get a lil too long, so let's simmer down
-        moduleResults.bundles[bundleId] = moduleResults.bundles[bundleId].substr(0, 40);
+        moduleResults.bundles[bundleId] = moduleResults.bundles[bundleId].substr(0, 50);
       }
 
     } else {

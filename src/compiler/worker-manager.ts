@@ -86,7 +86,7 @@ export class WorkerManager {
     });
   }
 
-  generateBundleCss(bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[]): Promise<StylesResults> {
+  generateBundleCss(bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle): Promise<StylesResults> {
     if (!bundleComponentMeta.length) {
       return Promise.resolve({});
     }
@@ -96,7 +96,8 @@ export class WorkerManager {
     return this.sendTaskToWorker(workerId, {
       taskName: 'generateBundleCss',
       config: bundlerConfig,
-      bundleComponentMeta: bundleComponentMeta
+      bundleComponentMeta: bundleComponentMeta,
+      userBundle: userBundle
     });
   }
 
@@ -150,15 +151,19 @@ export class WorkerManager {
   }
 
   private getStyleBundleWorkerId(bundleComponentMeta: ComponentMeta[]) {
-    const tagName = bundleComponentMeta[0].tagNameMeta;
-    let workerId = this.tagWorkerIds.get(tagName);
+    if (bundleComponentMeta.length) {
+      const tagName = bundleComponentMeta[0].tagNameMeta;
+      let workerId = this.tagWorkerIds.get(tagName);
 
-    if (typeof workerId !== 'number') {
-      workerId = this.nextWorkerId();
-      this.tagWorkerIds.set(tagName, workerId);
+      if (typeof workerId !== 'number') {
+        workerId = this.nextWorkerId();
+        this.tagWorkerIds.set(tagName, workerId);
+      }
+
+      return workerId;
     }
 
-    return workerId;
+    return 0;
   }
 
   nextWorkerId() {

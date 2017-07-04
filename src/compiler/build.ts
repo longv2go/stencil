@@ -1,6 +1,6 @@
 import { BuildConfig, Manifest } from '../util/interfaces';
-import { CompilerConfig, MainBuildContext } from './interfaces';
-// import { bundle } from './bundle';
+import { BundlerConfig, CompilerConfig, MainBuildContext } from './interfaces';
+import { bundle } from './bundle';
 import { compile } from './compile';
 import { generateDependentManifests, mergeManifests, updateManifestUrls } from './manifest';
 // import { generateProjectCore } from './build-project-core';
@@ -40,8 +40,8 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
       const resultsManifest: Manifest = compileResults.manifest || {};
 
       const localManifest = updateManifestUrls(
-        buildConfig.logger,
-        buildConfig.sys,
+        logger,
+        sys,
         resultsManifest,
         buildConfig.destDir,
         buildConfig.destDir
@@ -49,23 +49,24 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
       return mergeManifests([].concat((localManifest || []), dependentManifests));
     });
 
+  }).then(manifest => {
+    // bundle all of the components into their separate files
+    return bundleProject(buildConfig, mainCtx, manifest);
+
   }).catch(err => {
-    buildConfig.logger.error(err);
+    logger.error(err);
+    err.stack && logger.debug(err.stack);
 
   }).then(() => {
     mainCtx.workerManager.disconnect();
 
     if (buildConfig.isWatch) {
-      timeSpan.finish(`build finished, watching files ...`);
+      timeSpan.finish(`build ready, watching files ...`);
 
     } else {
       timeSpan.finish(`build finished`);
     }
   });
-
-  // .then(manifest => {
-  //   // bundle all of the components into their separate files
-  //   return bundleProject(buildConfig, mainCtx, manifest);
 
   // }).then(bundleProjectResults => {
   //   // generate the core loader and aux files for this project
@@ -110,18 +111,18 @@ function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) 
 }
 
 
-// function bundleProject(buildConfig: BuildConfig, mainCtx: MainBuildContext, manifest: Manifest) {
-//   const config: BundlerConfig = {
-//     namespace: buildConfig.namespace,
-//     srcDir: buildConfig.compiledDir,
-//     destDir: buildConfig.destDir,
-//     manifest: manifest,
-//     isDevMode: buildConfig.isDevMode,
-//     isWatch: buildConfig.isWatch
-//   };
+function bundleProject(buildConfig: BuildConfig, mainCtx: MainBuildContext, manifest: Manifest) {
+  const bundlerConfig: BundlerConfig = {
+    namespace: buildConfig.namespace,
+    srcDir: buildConfig.srcDir,
+    destDir: buildConfig.destDir,
+    manifest: manifest,
+    isDevMode: buildConfig.isDevMode,
+    isWatch: buildConfig.isWatch
+  };
 
-//   return bundle(buildConfig.sys, buildConfig.logger, config, mainCtx);
-// }
+  return bundle(buildConfig.sys, buildConfig.logger, bundlerConfig, mainCtx);
+}
 
 
 export function validateBuildConfig(buildConfig: BuildConfig) {

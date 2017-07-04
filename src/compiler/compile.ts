@@ -7,6 +7,8 @@ import { WorkerManager } from './worker-manager';
 
 export function compile(sys: StencilSystem, logger: Logger, workerManager: WorkerManager, compilerConfig: CompilerConfig) {
   // within MAIN thread
+  const timeSpan = logger.createTimeSpan(`compile started`);
+
   logger.debug(`compile, include: ${compilerConfig.include}`);
   logger.debug(`compile, outDir: ${compilerConfig.compilerOptions.outDir}`);
 
@@ -34,7 +36,7 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
     });
 
   })).then(() => {
-    if (compileResults.diagnostics && compileResults.diagnostics.length > 0) {
+    if (compileResults.diagnostics && compileResults.diagnostics.length) {
       compileResults.diagnostics.forEach(d => {
         logger[d.level](d.msg);
         d.stack && logger.debug(d.stack);
@@ -50,7 +52,12 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
   }).then(() => {
     return writeFiles(sys, filesToWrite);
 
+  }).catch(err => {
+    logger.error(err);
+    err.stack && logger.debug(err.stack);
+
   }).then(() => {
+    timeSpan.finish(`compile finished`);
     return compileResults;
   });
 }

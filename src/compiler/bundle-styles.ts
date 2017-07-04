@@ -119,7 +119,7 @@ function generateModeCss(
     modeStyles.push(appendVisibilityCss(bundleComponentMeta));
 
     // let's join all bundled component mode css together
-    const styleContent = modeStyles.join('\n\n').trim();
+    let styleContent = modeStyles.join('\n\n').trim();
 
     // generate a unique internal id for this bundle (this isn't the hashed bundle id)
     const bundleId = generateBundleId(userBundle.components);
@@ -143,7 +143,18 @@ function generateModeCss(
       }
 
     } else {
-      // in prod mode, create bundle id from hashing the content
+      // prod mode, minify css
+      const minifyCssResults = sys.minifyCss(styleContent);
+      stylesResults.diagnostics = stylesResults.diagnostics || [];
+      minifyCssResults.diagnostics.forEach(d => {
+        stylesResults.diagnostics.push(d);
+      });
+
+      if (minifyCssResults.output) {
+        styleContent = minifyCssResults.output;
+      }
+
+      // create bundle id from hashing the content
       stylesResult[modeName] = sys.generateContentHash(styleContent);
     }
 

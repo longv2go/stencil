@@ -1,5 +1,5 @@
 export * from '../util/interfaces';
-import { ComponentMeta, Manifest, Bundle } from '../util/interfaces';
+import { Bundle, ComponentMeta, Diagnostic, Manifest } from '../util/interfaces';
 import { WorkerManager } from './worker-manager';
 
 
@@ -102,18 +102,6 @@ export interface StylesResults {
     };
   };
   diagnostics?: Diagnostic[];
-}
-
-
-export interface Diagnostic {
-  msg: string;
-  level: 'error'|'warn';
-  filePath?: string;
-  start?: number;
-  length?: number;
-  category?: any;
-  code?: number;
-  stack?: string;
 }
 
 

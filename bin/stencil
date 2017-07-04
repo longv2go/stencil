@@ -73,6 +73,37 @@ var sys = Object.defineProperties({}, {
 });
 
 
+sys.minifyCss = function(input, opts) {
+  var CleanCSS = require('clean-css');
+  var output = new CleanCSS(opts).minify(input);
+  var diagnostics = [];
+
+  if (output.errors) {
+    output.errors.forEach(msg => {
+      diagnostics.push({
+        msg: msg,
+        level: 'error'
+      });
+    });
+  }
+
+  if (output.warnings) {
+    output.warnings.forEach(msg => {
+      diagnostics.push({
+        msg: msg,
+        level: 'warn'
+      });
+    });
+  }
+
+  return {
+    output: output.styles,
+    sourceMap: output.sourceMap,
+    diagnostics: diagnostics
+  };
+};
+
+
 sys.createWorker = function() {
   const cp = require('child_process');
 

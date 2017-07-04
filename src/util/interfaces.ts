@@ -952,6 +952,18 @@ export interface StencilConfig {
 }
 
 
+export interface Diagnostic {
+  msg: string;
+  level: 'error'|'warn';
+  filePath?: string;
+  start?: number;
+  length?: number;
+  category?: any;
+  code?: number;
+  stack?: string;
+}
+
+
 export interface StencilSystem {
   createDom?(): {
     parse(hydrateOptions: HydrateOptions): Window;
@@ -971,6 +983,16 @@ export interface StencilSystem {
   };
   generateContentHash?(content: string): string;
   getClientCoreFile?(opts: {staticName: string, es5?: boolean, devMode: boolean}): Promise<string>;
+  minifyCss?(input: string, opts?: any): {
+    output: string;
+    sourceMap?: any;
+    diagnostics?: Diagnostic[];
+  };
+  minifyJs?(input: string, opts?: any): {
+    output: string;
+    sourceMap?: any;
+    diagnostis?: Diagnostic[];
+  };
   module?: {
     _nodeModulePaths(fromDir: string): any;
     _resolveFilename(moduleId: string, opts: any): any;

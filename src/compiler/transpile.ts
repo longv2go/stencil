@@ -7,7 +7,8 @@ import { updateLifecycleMethods } from './transformers/update-lifecycle-methods'
 import * as ts from 'typescript';
 
 
-export function transpile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, tsFileName: string) {
+export function transpileWorker(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, tsFileName: string) {
+  // within WORKER thread
   logger.debug(`transpile: ${tsFileName}`);
 
   return getFileMeta(sys, ctx, tsFileName).then(moduleFile => {
@@ -22,6 +23,8 @@ function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildConte
   const compileResults: CompileResults = {
     moduleFiles: {}
   };
+
+  const processCssModulesFiles: ModuleFileMeta[] = [];
 
   const tsHost: ts.CompilerHost = {
     getSourceFile: (filePath) => ts.createSourceFile(filePath, moduleFile.srcText, ts.ScriptTarget.ES2015),
@@ -57,7 +60,7 @@ function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildConte
           moduleFile.jsFilePath = jsFilePath;
           moduleFile.jsText = jsText;
 
-          processIncludedStyles(sys, logger, compilerConfig, moduleFile, compileResults);
+          processCssModulesFiles.push(moduleFile);
 
           compileResults.moduleFiles[s.fileName] = moduleFile;
         }
@@ -93,7 +96,11 @@ function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildConte
     return diagnostic;
   });
 
-  return compileResults;
+  return Promise.all(processCssModulesFiles.map(moduleFile => {
+    return processIncludedStyles(sys, logger, compilerConfig, moduleFile, compileResults);
+  })).then(() => {
+    return compileResults;
+  });
 }
 
 
@@ -147,9 +154,13 @@ function getIncludedSassFiles(sys: StencilSystem, logger: Logger, compileResults
 
     sys.sass.render(sassConfig, (err, result) => {
       if (err) {
-        logger.error(`sass.render, getIncludedSassFiles, ${err}`);
+        compileResults.diagnostics = compileResults.diagnostics || [];
+        compileResults.diagnostics.push({
+          msg: err,
+          level: 'error'
+        });
 
-      } else {
+      } else if (result.stats) {
         result.stats.includedFiles.forEach((includedFile: string) => {
           if (compileResults.includedSassFiles.indexOf(includedFile) === -1) {
             compileResults.includedSassFiles.push(includedFile);

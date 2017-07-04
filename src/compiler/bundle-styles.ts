@@ -175,7 +175,7 @@ function generateComponentModeStyles(
   const promises: Promise<any>[] = [];
 
   // used to remember the exact order the user wants
-  // file reads are async and could mess with the order
+  // sass render and file reads are async so it could mess with the order
   const styleCollection: StyleCollection = {};
 
   if (modeStyleMeta) {
@@ -213,9 +213,9 @@ function generateComponentModeStyles(
   return Promise.all(promises).then(() => {
     // we've loaded everything, let's join them together
     // using the style collection object as a way to keep the same order
-    return Object.keys(styleCollection).map(key => {
-      return styleCollection[key];
-    }).join('\n\n').trim();
+    return Object.keys(styleCollection)
+            .map(key => styleCollection[key])
+            .join('\n\n').trim();
   });
 }
 
@@ -282,7 +282,7 @@ function readCssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, ctx: Work
     styleFile.cssText = cssText.toString().trim();
 
     if (bundlerConfig.isDevMode) {
-      styleCollection[styleUrl] = `/********** ${cssFileName} **********/\n\n${styleFile.cssText}\n\n`;
+      styleCollection[styleUrl] = `/********** ${cssFileName} **********/\n\n${styleFile.cssText}`;
     } else {
       styleCollection[styleUrl] = styleFile.cssText;
     }

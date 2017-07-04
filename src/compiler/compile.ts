@@ -1,7 +1,7 @@
 import { access, isTsSourceFile, readFile, writeFiles } from './util';
 import { CompilerConfig, CompileResults, Logger, StencilSystem, WorkerBuildContext } from './interfaces';
 import { generateManifest } from './manifest';
-import { transpile } from './transpile';
+import { transpileWorker } from './transpile';
 import { WorkerManager } from './worker-manager';
 
 
@@ -175,7 +175,7 @@ function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfi
 
 export function compileFileWorker(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, filePath: string) {
   // within WORKER thread
-  return transpile(sys, logger, ctx, compilerConfig, filePath)
+  return transpileWorker(sys, logger, ctx, compilerConfig, filePath)
     .catch(err => {
       const compileResult: CompileResults = {
         diagnostics: [{
@@ -196,13 +196,22 @@ function copySourceSassFilesToDest(sys: StencilSystem, compilerConfig: CompilerC
 
   return Promise.all(includedSassFiles.map(sassSrcPath => {
     return readFile(sys, sassSrcPath).then(sassSrcText => {
-      let relative = sassSrcPath;
+      const includeDir = compilerConfig.include.find(includeDir => sassSrcPath.indexOf(includeDir) === 0);
+      let sassDestPath: string;
 
-      compilerConfig.include.forEach(includeDir => {
-        relative = relative.replace(includeDir, '');
-      });
+      if (includeDir) {
+        sassDestPath = sys.path.join(
+          compilerConfig.compilerOptions.outDir,
+          sys.path.relative(includeDir, sassSrcPath)
+        );
 
-      const sassDestPath = sys.path.join(compilerConfig.compilerOptions.outDir, relative);
+      } else {
+        sassDestPath = sys.path.join(
+          compilerConfig.compilerOptions.rootDir,
+          sys.path.relative(compilerConfig.compilerOptions.rootDir, sassSrcPath)
+        );
+      }
+
       filesToWrite.set(sassDestPath, sassSrcText);
     });
   }));

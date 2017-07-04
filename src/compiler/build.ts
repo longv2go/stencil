@@ -1,11 +1,11 @@
-import { BuildConfig/*, Manifest*/ } from '../util/interfaces';
-import { CompilerConfig, Results, MainBuildContext } from './interfaces';
+import { BuildConfig, Manifest } from '../util/interfaces';
+import { CompilerConfig, MainBuildContext } from './interfaces';
 // import { bundle } from './bundle';
 import { compile } from './compile';
-import { generateDependentManifests/*, mergeManifests, updateManifestUrls*/ } from './manifest';
+import { generateDependentManifests, mergeManifests, updateManifestUrls } from './manifest';
 // import { generateProjectCore } from './build-project-core';
 import { WorkerManager } from './worker-manager';
-import { emptyDir } from './util';
+// import { emptyDir } from './util';
 
 
 export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
@@ -16,14 +16,9 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
 
   buildConfig.writeCompiledToDisk = false;
 
-  // use the same build context object throughout the build
   mainCtx = mainCtx || {};
 
-  const results: Results = {};
-
   if (!mainCtx.workerManager) {
-    // create a worker manager if one doesn't already exit
-    // this assigns which worker specific files should be handled by
     mainCtx.workerManager = new WorkerManager(buildConfig.sys, buildConfig.logger);
     mainCtx.workerManager.connect(buildConfig.numWorkers);
   }
@@ -32,15 +27,6 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
     // validate our data is good to go
     validateBuildConfig(buildConfig);
 
-    if (!buildConfig.isDevMode) {
-      // in prod mode, be sure to first empty the dest dir
-      logger.debug(`empty bundles dir: ${buildConfig.destDir}`);
-      return emptyDir(sys, buildConfig.destDir);
-    }
-
-    return Promise.resolve();
-
-  }).then(() => {
     return generateDependentManifests(
       sys,
       logger,
@@ -49,23 +35,18 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
       buildConfig.destDir);
 
   }).then(dependentManifests => {
+    return compileProject(buildConfig, mainCtx.workerManager).then(compileResults => {
 
-    return compileProject(buildConfig, mainCtx.workerManager).then(() => {
+      const resultsManifest: Manifest = compileResults.manifest || {};
 
-
-      dependentManifests;
-return results;
-      // const resultsManifest = compileResults.manifest || {};
-
-      // const localManifest = updateManifestUrls(
-      //   buildConfig.logger,
-      //   buildConfig.sys,
-      //   resultsManifest,
-      //   buildConfig.compiledDir,
-      //   buildConfig.compiledDir
-      // );
-      // return mergeManifests([].concat((localManifest || []), dependentManifests));
-
+      const localManifest = updateManifestUrls(
+        buildConfig.logger,
+        buildConfig.sys,
+        resultsManifest,
+        buildConfig.destDir,
+        buildConfig.destDir
+      );
+      return mergeManifests([].concat((localManifest || []), dependentManifests));
     });
 
   }).catch(err => {
@@ -76,6 +57,7 @@ return results;
 
     if (buildConfig.isWatch) {
       timeSpan.finish(`build finished, watching files ...`);
+
     } else {
       timeSpan.finish(`build finished`);
     }

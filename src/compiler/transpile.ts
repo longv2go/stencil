@@ -20,7 +20,7 @@ function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildConte
   const tsCompilerOptions = createTsCompilerConfigs(compilerConfig);
 
   const compileResults: CompileResults = {
-    jsFiles: {}
+    moduleFiles: {}
   };
 
   const tsHost: ts.CompilerHost = {
@@ -58,10 +58,10 @@ function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildConte
           moduleFile.jsText = jsText;
 
           processIncludedStyles(sys, logger, compilerConfig, moduleFile, compileResults);
+
+          compileResults.moduleFiles[s.fileName] = moduleFile;
         }
       });
-
-      compileResults.jsFiles[jsFilePath] = jsText;
 
       writeByteOrderMark; onError;
     }

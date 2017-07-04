@@ -85,7 +85,7 @@ export class CmdLogger implements Logger {
 
       } else {
         prefix = ' ' + level.toUpperCase();
-        while (prefix.length < 7) {
+        while (prefix.length < 8) {
           prefix += ' ';
         }
       }

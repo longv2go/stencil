@@ -1,13 +1,12 @@
 import { access, isTsSourceFile, readFile, writeFiles } from './util';
 import { CompilerConfig, CompileResults, Logger, StencilSystem, WorkerBuildContext } from './interfaces';
-// import { generateManifest } from './manifest';
-// import { setupCompilerWatch } from './watch';
+import { generateManifest } from './manifest';
 import { transpile } from './transpile';
 import { WorkerManager } from './worker-manager';
 
 
 export function compile(sys: StencilSystem, logger: Logger, workerManager: WorkerManager, compilerConfig: CompilerConfig) {
-  // within main thread
+  // within MAIN thread
   logger.debug(`compile, include: ${compilerConfig.include}`);
   logger.debug(`compile, outDir: ${compilerConfig.compilerOptions.outDir}`);
 
@@ -20,9 +19,10 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
   }
 
   const compileResults: CompileResults = {
-    jsFiles: {},
+    moduleFiles: {},
     diagnostics: [],
-    includedSassFiles: []
+    includedSassFiles: [],
+    manifest: {}
   };
 
   return Promise.all(compilerConfig.include.map(includePath => {
@@ -39,9 +39,12 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
         logger[d.level](d.msg);
         d.stack && logger.debug(d.stack);
       });
-      return Promise.resolve();
+
+    } else {
+      compileResults.manifest = generateManifest(sys, logger, compilerConfig, compileResults, filesToWrite);
     }
 
+  }).then(() => {
     return copySourceSassFilesToDest(sys, compilerConfig, compileResults.includedSassFiles, filesToWrite);
 
   }).then(() => {
@@ -54,6 +57,7 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
 
 
 function compileDirectory(sys: StencilSystem, logger: Logger, dir: string, compilerConfig: CompilerConfig, workerManager: WorkerManager, compileResults: CompileResults, filesToWrite: Map<string, string>): Promise<any> {
+  // within MAIN thread
   return new Promise(resolve => {
     // loop through this directory and sub directories looking for
     // files that need to be transpiled
@@ -134,12 +138,15 @@ function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfi
   return workerManager.compileFile(compilerConfig, filePath).then(compileWorkerResult => {
     // awesome, our worker friend finished the job and responded
     // let's resolve and let the main thread take it from here
-    if (compileWorkerResult.jsFiles) {
-      Object.keys(compileWorkerResult.jsFiles).forEach(jsFilePath => {
-        compileResults.jsFiles[jsFilePath] = compileWorkerResult.jsFiles[jsFilePath];
+    if (compileWorkerResult.moduleFiles) {
+      Object.keys(compileWorkerResult.moduleFiles).forEach(filePath => {
+        compileResults.moduleFiles[filePath] = compileWorkerResult.moduleFiles[filePath];
 
         if (compilerConfig.writeCompiledToDisk) {
-          filesToWrite.set(jsFilePath, compileWorkerResult.jsFiles[jsFilePath]);
+          filesToWrite.set(
+            compileResults.moduleFiles[filePath].jsFilePath,
+            compileResults.moduleFiles[filePath].jsText
+          );
         }
       });
     }

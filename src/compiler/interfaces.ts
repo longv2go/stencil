@@ -88,9 +88,10 @@ export interface ModuleResults {
 
 
 export interface CompileResults {
-  jsFiles?: {[filePath: string]: string};
+  moduleFiles?: {[filePath: string]: ModuleFileMeta};
   diagnostics?: Diagnostic[];
   includedSassFiles?: string[];
+  manifest?: Manifest;
 }
 
 

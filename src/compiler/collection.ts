@@ -7,7 +7,10 @@ import { WorkerManager } from './worker-manager';
 
 
 export function collection(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
-  // use the same build context object throughout the build
+  const sys = buildConfig.sys;
+  const logger = buildConfig.logger;
+
+  const timeSpan = logger.createTimeSpan(`collection, ${buildConfig.isDevMode ? 'dev' : 'prod'} mode, started`);
 
   buildConfig.writeCompiledToDisk = true;
 
@@ -18,39 +21,32 @@ export function collection(buildConfig: BuildConfig, mainCtx?: MainBuildContext)
     mainCtx.workerManager.connect(buildConfig.numWorkers);
   }
 
-  buildConfig.logger.info(`build, ${buildConfig.isDevMode ? 'dev' : 'prod'} mode`);
-
   return Promise.resolve().then(() => {
     // validate our data is good to go
     validateBuildConfig(buildConfig);
 
     return generateDependentManifests(
-      buildConfig.sys,
-      buildConfig.logger,
+      sys,
+      logger,
       buildConfig.collections,
       buildConfig.rootDir,
       buildConfig.destDir);
 
   }).then(() => {
-
-    return compileProject(buildConfig, mainCtx.workerManager).then(() => {
-      // if (results.errors && results.errors.length > 0) {
-      //   results.errors.forEach(err => {
-      //     buildConfig.logger.error(err);
-      //   });
-      //   throw 'build error';
-      // }
-    });
-
-  }).then(() => {
-
-    // remove temp compiled dir
-    // removeFilePath(buildConfig.sys, buildConfig.compiledDir);
-    buildConfig.logger.info(`build, done`);
+    return compileProject(buildConfig, mainCtx.workerManager);
 
   }).catch(err => {
     buildConfig.logger.error(err);
-    err.stack && buildConfig.logger.error(err.stack);
+
+  }).then(() => {
+    mainCtx.workerManager.disconnect();
+
+    if (buildConfig.isWatch) {
+      timeSpan.finish(`collection finished, watching files ...`);
+
+    } else {
+      timeSpan.finish(`collection finished`);
+    }
   });
 }
 
@@ -73,7 +69,8 @@ function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) 
     ],
     isDevMode: buildConfig.isDevMode,
     bundles: buildConfig.bundles,
-    isWatch: buildConfig.isWatch
+    isWatch: buildConfig.isWatch,
+    writeCompiledToDisk: buildConfig.writeCompiledToDisk
   };
 
   return compile(buildConfig.sys, buildConfig.logger, workerManager, config);

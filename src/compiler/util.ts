@@ -16,8 +16,6 @@ export function getFileMeta(sys: StencilSystem, ctx: WorkerBuildContext, filePat
 
 
 export function createModuleFileMeta(sys: StencilSystem, ctx: WorkerBuildContext, filePath: string, srcText: string) {
-  ctx.moduleFiles = ctx.moduleFiles || new Map();
-
   let moduleFile = ctx.moduleFiles.get(filePath);
   if (!moduleFile) {
     moduleFile = {

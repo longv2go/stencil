@@ -1,4 +1,4 @@
-import { access, isTsSourceFile, readFile } from './util';
+import { isTsSourceFile, readFile } from './util';
 import { CompilerConfig, CompileResults, FilesToWrite, Logger, ModuleFiles, StencilSystem } from './interfaces';
 import { generateManifest } from './manifest';
 import { transpileWorker } from './transpile';
@@ -9,10 +9,8 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
   // within MAIN thread
   const timeSpan = logger.createTimeSpan(`compile started`);
 
-  logger.debug(`compile, include: ${compilerConfig.include}`);
-  logger.debug(`compile, outDir: ${compilerConfig.compilerOptions.outDir}`);
-
-  compilerConfig.include = compilerConfig.include || [];
+  logger.debug(`compile, srcDir: ${compilerConfig.srcDir}`);
+  logger.debug(`compile, destDir: ${compilerConfig.collectionDir}`);
 
   if (!compilerConfig.exclude) {
     compilerConfig.exclude = ['node_modules', 'bower_components'];
@@ -26,15 +24,7 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
     includedSassFiles: []
   };
 
-  return Promise.all(compilerConfig.include.map(includePath => {
-    return access(sys, includePath).then(pathExists => {
-      if (!pathExists) {
-        return Promise.resolve(null);
-      }
-      return compileDirectory(sys, logger, includePath, compilerConfig, workerManager, compileResults, compileResults.filesToWrite);
-    });
-
-  })).then(() => {
+  return compileDirectory(sys, logger, compilerConfig.srcDir, compilerConfig, workerManager, compileResults, compileResults.filesToWrite).then(() => {
     if (compileResults.diagnostics && compileResults.diagnostics.length) {
       compileResults.diagnostics.forEach(d => {
         logger[d.type](d.msg);
@@ -66,7 +56,7 @@ function compileDirectory(sys: StencilSystem, logger: Logger, dir: string, compi
     // files that need to be transpiled
     logger.debug(`compileDirectory: ${dir}`);
 
-    sys.fs.readdir(dir, (err, files) => {
+    sys.fs.readdir(compilerConfig.collectionDir, (err, files) => {
       if (err) {
         compileResults.diagnostics.push({
           msg: `compileDirectory, fs.readdir: ${dir}, ${err}`,
@@ -209,19 +199,19 @@ function copySourceSassFilesToDest(sys: StencilSystem, compilerConfig: CompilerC
 
   return Promise.all(compileResults.includedSassFiles.map(sassSrcPath => {
     return readFile(sys, sassSrcPath).then(sassSrcText => {
-      const includeDir = compilerConfig.include.find(includeDir => sassSrcPath.indexOf(includeDir) === 0);
+      const includeDir = sassSrcPath.indexOf(compilerConfig.srcDir) === 0;
       let sassDestPath: string;
 
       if (includeDir) {
         sassDestPath = sys.path.join(
-          compilerConfig.compilerOptions.outDir,
-          sys.path.relative(includeDir, sassSrcPath)
+          compilerConfig.collectionDir,
+          sys.path.relative(compilerConfig.srcDir, sassSrcPath)
         );
 
       } else {
         sassDestPath = sys.path.join(
-          compilerConfig.compilerOptions.rootDir,
-          sys.path.relative(compilerConfig.compilerOptions.rootDir, sassSrcPath)
+          compilerConfig.rootDir,
+          sys.path.relative(compilerConfig.rootDir, sassSrcPath)
         );
       }
 

@@ -176,7 +176,7 @@ function generateModeCss(
     // create the file name and path of where the bundle will be saved
     const styleFileName = formatCssBundleFileName(stylesResult[modeName]);
     const styleFilePath = sys.path.join(
-      bundlerConfig.outDir,
+      bundlerConfig.destDir,
       BUNDLES_DIR,
       bundlerConfig.namespace.toLowerCase(),
       styleFileName
@@ -252,7 +252,7 @@ interface StyleCollection {
 function compileScssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, styleUrl: string, styleCollection: StyleCollection, stylesResults: StylesResults) {
   // this is a Sass file that needs to be compiled
   return new Promise(resolve => {
-    const scssFilePath = sys.path.join(bundlerConfig.include, styleUrl);
+    const scssFilePath = sys.path.join(bundlerConfig.srcDir, styleUrl);
     const scssFileName = sys.path.basename(styleUrl);
 
     const sassConfig = {
@@ -289,7 +289,7 @@ function compileScssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, style
 function readCssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, styleUrl: string, styleCollection: StyleCollection, stylesResults: StylesResults) {
   // this is just a plain css file
   // only open it up for its content
-  const cssFilePath = sys.path.join(bundlerConfig.include, styleUrl);
+  const cssFilePath = sys.path.join(bundlerConfig.srcDir, styleUrl);
   const cssFileName = sys.path.basename(styleUrl);
 
   return readFile(sys, cssFilePath).then(cssText => {

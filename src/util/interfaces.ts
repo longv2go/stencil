@@ -433,9 +433,9 @@ export interface BuildConfig {
   logLevel: 'error'|'warn'|'info'|'ok'|'debug';
   rootDir: string;
   namespace: string;
-  include: string[];
-  outDir: string;
-  collectionOutDir: string;
+  src: string;
+  dest: string;
+  collectionDest: string;
   collection: boolean;
   bundles: Bundle[];
   collections: Collection[];
@@ -963,7 +963,6 @@ export interface StencilSystem {
     serialize(): string;
   };
   createWorker?(): Process;
-  cwd: string;
   fs?: {
     access(path: string, callback: (err: any) => void): void;
     mkdir(path: string, callback?: (err?: any) => void): void;

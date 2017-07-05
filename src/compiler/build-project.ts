@@ -24,7 +24,7 @@ function generateLoader(buildConfig: BuildConfig, componentRegistry: LoadCompone
   const sys = buildConfig.sys;
 
   const projectLoaderFileName = `${buildConfig.namespace.toLowerCase()}.js`;
-  const projectLoaderFilePath = sys.path.join(buildConfig.outDir, projectLoaderFileName);
+  const projectLoaderFilePath = sys.path.join(buildConfig.dest, projectLoaderFileName);
 
   return sys.getClientCoreFile({ staticName: STENCIL_LOADER_NAME, devMode: buildConfig.devMode }).then(stencilLoaderContent => {
     // replace the default loader with the project's namespace and components
@@ -67,7 +67,7 @@ function generateCore(buildConfig: BuildConfig, es5: boolean, filesToWrite: File
   }
   projectLoaderFileName += '.js';
 
-  const projectLoaderFilePath = sys.path.join(buildConfig.outDir, projectLoaderFileName);
+  const projectLoaderFilePath = sys.path.join(buildConfig.dest, projectLoaderFileName);
 
   return sys.getClientCoreFile({ staticName: STENCIL_CORE_NAME, devMode: buildConfig.devMode, es5: es5 }).then(stencilCoreContent => {
     // replace the default core with the project's namespace

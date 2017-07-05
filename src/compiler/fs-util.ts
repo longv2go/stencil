@@ -1,7 +1,7 @@
 import { FilesToWrite, StencilSystem } from './interfaces';
 
 
-export function writeFiles(sys: StencilSystem, filesToWrite: FilesToWrite, ensureDir: string): Promise<any> {
+export function writeFiles(sys: StencilSystem, rootDir: string, filesToWrite: FilesToWrite, ensureDir: string): Promise<any> {
   // copy this object incase somehow it changes during the async writes
   // shouldn't be possible, but who knows
   filesToWrite = Object.assign({}, filesToWrite);
@@ -16,14 +16,14 @@ export function writeFiles(sys: StencilSystem, filesToWrite: FilesToWrite, ensur
     directories.push(ensureDir);
   }
 
-  return ensureDirectoriesExist(sys, directories, [sys.cwd]).then(() => {
+  return ensureDirectoriesExist(sys, directories, [rootDir]).then(() => {
     return writeToDisk(sys, filesToWrite);
   });
 }
 
 
-export function updateDirectories(sys: StencilSystem, filesToWrite: FilesToWrite, ensureDir: string): Promise<any> {
-  return writeFiles(sys, filesToWrite, ensureDir);
+export function updateDirectories(sys: StencilSystem, rootDir: string, filesToWrite: FilesToWrite, ensureDir: string): Promise<any> {
+  return writeFiles(sys, rootDir, filesToWrite, ensureDir);
 }
 
 

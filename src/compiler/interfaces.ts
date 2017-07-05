@@ -3,22 +3,17 @@ import { Bundle, ComponentMeta, Diagnostic, Manifest, LoadComponentRegistry } fr
 
 
 export interface CompilerConfig {
-  compilerOptions: CompilerOptions;
-  include: string[];
+  rootDir?: string;
+  srcDir: string;
+  collectionDir?: string;
   exclude?: string[];
   devMode?: boolean;
   watch?: boolean;
   bundles?: Bundle[];
   collection?: boolean;
-}
-
-
-export interface CompilerOptions {
   declaration?: boolean;
   lib?: string[];
   module?: 'es2015' | 'commonjs';
-  rootDir?: string;
-  outDir?: string;
   sourceMap?: boolean;
   target?: 'es5' | 'es2015';
 }
@@ -26,8 +21,8 @@ export interface CompilerOptions {
 
 export interface BundlerConfig {
   namespace: string;
-  include: string[];
-  outDir: string;
+  srcDir: string;
+  destDir: string;
   devMode?: boolean;
   attachRegistryTo?: 'core'|'loader';
   watch?: boolean;

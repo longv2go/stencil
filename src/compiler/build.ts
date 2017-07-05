@@ -33,7 +33,7 @@ export function build(buildConfig: BuildConfig) {
       logger,
       buildConfig.collections,
       buildConfig.rootDir,
-      buildConfig.outDir);
+      buildConfig.dest);
 
   }).then(dependentManifests => {
     return compileProject(buildConfig, workerManager).then(compileResults => {
@@ -50,8 +50,8 @@ export function build(buildConfig: BuildConfig) {
         logger,
         sys,
         resultsManifest,
-        buildConfig.outDir,
-        buildConfig.outDir
+        buildConfig.dest,
+        buildConfig.dest
       );
       return mergeManifests([].concat((localManifest || []), dependentManifests));
     });
@@ -73,14 +73,15 @@ export function build(buildConfig: BuildConfig) {
   }).then(() => {
     // write all the files in one go
     if (buildConfig.devMode) {
+      // dev mode
       // only ensure the directories it needs exists and writes the files
-      return writeFiles(sys, filesToWrite, buildConfig.outDir);
-
-    } else {
-      // first removes any directories and files that aren't in the files to write
-      // then ensure the directories it needs exists and writes the files
-      return updateDirectories(sys, filesToWrite, buildConfig.outDir);
+      return writeFiles(sys, buildConfig.rootDir, filesToWrite, buildConfig.dest);
     }
+
+    // prod mode
+    // first removes any directories and files that aren't in the files to write
+    // then ensure the directories it needs exists and writes the files
+    return updateDirectories(sys, buildConfig.rootDir, filesToWrite, buildConfig.dest);
 
   }).catch(err => {
     buildResults.diagnostics.push({
@@ -113,17 +114,11 @@ export function build(buildConfig: BuildConfig) {
 
 function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) {
   const config: CompilerConfig = {
-    compilerOptions: {
-      outDir: buildConfig.outDir,
-      module: 'commonjs',
-      target: 'es5',
-      rootDir: buildConfig.include[0] // todo
-    },
-    include: buildConfig.include,
-    exclude: [
-      'node_modules',
-      'test'
-    ],
+    collectionDir: buildConfig.collectionDest,
+    module: 'commonjs',
+    target: 'es5',
+    rootDir: buildConfig.src,
+    srcDir: buildConfig.src,
     devMode: buildConfig.devMode,
     bundles: buildConfig.bundles,
     watch: buildConfig.watch,
@@ -137,8 +132,8 @@ function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) 
 function bundleProject(buildConfig: BuildConfig, workerManager: WorkerManager, manifest: Manifest) {
   const bundlerConfig: BundlerConfig = {
     namespace: buildConfig.namespace,
-    include: buildConfig.include,
-    outDir: buildConfig.outDir,
+    srcDir: buildConfig.src,
+    destDir: buildConfig.dest,
     manifest: manifest,
     devMode: buildConfig.devMode,
     watch: buildConfig.watch
@@ -152,14 +147,14 @@ export function normalizeBuildConfig(buildConfig: BuildConfig) {
   if (!buildConfig) {
     throw new Error(`invalid build config`);
   }
+  if (!buildConfig.rootDir) {
+    throw new Error('config.rootDir required');
+  }
   if (!buildConfig.logger) {
     throw new Error(`config.logger required`);
   }
   if (!buildConfig.process) {
     throw new Error(`config.process required`);
-  }
-  if (!buildConfig.sys.cwd) {
-    throw new Error('config.cwd required');
   }
   if (!buildConfig.sys) {
     throw new Error('config.sys required');
@@ -198,13 +193,35 @@ export function normalizeBuildConfig(buildConfig: BuildConfig) {
     throw new Error('config.sys.typescript required');
   }
 
-  if (typeof buildConfig.rootDir !== 'string') {
-    buildConfig.rootDir = buildConfig.sys.cwd;
-  }
-
-  // default to "App" namespace if one wasn't provided
   if (typeof buildConfig.namespace !== 'string') {
     buildConfig.namespace = DEFAULT_NAMESPACE;
+  }
+
+  if (typeof buildConfig.src !== 'string') {
+    buildConfig.src = DEFAULT_SRC_DIR;
+  }
+  if (!buildConfig.sys.path.isAbsolute(buildConfig.src)) {
+    return buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.src);
+  }
+
+  if (typeof buildConfig.dest !== 'string') {
+    buildConfig.dest = DEFAULT_DEST_DIR;
+  }
+  if (!buildConfig.sys.path.isAbsolute(buildConfig.dest)) {
+    buildConfig.dest = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.dest);
+  }
+
+  if (typeof buildConfig.collectionDest !== 'string') {
+    buildConfig.collectionDest = DEFAULT_COLLECTION_DIR;
+  }
+  if (!buildConfig.sys.path.isAbsolute(buildConfig.collectionDest)) {
+    buildConfig.collectionDest = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.dest);
+  }
+
+  if (typeof buildConfig.numWorkers === 'number') {
+    buildConfig.numWorkers = Math.min(Math.max(buildConfig.numWorkers, 0), 8);
+  } else {
+    buildConfig.numWorkers = DEFAULT_NUM_OF_WORKERS;
   }
 
   buildConfig.devMode = !!buildConfig.devMode;
@@ -213,43 +230,12 @@ export function normalizeBuildConfig(buildConfig: BuildConfig) {
   buildConfig.collections = buildConfig.collections || [];
   buildConfig.bundles = buildConfig.bundles || [];
 
-  if (typeof buildConfig.numWorkers === 'number') {
-    buildConfig.numWorkers = Math.min(Math.max(buildConfig.numWorkers, 0), 8);
-  } else {
-    buildConfig.numWorkers = DEFAULT_NUM_OF_WORKERS;
-  }
-
-  if (!buildConfig.include || !buildConfig.include.length) {
-    buildConfig.include = [DEFAULT_SRC_DIR];
-  }
-
-  buildConfig.include = buildConfig.include.map(includeDir => {
-    if (!buildConfig.sys.path.isAbsolute(includeDir)) {
-      return buildConfig.sys.path.join(buildConfig.rootDir, includeDir);
-    }
-    return includeDir;
-  });
-
-  if (!buildConfig.outDir) {
-    buildConfig.outDir = DEFAULT_OUT_DIR;
-  }
-  if (!buildConfig.sys.path.isAbsolute(buildConfig.outDir)) {
-    buildConfig.outDir = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.outDir);
-  }
-
-  if (!buildConfig.collectionOutDir) {
-    buildConfig.collectionOutDir = DEFAULT_COLLECTION_DIR;
-  }
-  if (!buildConfig.sys.path.isAbsolute(buildConfig.collectionOutDir)) {
-    buildConfig.collectionOutDir = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.outDir);
-  }
-
   return buildConfig;
 }
 
 
 const DEFAULT_NAMESPACE = 'APP';
 const DEFAULT_SRC_DIR = 'src';
-const DEFAULT_OUT_DIR = 'dist';
+const DEFAULT_DEST_DIR = 'dist';
 const DEFAULT_COLLECTION_DIR = 'collection';
 const DEFAULT_NUM_OF_WORKERS = 4;

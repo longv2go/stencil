@@ -10,7 +10,7 @@ export function generateManifest(sys: StencilSystem, logger: Logger, compilerCon
     bundles: []
   };
 
-  const destDir = compilerConfig.compilerOptions.outDir;
+  const destDir = compilerConfig.collectionDir;
 
   logger.debug(`manifest, generateManifest, destDir: ${destDir}`);
 
@@ -111,7 +111,7 @@ export function generateManifest(sys: StencilSystem, logger: Logger, compilerCon
     return 0;
   });
 
-  const manifestFilePath = sys.path.join(compilerConfig.compilerOptions.outDir, MANIFEST_FILE_NAME);
+  const manifestFilePath = sys.path.join(compilerConfig.collectionDir, MANIFEST_FILE_NAME);
   const manifestJson = JSON.stringify(manifest, null, 2);
 
   logger.debug(`manifest, generateManifest: ${manifestFilePath}`);

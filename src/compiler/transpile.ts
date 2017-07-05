@@ -179,37 +179,27 @@ function getIncludedSassFiles(sys: StencilSystem, diagnostics: Diagnostic[], mod
 
 
 function createTsCompilerConfigs(compilerConfig: CompilerConfig) {
-  const tsCompilerOptions: ts.CompilerOptions = Object.assign({}, (<any>compilerConfig.compilerOptions));
+  // create defaults
+  const tsCompilerOptions: ts.CompilerOptions = {
+    allowJs: true,
+    allowSyntheticDefaultImports: true,
+    isolatedModules: true,
+    jsx: ts.JsxEmit.React,
+    jsxFactory: 'h',
+    lib: [
+      'lib.dom.d.ts',
+      'lib.es2015.d.ts',
+      'lib.es5.d.ts'
+    ],
+    module: ts.ModuleKind.ES2015,
+    moduleResolution: ts.ModuleResolutionKind.NodeJs,
+    noImplicitUseStrict: true,
+    target: ts.ScriptTarget.ES5
+  };
 
-  tsCompilerOptions.noImplicitUseStrict = true;
-  tsCompilerOptions.moduleResolution = ts.ModuleResolutionKind.NodeJs;
-  tsCompilerOptions.module = ts.ModuleKind.ES2015;
-  tsCompilerOptions.target = getTsScriptTarget(compilerConfig.compilerOptions.target);
-  tsCompilerOptions.isolatedModules = true;
-  tsCompilerOptions.allowSyntheticDefaultImports = true;
-  tsCompilerOptions.allowJs = true;
-  tsCompilerOptions.jsx = ts.JsxEmit.React;
-  tsCompilerOptions.jsxFactory = 'h';
-
-  tsCompilerOptions.lib = tsCompilerOptions.lib || [];
-  if (!tsCompilerOptions.lib.indexOf('lib.dom.d.ts')) {
-    tsCompilerOptions.lib.push('lib.dom.d.ts');
-  }
-  if (!tsCompilerOptions.lib.indexOf('lib.es2015.d.ts')) {
-    tsCompilerOptions.lib.push('lib.es2015.d.ts');
-  }
-  if (!tsCompilerOptions.lib.indexOf('lib.es5.d.ts')) {
-    tsCompilerOptions.lib.push('lib.es5.d.ts');
-  }
+  // add custom values
+  tsCompilerOptions.outDir = compilerConfig.collectionDir;
+  tsCompilerOptions.rootDir = compilerConfig.srcDir;
 
   return tsCompilerOptions;
-}
-
-
-export function getTsScriptTarget(str: 'es5' | 'es2015') {
-  if (str === 'es2015') {
-    return ts.ScriptTarget.ES2015;
-  }
-
-  return ts.ScriptTarget.ES5;
 }

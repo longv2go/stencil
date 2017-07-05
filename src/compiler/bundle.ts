@@ -16,8 +16,8 @@ export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: Bundle
     componentRegistry: []
   };
 
-  logger.debug(`bundle, include: ${bundlerConfig.include}`);
-  logger.debug(`bundle, outDir: ${bundlerConfig.outDir}`);
+  logger.debug(`bundle, include: ${bundlerConfig.srcDir}`);
+  logger.debug(`bundle, outDir: ${bundlerConfig.destDir}`);
 
   return Promise.resolve().then(() => {
     validateConfig(bundlerConfig);

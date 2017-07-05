@@ -112,7 +112,7 @@ export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig
 
     // create the file name and path of where the bundle will be saved
     const moduleFileName = formatJsBundleFileName(moduleResults.bundles[bundleId]);
-    const moduleFilePath = sys.path.join(bundlerConfig.outDir, BUNDLES_DIR, bundlerConfig.namespace.toLowerCase(), moduleFileName);
+    const moduleFilePath = sys.path.join(bundlerConfig.destDir, BUNDLES_DIR, bundlerConfig.namespace.toLowerCase(), moduleFileName);
 
     moduleResults.filesToWrite[moduleFilePath] = moduleContent;
 

@@ -10,7 +10,7 @@ export function generateProjectFiles(buildConfig: BuildConfig, componentRegistry
     generateLoader(buildConfig, componentRegistry, filesToWrite)
   ];
 
-  if (!buildConfig.isDevMode) {
+  if (!buildConfig.devMode) {
     // don't bother with es5 mode in dev mode
     // also no need to wait on it to finish
     generateCore(buildConfig, true, filesToWrite);
@@ -26,11 +26,11 @@ function generateLoader(buildConfig: BuildConfig, componentRegistry: LoadCompone
   const projectLoaderFileName = `${buildConfig.namespace.toLowerCase()}.js`;
   const projectLoaderFilePath = sys.path.join(buildConfig.destDir, projectLoaderFileName);
 
-  return sys.getClientCoreFile({ staticName: STENCIL_LOADER_NAME, devMode: buildConfig.isDevMode }).then(stencilLoaderContent => {
+  return sys.getClientCoreFile({ staticName: STENCIL_LOADER_NAME, devMode: buildConfig.devMode }).then(stencilLoaderContent => {
     // replace the default loader with the project's namespace and components
 
     let registryStr = JSON.stringify(componentRegistry);
-    if (!buildConfig.isDevMode) {
+    if (!buildConfig.devMode) {
       const minifyResult = buildConfig.sys.minifyJs(registryStr);
       minifyResult.diagnostics.forEach(d => {
         buildConfig.logger[d.type](d.msg);
@@ -69,7 +69,7 @@ function generateCore(buildConfig: BuildConfig, es5: boolean, filesToWrite: File
 
   const projectLoaderFilePath = sys.path.join(buildConfig.destDir, projectLoaderFileName);
 
-  return sys.getClientCoreFile({ staticName: STENCIL_CORE_NAME, devMode: buildConfig.isDevMode, es5: es5 }).then(stencilCoreContent => {
+  return sys.getClientCoreFile({ staticName: STENCIL_CORE_NAME, devMode: buildConfig.devMode, es5: es5 }).then(stencilCoreContent => {
     // replace the default core with the project's namespace
     stencilCoreContent = stencilCoreContent.replace(
       STENCIL_PROJECT_REGEX,

@@ -12,7 +12,7 @@ export function build(buildConfig: BuildConfig) {
   const sys = buildConfig.sys;
   const logger = buildConfig.logger;
 
-  const timeSpan = logger.createTimeSpan(`build, ${buildConfig.isDevMode ? 'dev' : 'prod'} mode, started`);
+  const timeSpan = logger.createTimeSpan(`build, ${buildConfig.devMode ? 'dev' : 'prod'} mode, started`);
 
   buildConfig.writeCompiledToDisk = false;
 
@@ -75,7 +75,7 @@ export function build(buildConfig: BuildConfig) {
 
   }).then(() => {
     // write all the files in one go
-    if (buildConfig.isDevMode) {
+    if (buildConfig.devMode) {
       // only ensure the directories it needs exists and writes the files
       return writeFiles(sys, filesToWrite, buildConfig.destDir);
 
@@ -101,7 +101,7 @@ export function build(buildConfig: BuildConfig) {
       }
     });
 
-    if (buildConfig.isWatch) {
+    if (buildConfig.watch) {
       timeSpan.finish(`build ready, watching files...`);
 
     } else {
@@ -129,9 +129,9 @@ function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) 
       'node_modules',
       'test'
     ],
-    isDevMode: buildConfig.isDevMode,
+    devMode: buildConfig.devMode,
     bundles: buildConfig.bundles,
-    isWatch: buildConfig.isWatch,
+    watch: buildConfig.watch,
     writeCompiledToDisk: buildConfig.writeCompiledToDisk
   };
 
@@ -145,8 +145,8 @@ function bundleProject(buildConfig: BuildConfig, workerManager: WorkerManager, m
     srcDir: buildConfig.srcDir,
     destDir: buildConfig.destDir,
     manifest: manifest,
-    isDevMode: buildConfig.isDevMode,
-    isWatch: buildConfig.isWatch
+    devMode: buildConfig.devMode,
+    watch: buildConfig.watch
   };
 
   return bundle(buildConfig.sys, buildConfig.logger, bundlerConfig, workerManager);

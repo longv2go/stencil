@@ -11,7 +11,7 @@ export function collection(buildConfig: BuildConfig) {
   const sys = buildConfig.sys;
   const logger = buildConfig.logger;
 
-  const timeSpan = logger.createTimeSpan(`collection, ${buildConfig.isDevMode ? 'dev' : 'prod'} mode, started`);
+  const timeSpan = logger.createTimeSpan(`collection, ${buildConfig.devMode ? 'dev' : 'prod'} mode, started`);
 
   buildConfig.writeCompiledToDisk = true;
 
@@ -49,7 +49,7 @@ export function collection(buildConfig: BuildConfig) {
 
   }).then(() => {
     // write all the files in one go
-    if (buildConfig.isDevMode) {
+    if (buildConfig.devMode) {
       // only ensure the directories it needs exists and writes the files
       return writeFiles(sys, filesToWrite, buildConfig.destDir);
 
@@ -75,7 +75,7 @@ export function collection(buildConfig: BuildConfig) {
       }
     });
 
-    if (buildConfig.isWatch) {
+    if (buildConfig.watch) {
       timeSpan.finish(`collection ready, watching files ...`);
 
     } else {
@@ -102,9 +102,9 @@ function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) 
       'compiler',
       'test'
     ],
-    isDevMode: buildConfig.isDevMode,
+    devMode: buildConfig.devMode,
     bundles: buildConfig.bundles,
-    isWatch: buildConfig.isWatch,
+    watch: buildConfig.watch,
     writeCompiledToDisk: buildConfig.writeCompiledToDisk
   };
 

@@ -19,8 +19,8 @@ export function run(taskName: string, opts: TaskOptions) {
   const buildConfig: BuildConfig = {
     sys: sys,
     logger: opts.logger,
-    isDevMode: opts.isDevMode,
-    isWatch: opts.isWatch,
+    devMode: opts.devMode,
+    watch: opts.watch,
     process: opts.process,
     numWorkers: opts.numWorkers,
     preamble,

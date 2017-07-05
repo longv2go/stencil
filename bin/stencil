@@ -30,8 +30,8 @@ try {
 } catch (e) {}
 
 
-var isDevMode = (cmdArgs.indexOf('--prod') === -1) && (cmdArgs.indexOf('-p') === -1);
-var isWatch = (cmdArgs.indexOf('--watch') > -1) || (cmdArgs.indexOf('-w') > -1);
+var devMode = (cmdArgs.indexOf('--prod') === -1) && (cmdArgs.indexOf('-p') === -1);
+var watch = (cmdArgs.indexOf('--watch') > -1) || (cmdArgs.indexOf('-w') > -1);
 var logLevel = cmdArgs.find(a => a.indexOf('--log-level') === 0);
 if (logLevel) {
   logLevel = logLevel.split('=')[1];
@@ -208,8 +208,8 @@ stencil.run(taskName, {
   sys: sys,
   logger: logger,
   stencilConfig: stencilConfig,
-  isDevMode: isDevMode,
-  isWatch: isWatch,
+  devMode: devMode,
+  watch: watch,
   process: process,
   numWorkers: numWorkers
 });

@@ -6,9 +6,9 @@ export interface CompilerConfig {
   compilerOptions: CompilerOptions;
   include: string[];
   exclude?: string[];
-  isDevMode?: boolean;
+  devMode?: boolean;
+  watch?: boolean;
   bundles?: Bundle[];
-  isWatch?: boolean;
   writeCompiledToDisk?: boolean;
 }
 
@@ -28,9 +28,9 @@ export interface BundlerConfig {
   namespace: string;
   srcDir: string;
   destDir: string;
-  isDevMode?: boolean;
+  devMode?: boolean;
   attachRegistryTo?: 'core'|'loader';
-  isWatch?: boolean;
+  watch?: boolean;
   attrCase?: number;
   manifest: Manifest;
 }

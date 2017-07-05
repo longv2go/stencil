@@ -437,8 +437,8 @@ export interface BuildConfig {
   destDir: string;
   bundles: Bundle[];
   collections: Collection[];
-  isDevMode: boolean;
-  isWatch: boolean;
+  devMode: boolean;
+  watch: boolean;
   preamble: string;
   process: Process;
   numWorkers: number;
@@ -1057,8 +1057,8 @@ export interface TaskOptions {
   sys: StencilSystem;
   logger: Logger;
   stencilConfig: StencilConfig;
-  isDevMode: boolean;
-  isWatch: boolean;
+  devMode: boolean;
+  watch: boolean;
   process: any;
   numWorkers: number;
 }

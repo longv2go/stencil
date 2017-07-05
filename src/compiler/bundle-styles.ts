@@ -144,7 +144,7 @@ function generateModeCss(
     // ensure we've got some good objects before we start assigning stuff
     const stylesResult = stylesResults.bundles[bundleId] = stylesResults.bundles[bundleId] || {};
 
-    if (bundlerConfig.isDevMode) {
+    if (bundlerConfig.devMode) {
       // dev mode has filename from the bundled tag names
       stylesResult[modeName] = (userBundle.components.sort().join('.') + '.' + modeName).toLowerCase();
 
@@ -257,7 +257,7 @@ function compileScssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, style
 
     const sassConfig = {
       file: scssFilePath,
-      outputStyle: bundlerConfig.isDevMode ? 'expanded' : 'compressed',
+      outputStyle: bundlerConfig.devMode ? 'expanded' : 'compressed',
     };
 
     sys.sass.render(sassConfig, (err, result) => {
@@ -272,7 +272,7 @@ function compileScssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, style
       } else if (result.css) {
         result.css = result.css.toString().trim();
 
-        if (bundlerConfig.isDevMode) {
+        if (bundlerConfig.devMode) {
           styleCollection[styleUrl] = `/********** ${scssFileName} **********/\n\n${result.css}\n\n`;
 
         } else {
@@ -295,7 +295,7 @@ function readCssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, styleUrl:
   return readFile(sys, cssFilePath).then(cssText => {
     cssText = cssText.toString().trim();
 
-    if (bundlerConfig.isDevMode) {
+    if (bundlerConfig.devMode) {
       styleCollection[styleUrl] = `/********** ${cssFileName} **********/\n\n${cssText}`;
     } else {
       styleCollection[styleUrl] = cssText;

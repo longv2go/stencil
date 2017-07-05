@@ -83,7 +83,7 @@ export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig
       jsModuleContent, bundleComponentMeta
     );
 
-    if (bundlerConfig.isDevMode) {
+    if (bundlerConfig.devMode) {
       // dev mode has filename from the bundled tag names
       moduleResults.bundles[bundleId] = userBundle.components.sort().join('.').toLowerCase();
 

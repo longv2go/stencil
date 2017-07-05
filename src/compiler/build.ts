@@ -9,6 +9,8 @@ import { WorkerManager } from './worker-manager';
 
 
 export function build(buildConfig: BuildConfig) {
+  normalizeBuildConfig(buildConfig);
+
   const sys = buildConfig.sys;
   const logger = buildConfig.logger;
 

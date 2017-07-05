@@ -1,8 +1,9 @@
-import { Bundle, BundlerConfig, CompilerConfig, CompileResults, ComponentMeta,
+import { BuildConfig, Bundle, BundlerConfig, CompilerConfig, CompileResults, ComponentMeta,
   Logger, ModuleFiles, ModuleResults, Process, StencilSystem, StylesResults } from './interfaces';
 import { compileFileWorker } from './compile';
 import { generateDefineComponentsWorker } from './bundle-modules';
 import { generateBundleCssWorker } from './bundle-styles';
+import { normalizeBuildConfig } from './build';
 
 
 export class WorkerManager {
@@ -223,8 +224,13 @@ function sendMessageFromWorkerToMain(worker: Process, taskId: number, resolveDat
 }
 
 
-export function setupWorkerProcess(sys: StencilSystem, logger: Logger, worker: Process) {
+export function setupWorkerProcess(buildConfig: BuildConfig) {
+  normalizeBuildConfig(buildConfig);
+
   const moduleFileCache: ModuleFiles = {};
+  const sys = buildConfig.sys;
+  const logger = buildConfig.logger;
+  const worker = buildConfig.process;
 
   worker.on('message', (msg: WorkerMessage) => {
     workerReceivedMessageFromMain(sys, logger, worker, moduleFileCache, msg);

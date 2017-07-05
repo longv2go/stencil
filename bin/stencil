@@ -26,9 +26,6 @@ try {
   }
 } catch (e) {}
 
-
-var taskName = cmdArgs[2];
-
 var buildConfig = {};
 buildConfig.numWorkers = Math.min(4, require('os').cpus().length);
 
@@ -227,4 +224,32 @@ buildConfig.sys.getClientCoreFile = function(opts) {
 };
 
 
-stencil.run(taskName, buildConfig);
+switch (cmdArgs[2]) {
+  case 'build':
+    stencil.build(buildConfig);
+    break;
+
+  case 'collection':
+    switch (cmdArgs[3]) {
+      case 'add':
+        stencil.collectionAdd(buildConfig);
+        break;
+
+      default:
+        console.log('Invalid stencil collection command: "' + cmdArgs[3] + '"');
+        process.exit(1);
+    }
+    break;
+
+  case 'init':
+    stencil.init(buildConfig);
+    break;
+
+  case 'worker':
+    stencil.setupWorkerProcess(buildConfig);
+    break;
+
+  default:
+    console.log('Invalid stencil command: "' + cmdArgs[2] + '"');
+    process.exit(1);
+}

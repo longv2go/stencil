@@ -56,6 +56,7 @@ var logger = new stencil.CmdLogger({
 
 
 var sys = Object.defineProperties({}, {
+  'cwd': { get: () => process.cwd },
   'fs': { get: () => require('fs') },
   'module': { get: () => require('module') },
   'path': { get: () => path },

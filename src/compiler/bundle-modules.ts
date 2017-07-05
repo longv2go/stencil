@@ -46,18 +46,18 @@ function generateDefineComponents(bundlerConfig: BundlerConfig, workerManager: W
     return cmpMeta;
   }).filter(c => !!c);
 
-  return workerManager.generateDefineComponents(bundlerConfig, bundleComponentMeta).then(bundleModuleResults => {
+  return workerManager.generateDefineComponents(bundlerConfig, bundleComponentMeta).then(workerResults => {
     // merge results into main results
-    if (bundleModuleResults.bundles) {
-      Object.assign(moduleResults.bundles, bundleModuleResults.bundles);
+    if (workerResults.bundles) {
+      Object.assign(moduleResults.bundles, workerResults.bundles);
     }
 
-    if (bundleModuleResults.filesToWrite) {
-      Object.assign(moduleResults.filesToWrite, bundleModuleResults.filesToWrite);
+    if (workerResults.filesToWrite) {
+      Object.assign(moduleResults.filesToWrite, workerResults.filesToWrite);
     }
 
-    if (bundleModuleResults.diagnostics) {
-      moduleResults.diagnostics = moduleResults.diagnostics.concat(bundleModuleResults.diagnostics);
+    if (workerResults.diagnostics) {
+      moduleResults.diagnostics = moduleResults.diagnostics.concat(workerResults.diagnostics);
     }
   });
 }

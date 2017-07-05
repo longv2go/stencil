@@ -58,6 +58,7 @@ export interface CompileResults {
   diagnostics: Diagnostic[];
   manifest?: Manifest;
   filesToWrite: FilesToWrite;
+  includedSassFiles?: string[];
   workerId?: number;
 }
 

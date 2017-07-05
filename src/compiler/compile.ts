@@ -22,7 +22,8 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
     moduleFiles: {},
     diagnostics: [],
     manifest: {},
-    filesToWrite: {}
+    filesToWrite: {},
+    includedSassFiles: []
   };
 
   return Promise.all(compilerConfig.include.map(includePath => {
@@ -45,7 +46,7 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
     }
 
   }).then(() => {
-    return copySourceSassFilesToDest(sys, compilerConfig, compileResults.includedSassFiles, compileResults.filesToWrite);
+    return copySourceSassFilesToDest(sys, compilerConfig, compileResults);
 
   }).catch(err => {
     logger.error(err);
@@ -137,29 +138,31 @@ function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfi
   // within MAIN thread
   // let's send this over to our worker manager who can
   // then assign a worker to this exact file
-  return workerManager.compileFile(compilerConfig, filePath).then(compileWorkerResult => {
+  return workerManager.compileFile(compilerConfig, filePath).then(workerResult => {
     // awesome, our worker friend finished the job and responded
     // let's resolve and let the main thread take it from here
-    if (compileWorkerResult.moduleFiles) {
-      Object.keys(compileWorkerResult.moduleFiles).forEach(filePath => {
-        compileResults.moduleFiles[filePath] = compileWorkerResult.moduleFiles[filePath];
+    if (workerResult.moduleFiles) {
+      Object.keys(workerResult.moduleFiles).forEach(tsFilePath => {
+        const moduleFile = workerResult.moduleFiles[tsFilePath];
+
+        compileResults.moduleFiles[tsFilePath] = moduleFile;
 
         if (compilerConfig.writeCompiledToDisk) {
-          filesToWrite[compileResults.moduleFiles[filePath].jsFilePath] = compileResults.moduleFiles[filePath].jsText;
+          filesToWrite[moduleFile.jsFilePath] = moduleFile.jsText;
+        }
+
+        if (moduleFile.includedSassFiles) {
+          moduleFile.includedSassFiles.forEach(includedSassFile => {
+            if (compileResults.includedSassFiles.indexOf(includedSassFile) === -1) {
+              compileResults.includedSassFiles.push(includedSassFile);
+            }
+          });
         }
       });
     }
 
-    if (compileWorkerResult.diagnostics) {
-      compileResults.diagnostics = compileResults.diagnostics.concat(compileWorkerResult.diagnostics);
-    }
-
-    if (compileWorkerResult.includedSassFiles) {
-      compileWorkerResult.includedSassFiles.forEach(includedSassFile => {
-        if (compileResults.includedSassFiles.indexOf(includedSassFile) === -1) {
-          compileResults.includedSassFiles.push(includedSassFile);
-        }
-      });
+    if (workerResult.diagnostics) {
+      compileResults.diagnostics = compileResults.diagnostics.concat(workerResult.diagnostics);
     }
   });
 }
@@ -202,84 +205,12 @@ export function compileFileWorker(workerId: number, sys: StencilSystem, moduleFi
 }
 
 
-function processIncludedStyles(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, compileResults: CompileResults) {
-  if (!moduleFile.cmpMeta || !moduleFile.cmpMeta.styleMeta) {
-    return Promise.resolve(null);
-  }
-
-  const destDir = compilerConfig.compilerOptions.outDir;
-
-  logger.debug(`compile, processStyles, destDir ${destDir}`);
-
-  const promises: Promise<any>[] = [];
-  compileResults.includedSassFiles = compileResults.includedSassFiles || [];
-
-  const modeNames = Object.keys(moduleFile.cmpMeta.styleMeta);
-  modeNames.forEach(modeName => {
-    const modeMeta = Object.assign({}, moduleFile.cmpMeta.styleMeta[modeName]);
-
-    if (modeMeta.styleUrls) {
-      modeMeta.styleUrls.forEach(styleUrl => {
-        const scssFileName = sys.path.basename(styleUrl);
-        const scssFilePath = sys.path.join(sys.path.dirname(moduleFile.filePath), scssFileName);
-        promises.push(
-          getIncludedSassFiles(sys, logger, compileResults, scssFilePath)
-        );
-      });
-    }
-
-  });
-
-  return Promise.all(promises);
-}
-
-
-function getIncludedSassFiles(sys: StencilSystem, logger: Logger, compileResults: CompileResults, scssFilePath: string) {
-  return new Promise(resolve => {
-
-    const sassConfig = {
-      file: scssFilePath,
-      outFile: `${scssFilePath}.tmp`
-    };
-
-    compileResults.includedSassFiles = compileResults.includedSassFiles || [];
-
-    if (compileResults.includedSassFiles.indexOf(scssFilePath) === -1) {
-      compileResults.includedSassFiles.push(scssFilePath);
-    }
-
-    logger.debug(`compile, getIncludedSassFiles: ${scssFilePath}`);
-
-    sys.sass.render(sassConfig, (err, result) => {
-      if (err) {
-        compileResults.diagnostics = compileResults.diagnostics || [];
-        compileResults.diagnostics.push({
-          msg: err,
-          type: 'error'
-        });
-
-      } else if (result.stats) {
-        result.stats.includedFiles.forEach((includedFile: string) => {
-          if (compileResults.includedSassFiles.indexOf(includedFile) === -1) {
-            compileResults.includedSassFiles.push(includedFile);
-          }
-        });
-      }
-
-      // always resolve
-      resolve();
-    });
-
-  });
-}
-
-
-function copySourceSassFilesToDest(sys: StencilSystem, compilerConfig: CompilerConfig, includedSassFiles: string[], filesToWrite: FilesToWrite): Promise<any> {
+function copySourceSassFilesToDest(sys: StencilSystem, compilerConfig: CompilerConfig, compileResults: CompileResults): Promise<any> {
   if (!compilerConfig.writeCompiledToDisk) {
     return Promise.resolve();
   }
 
-  return Promise.all(includedSassFiles.map(sassSrcPath => {
+  return Promise.all(compileResults.includedSassFiles.map(sassSrcPath => {
     return readFile(sys, sassSrcPath).then(sassSrcText => {
       const includeDir = compilerConfig.include.find(includeDir => sassSrcPath.indexOf(includeDir) === 0);
       let sassDestPath: string;
@@ -297,7 +228,7 @@ function copySourceSassFilesToDest(sys: StencilSystem, compilerConfig: CompilerC
         );
       }
 
-      filesToWrite[sassDestPath] = sassSrcText;
+      compileResults.filesToWrite[sassDestPath] = sassSrcText;
     });
   }));
 }

@@ -19,19 +19,19 @@ export function bundleStyles(logger: Logger, config: BundlerConfig, workerManage
   // go through each bundle the user wants created
   // and create css files for each mode for each bundle
   return Promise.all(userManifest.bundles.map(userBundle => {
-    return generateBundleCss(config, workerManager, userManifest, userBundle, stylesResults).then(bundleStylesResults => {
+    return generateBundleCss(config, workerManager, userManifest, userBundle, stylesResults).then(workerResults => {
 
       // merge results into main results
-      if (bundleStylesResults.bundles) {
-        Object.assign(stylesResults.bundles, bundleStylesResults.bundles);
+      if (workerResults.bundles) {
+        Object.assign(stylesResults.bundles, workerResults.bundles);
       }
 
-      if (bundleStylesResults.filesToWrite) {
-        Object.assign(stylesResults.filesToWrite, bundleStylesResults.filesToWrite);
+      if (workerResults.filesToWrite) {
+        Object.assign(stylesResults.filesToWrite, workerResults.filesToWrite);
       }
 
-      if (bundleStylesResults.diagnostics) {
-        stylesResults.diagnostics = stylesResults.diagnostics.concat(bundleStylesResults.diagnostics);
+      if (workerResults.diagnostics) {
+        stylesResults.diagnostics = stylesResults.diagnostics.concat(workerResults.diagnostics);
       }
     });
 

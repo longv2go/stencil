@@ -50,9 +50,12 @@ export function collection(buildConfig: BuildConfig) {
   }).then(() => {
     // write all the files in one go
     if (buildConfig.isDevMode) {
-      return writeFiles(sys, filesToWrite);
+      // only writes the files and ensure the directories it needs exists
+      return writeFiles(sys, filesToWrite, buildConfig.destDir);
 
     } else {
+      // writes the files and ensure the directories it needs exists
+      // and removes any directories and files that shouldn't be there
       return updateDirectories(sys, filesToWrite, buildConfig.destDir);
     }
 

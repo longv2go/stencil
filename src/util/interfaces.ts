@@ -971,6 +971,7 @@ export interface StencilSystem {
     serialize(): string;
   };
   createWorker?(): Process;
+  cwd: string;
   fs?: {
     access(path: string, callback: (err: any) => void): void;
     mkdir(path: string, callback?: (err?: any) => void): void;

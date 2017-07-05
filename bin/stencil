@@ -174,7 +174,7 @@ buildConfig.sys.minifyCss = function(input) {
 
 buildConfig.sys.minifyJs = function(input) {
   var UglifyJS = require("uglify-js");
-  var result = UglifyJS.minify(code);
+  var result = UglifyJS.minify(input);
   var diagnostics = [];
 
   if (result.error) {

@@ -201,7 +201,7 @@ export function normalizeBuildConfig(buildConfig: BuildConfig) {
     buildConfig.src = DEFAULT_SRC_DIR;
   }
   if (!buildConfig.sys.path.isAbsolute(buildConfig.src)) {
-    return buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.src);
+    buildConfig.src = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.src);
   }
 
   if (typeof buildConfig.dest !== 'string') {
@@ -234,7 +234,7 @@ export function normalizeBuildConfig(buildConfig: BuildConfig) {
 }
 
 
-const DEFAULT_NAMESPACE = 'APP';
+const DEFAULT_NAMESPACE = 'App';
 const DEFAULT_SRC_DIR = 'src';
 const DEFAULT_DEST_DIR = 'dist';
 const DEFAULT_COLLECTION_DIR = 'collection';

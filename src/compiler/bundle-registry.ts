@@ -46,7 +46,7 @@ export function generateComponentRegistry(sys: StencilSystem, bundlerConfig: Bun
   };
 
   const registryFileName = `${bundlerConfig.namespace.toLowerCase()}.registry.json`;
-  const registryFilePath = sys.path.join(bundlerConfig.destDir, registryFileName);
+  const registryFilePath = sys.path.join(bundlerConfig.outDir, registryFileName);
   filesToWrite[registryFilePath] = JSON.stringify(projectRegistry, null, 2);
 
   return componentRegistry;

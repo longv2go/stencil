@@ -14,8 +14,6 @@ export function build(buildConfig: BuildConfig) {
 
   const timeSpan = logger.createTimeSpan(`build, ${buildConfig.devMode ? 'dev' : 'prod'} mode, started`);
 
-  buildConfig.writeCompiledToDisk = false;
-
   const workerManager = new WorkerManager(buildConfig.sys, buildConfig.logger);
   workerManager.connect(buildConfig.numWorkers);
 
@@ -28,15 +26,12 @@ export function build(buildConfig: BuildConfig) {
   const filesToWrite: FilesToWrite = {};
 
   return Promise.resolve().then(() => {
-    // validate our data is good to go
-    validateBuildConfig(buildConfig);
-
     return generateDependentManifests(
       sys,
       logger,
       buildConfig.collections,
       buildConfig.rootDir,
-      buildConfig.destDir);
+      buildConfig.outDir);
 
   }).then(dependentManifests => {
     return compileProject(buildConfig, workerManager).then(compileResults => {
@@ -53,8 +48,8 @@ export function build(buildConfig: BuildConfig) {
         logger,
         sys,
         resultsManifest,
-        buildConfig.destDir,
-        buildConfig.destDir
+        buildConfig.outDir,
+        buildConfig.outDir
       );
       return mergeManifests([].concat((localManifest || []), dependentManifests));
     });
@@ -77,12 +72,12 @@ export function build(buildConfig: BuildConfig) {
     // write all the files in one go
     if (buildConfig.devMode) {
       // only ensure the directories it needs exists and writes the files
-      return writeFiles(sys, filesToWrite, buildConfig.destDir);
+      return writeFiles(sys, filesToWrite, buildConfig.outDir);
 
     } else {
       // first removes any directories and files that aren't in the files to write
       // then ensure the directories it needs exists and writes the files
-      return updateDirectories(sys, filesToWrite, buildConfig.destDir);
+      return updateDirectories(sys, filesToWrite, buildConfig.outDir);
     }
 
   }).catch(err => {
@@ -117,14 +112,12 @@ export function build(buildConfig: BuildConfig) {
 function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) {
   const config: CompilerConfig = {
     compilerOptions: {
-      outDir: buildConfig.destDir,
+      outDir: buildConfig.outDir,
       module: 'commonjs',
       target: 'es5',
-      rootDir: buildConfig.srcDir
+      rootDir: buildConfig.include[0] // todo
     },
-    include: [
-      buildConfig.srcDir
-    ],
+    include: buildConfig.include,
     exclude: [
       'node_modules',
       'test'
@@ -132,7 +125,7 @@ function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) 
     devMode: buildConfig.devMode,
     bundles: buildConfig.bundles,
     watch: buildConfig.watch,
-    writeCompiledToDisk: buildConfig.writeCompiledToDisk
+    collection: buildConfig.collection
   };
 
   return compile(buildConfig.sys, buildConfig.logger, workerManager, config);
@@ -142,8 +135,8 @@ function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) 
 function bundleProject(buildConfig: BuildConfig, workerManager: WorkerManager, manifest: Manifest) {
   const bundlerConfig: BundlerConfig = {
     namespace: buildConfig.namespace,
-    srcDir: buildConfig.srcDir,
-    destDir: buildConfig.destDir,
+    include: buildConfig.include,
+    outDir: buildConfig.outDir,
     manifest: manifest,
     devMode: buildConfig.devMode,
     watch: buildConfig.watch
@@ -153,36 +146,108 @@ function bundleProject(buildConfig: BuildConfig, workerManager: WorkerManager, m
 }
 
 
-export function validateBuildConfig(buildConfig: BuildConfig) {
-  if (!buildConfig.srcDir) {
-    throw `config.srcDir required`;
+export function normalizeBuildConfig(buildConfig: BuildConfig) {
+  if (!buildConfig) {
+    throw new Error(`invalid build config`);
+  }
+  if (!buildConfig.logger) {
+    throw new Error(`config.logger required`);
+  }
+  if (!buildConfig.process) {
+    throw new Error(`config.process required`);
+  }
+  if (!buildConfig.sys.cwd) {
+    throw new Error('config.cwd required');
   }
   if (!buildConfig.sys) {
-    throw 'config.sys required';
+    throw new Error('config.sys required');
   }
   if (!buildConfig.sys.fs) {
-    throw 'config.sys.fs required';
+    throw new Error('config.sys.fs required');
+  }
+  if (!buildConfig.sys.createWorker) {
+    throw new Error('config.sys.createWorker required');
+  }
+  if (!buildConfig.sys.generateContentHash) {
+    throw new Error('config.sys.generateContentHash required');
+  }
+  if (!buildConfig.sys.getClientCoreFile) {
+    throw new Error('config.sys.getClientCoreFile required');
+  }
+  if (!buildConfig.sys.minifyCss) {
+    throw new Error('config.sys.minifyCss required');
+  }
+  if (!buildConfig.sys.minifyJs) {
+    throw new Error('config.sys.minifyJs required');
+  }
+  if (!buildConfig.sys.module) {
+    throw new Error('config.sys.module required');
   }
   if (!buildConfig.sys.path) {
-    throw 'config.sys.path required';
-  }
-  if (!buildConfig.sys.sass) {
-    throw 'config.sys.sass required';
+    throw new Error('config.sys.path required');
   }
   if (!buildConfig.sys.rollup) {
-    throw 'config.sys.rollup required';
+    throw new Error('config.sys.rollup required');
+  }
+  if (!buildConfig.sys.sass) {
+    throw new Error('config.sys.sass required');
   }
   if (!buildConfig.sys.typescript) {
-    throw 'config.sys.typescript required';
+    throw new Error('config.sys.typescript required');
   }
 
-  // ensure we've at least got empty objects
-  buildConfig.bundles = buildConfig.bundles || [];
-  buildConfig.collections = buildConfig.collections || [];
+  if (typeof buildConfig.rootDir !== 'string') {
+    buildConfig.rootDir = buildConfig.sys.cwd;
+  }
 
   // default to "App" namespace if one wasn't provided
-  buildConfig.namespace = (buildConfig.namespace || 'App').trim();
+  if (typeof buildConfig.namespace !== 'string') {
+    buildConfig.namespace = DEFAULT_NAMESPACE;
+  }
 
-  // default to "bundles" directory if one wasn't provided
-  buildConfig.namespace = (buildConfig.namespace || 'bundles').trim();
+  buildConfig.devMode = !!buildConfig.devMode;
+  buildConfig.watch = !!buildConfig.watch;
+  buildConfig.collection = !!buildConfig.collection;
+  buildConfig.collections = buildConfig.collections || [];
+  buildConfig.bundles = buildConfig.bundles || [];
+
+  if (typeof buildConfig.numWorkers === 'number') {
+    buildConfig.numWorkers = Math.min(Math.max(buildConfig.numWorkers, 0), 8);
+  } else {
+    buildConfig.numWorkers = DEFAULT_NUM_OF_WORKERS;
+  }
+
+  if (!buildConfig.include || !buildConfig.include.length) {
+    buildConfig.include = [DEFAULT_SRC_DIR];
+  }
+
+  buildConfig.include = buildConfig.include.map(includeDir => {
+    if (!buildConfig.sys.path.isAbsolute(includeDir)) {
+      return buildConfig.sys.path.join(buildConfig.rootDir, includeDir);
+    }
+    return includeDir;
+  });
+
+  if (!buildConfig.outDir) {
+    buildConfig.outDir = DEFAULT_OUT_DIR;
+  }
+  if (!buildConfig.sys.path.isAbsolute(buildConfig.outDir)) {
+    buildConfig.outDir = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.outDir);
+  }
+
+  if (!buildConfig.collectionOutDir) {
+    buildConfig.collectionOutDir = DEFAULT_COLLECTION_DIR;
+  }
+  if (!buildConfig.sys.path.isAbsolute(buildConfig.collectionOutDir)) {
+    buildConfig.collectionOutDir = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.outDir);
+  }
+
+  return buildConfig;
 }
+
+
+const DEFAULT_NAMESPACE = 'APP';
+const DEFAULT_SRC_DIR = 'src';
+const DEFAULT_OUT_DIR = 'dist';
+const DEFAULT_COLLECTION_DIR = 'collection';
+const DEFAULT_NUM_OF_WORKERS = 4;

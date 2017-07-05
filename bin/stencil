@@ -18,6 +18,30 @@ if (semver.lt(process.version, 'v6.4.0')) {
   process.exit(1);
 }
 
+var buildConfig = {};
+
+
+buildConfig.rootDir = process.cwd();
+buildConfig.numWorkers = Math.min(4, require('os').cpus().length);
+
+var configFileName = 'stencil.config.js';
+var configFilePath = path.join(buildConfig.rootDir, configFileName);
+
+try {
+  var buildConfigFile = require(configFilePath);
+
+  if (!buildConfigFile.config) {
+    console.log('Invalid Stencil ' + chalk.bold(configFilePath) + ' configuration file');
+    process.exit(1);
+  }
+
+  Object.assign(buildConfig, buildConfigFile.config);
+
+} catch(e) {
+  console.log('Error reading Stencil ' + chalk.bold(configFilePath) + ' configuration file');
+  process.exit(1);
+}
+
 
 var cmdArgs = process.argv;
 var taskName = cmdArgs[2];
@@ -30,32 +54,38 @@ try {
 } catch (e) {}
 
 
-var devMode = (cmdArgs.indexOf('--prod') === -1) && (cmdArgs.indexOf('-p') === -1);
-var watch = (cmdArgs.indexOf('--watch') > -1) || (cmdArgs.indexOf('-w') > -1);
-var logLevel = cmdArgs.find(a => a.indexOf('--log-level') === 0);
-if (logLevel) {
-  logLevel = logLevel.split('=')[1];
+if (cmdArgs.indexOf('--prod') === -1 && cmdArgs.indexOf('-p') === -1) {
+  buildConfig.devMode = true;
 }
-if (!logLevel) {
-  if (cmdArgs.indexOf('--debug') > -1) {
-    logLevel = 'debug';
-  } else {
-    logLevel = 'info';
+
+if (cmdArgs.indexOf('--watch') > -1 || cmdArgs.indexOf('-w') > -1) {
+  buildConfig.watch = true;
+}
+
+if (cmdArgs.indexOf('--debug') > -1) {
+  buildConfig.logLevel = 'debug';
+
+} else {
+  var logLevel = cmdArgs.find(a => a.indexOf('--log-level') === 0);
+  if (logLevel) {
+    logLevel = logLevel.split('=')[1];
+    if (logLevel) {
+      buildConfig.logLevel = logLevel;
+    }
   }
 }
-var numWorkers = Math.min(4, require('os').cpus().length);
 
 
 var stencil = require(path.join(__dirname, '../dist/compiler'));
 var logger = new stencil.CmdLogger({
-  level: logLevel,
+  level: buildConfig.logLevel,
   stream: process.stdout,
   columns: process.stdout.columns,
   chalk: chalk
 });
 
 
-var sys = Object.defineProperties({}, {
+buildConfig.sys = Object.defineProperties({}, {
   'cwd': { get: () => process.cwd },
   'fs': { get: () => require('fs') },
   'module': { get: () => require('module') },
@@ -73,7 +103,7 @@ var sys = Object.defineProperties({}, {
 });
 
 
-sys.createWorker = function() {
+buildConfig.sys.createWorker = function() {
   const cp = require('child_process');
 
   const args = cmdArgs.slice(2);
@@ -89,7 +119,7 @@ sys.createWorker = function() {
 };
 
 
-sys.generateContentHash = function(content) {
+buildConfig.sys.generateContentHash = function(content) {
   return crypto.createHash('sha1')
                .update(content)
                .digest('base64')
@@ -99,7 +129,7 @@ sys.generateContentHash = function(content) {
 };
 
 
-sys.minifyCss = function(input) {
+buildConfig.sys.minifyCss = function(input) {
   var CleanCSS = require('clean-css');
   var result = new CleanCSS().minify(input);
   var diagnostics = [];
@@ -130,7 +160,7 @@ sys.minifyCss = function(input) {
 };
 
 
-sys.minifyJs = function(input) {
+buildConfig.sys.minifyJs = function(input) {
   var UglifyJS = require("uglify-js");
   var result = UglifyJS.minify(code);
   var diagnostics = [];
@@ -150,8 +180,8 @@ sys.minifyJs = function(input) {
 };
 
 
-var fileCache = {};
-sys.getClientCoreFile = function(opts) {
+var coreFileCache = {};
+buildConfig.sys.getClientCoreFile = function(opts) {
   var fileName = opts.staticName;
 
   if (opts.es5) {
@@ -167,15 +197,15 @@ sys.getClientCoreFile = function(opts) {
   logger.debug('getClientCoreFile: ' + filePath)
 
   return new Promise(function(resolve, reject) {
-    if (fileCache[filePath]) {
-      resolve(fileCache[filePath]);
+    if (coreFileCache[filePath]) {
+      resolve(coreFileCache[filePath]);
 
     } else {
-      sys.fs.readFile(filePath, 'utf-8', (err, data) => {
+      buildConfig.sys.fs.readFile(filePath, 'utf-8', (err, data) => {
         if (err) {
           reject(err);
         } else {
-          fileCache[filePath] = data;
+          coreFileCache[filePath] = data;
           resolve(data);
         }
       });
@@ -184,32 +214,4 @@ sys.getClientCoreFile = function(opts) {
 };
 
 
-var configFileName = 'stencil.config.js';
-var rootDir = process.cwd();
-var stencilConfig;
-try {
-  var stencilConfigObj = require(path.join(rootDir, configFileName));
-
-  stencilConfig = stencilConfigObj.config;
-
-  if (!stencilConfig) {
-    console.log('Invalid Stencil ' + chalk.bold(configFileName) + ' configuration file');
-    process.exit(1);
-  }
-
-} catch(e) {
-  console.log('Error reading Stencil ' + chalk.bold(configFileName) + ' configuration file');
-  process.exit(1);
-}
-
-
-stencil.run(taskName, {
-  rootDir: rootDir,
-  sys: sys,
-  logger: logger,
-  stencilConfig: stencilConfig,
-  devMode: devMode,
-  watch: watch,
-  process: process,
-  numWorkers: numWorkers
-});
+stencil.run(taskName, buildConfig);

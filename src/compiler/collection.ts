@@ -13,7 +13,7 @@ export function collection(buildConfig: BuildConfig) {
 
   const timeSpan = logger.createTimeSpan(`collection, ${buildConfig.devMode ? 'dev' : 'prod'} mode, started`);
 
-  buildConfig.writeCompiledToDisk = true;
+  buildConfig.collection = true;
 
   const workerManager = new WorkerManager(buildConfig.sys, buildConfig.logger);
   workerManager.connect(buildConfig.numWorkers);
@@ -35,7 +35,7 @@ export function collection(buildConfig: BuildConfig) {
       logger,
       buildConfig.collections,
       buildConfig.rootDir,
-      buildConfig.destDir);
+      buildConfig.collectionOutDir);
 
   }).then(() => {
     return compileProject(buildConfig, workerManager).then(compileResults => {
@@ -51,12 +51,12 @@ export function collection(buildConfig: BuildConfig) {
     // write all the files in one go
     if (buildConfig.devMode) {
       // only ensure the directories it needs exists and writes the files
-      return writeFiles(sys, filesToWrite, buildConfig.destDir);
+      return writeFiles(sys, filesToWrite, buildConfig.outDir);
 
     } else {
       // first removes any directories and files that aren't in the files to write
       // then ensure the directories it needs exists and writes the files
-      return updateDirectories(sys, filesToWrite, buildConfig.destDir);
+      return updateDirectories(sys, filesToWrite, buildConfig.outDir);
     }
 
   }).catch(err => {
@@ -89,14 +89,12 @@ export function collection(buildConfig: BuildConfig) {
 function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) {
   const config: CompilerConfig = {
     compilerOptions: {
-      outDir: buildConfig.destDir,
+      outDir: buildConfig.outDir,
       module: 'commonjs',
       target: 'es5',
       rootDir: buildConfig.srcDir
     },
-    include: [
-      buildConfig.srcDir
-    ],
+    include: buildConfig.include,
     exclude: [
       'node_modules',
       'compiler',
@@ -105,7 +103,7 @@ function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) 
     devMode: buildConfig.devMode,
     bundles: buildConfig.bundles,
     watch: buildConfig.watch,
-    writeCompiledToDisk: buildConfig.writeCompiledToDisk
+    collection: buildConfig.collection
   };
 
   return compile(buildConfig.sys, buildConfig.logger, workerManager, config);

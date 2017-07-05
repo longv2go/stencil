@@ -9,7 +9,7 @@ export interface CompilerConfig {
   devMode?: boolean;
   watch?: boolean;
   bundles?: Bundle[];
-  writeCompiledToDisk?: boolean;
+  collection?: boolean;
 }
 
 
@@ -26,8 +26,8 @@ export interface CompilerOptions {
 
 export interface BundlerConfig {
   namespace: string;
-  srcDir: string;
-  destDir: string;
+  include: string[];
+  outDir: string;
   devMode?: boolean;
   attachRegistryTo?: 'core'|'loader';
   watch?: boolean;

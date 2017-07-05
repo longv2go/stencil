@@ -430,11 +430,13 @@ export type Collection = string;
 export interface BuildConfig {
   sys: StencilSystem;
   logger: Logger;
-  writeCompiledToDisk?: boolean;
+  logLevel: 'error'|'warn'|'info'|'ok'|'debug';
   rootDir: string;
   namespace: string;
-  srcDir: string;
-  destDir: string;
+  include: string[];
+  outDir: string;
+  collectionOutDir: string;
+  collection: boolean;
   bundles: Bundle[];
   collections: Collection[];
   devMode: boolean;
@@ -943,16 +945,6 @@ export interface ModuleCallbacks {
 }
 
 
-export interface StencilConfig {
-  namespace?: string;
-  src?: string;
-  dest?: string;
-  bundles?: Bundle[];
-  collections?: Collection[];
-  preamble?: string;
-}
-
-
 export interface Diagnostic {
   msg: string;
   type: 'error'|'warn';
@@ -1056,7 +1048,7 @@ export interface TaskOptions {
   rootDir: string;
   sys: StencilSystem;
   logger: Logger;
-  stencilConfig: StencilConfig;
+  buildConfig: BuildConfig;
   devMode: boolean;
   watch: boolean;
   process: any;

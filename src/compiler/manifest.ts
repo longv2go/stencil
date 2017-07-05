@@ -31,7 +31,7 @@ export function generateManifest(sys: StencilSystem, logger: Logger, compilerCon
   fileNames.forEach(fileName => {
     const f = compileResults.moduleFiles[fileName];
 
-    if (!f.isTsSourceFile || !f.cmpMeta || !f.cmpMeta.tagNameMeta) return;
+    if (!f.cmpMeta || !f.cmpMeta.tagNameMeta) return;
 
     let includeComponent = false;
     for (var i = 0; i < compilerConfig.bundles.length; i++) {

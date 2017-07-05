@@ -1,36 +1,12 @@
-import { build } from './build';
+import { build, normalizeBuildConfig } from './build';
+import { BuildConfig } from './interfaces';
 import { collection } from './collection';
-import { BuildConfig, TaskOptions } from './interfaces';
 import { setupWorkerProcess } from './worker-manager';
 
 
-export function run(taskName: string, opts: TaskOptions) {
-  const rootDir = opts.rootDir;
-  const sys = opts.sys;
-  const stencilConfig = opts.stencilConfig;
+export function run(taskName: string, buildConfig: BuildConfig) {
 
-  const namespace = stencilConfig.namespace;
-  const srcDir = sys.path.join(rootDir, stencilConfig.src ? stencilConfig.src : 'src');
-  const destDir = sys.path.join(rootDir, stencilConfig.dest ? stencilConfig.dest : 'dist');
-  const bundles = stencilConfig.bundles;
-  const collections = stencilConfig.collections;
-  const preamble = stencilConfig.preamble;
-
-  const buildConfig: BuildConfig = {
-    sys: sys,
-    logger: opts.logger,
-    devMode: opts.devMode,
-    watch: opts.watch,
-    process: opts.process,
-    numWorkers: opts.numWorkers,
-    preamble,
-    rootDir: rootDir,
-    namespace,
-    srcDir,
-    destDir,
-    bundles,
-    collections
-  };
+  normalizeBuildConfig(buildConfig);
 
   switch (taskName) {
     case 'build':

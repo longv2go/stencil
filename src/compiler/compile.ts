@@ -147,7 +147,7 @@ function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfi
 
         compileResults.moduleFiles[tsFilePath] = moduleFile;
 
-        if (compilerConfig.writeCompiledToDisk) {
+        if (compilerConfig.collection) {
           filesToWrite[moduleFile.jsFilePath] = moduleFile.jsText;
         }
 
@@ -189,9 +189,6 @@ export function compileFileWorker(workerId: number, sys: StencilSystem, moduleFi
       }
     });
 
-  }).then(() => {
-
-
   }).catch(err => {
     compileResults.diagnostics.push({
       msg: err.toString(),
@@ -206,7 +203,7 @@ export function compileFileWorker(workerId: number, sys: StencilSystem, moduleFi
 
 
 function copySourceSassFilesToDest(sys: StencilSystem, compilerConfig: CompilerConfig, compileResults: CompileResults): Promise<any> {
-  if (!compilerConfig.writeCompiledToDisk) {
+  if (!compilerConfig.collection) {
     return Promise.resolve();
   }
 

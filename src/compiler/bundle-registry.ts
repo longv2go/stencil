@@ -1,9 +1,9 @@
-import { BundlerConfig, ComponentRegistry, FilesToWrite, ModuleResults,
-  LoadComponentRegistry, StyleMeta, StylesResults, StencilSystem } from './interfaces';
+import { BuildConfig, BundlerConfig, ComponentRegistry, FilesToWrite, ModuleResults,
+  LoadComponentRegistry, StyleMeta, StylesResults } from './interfaces';
 import { formatComponentRegistry } from '../util/data-serialize';
 
 
-export function generateComponentRegistry(sys: StencilSystem, bundlerConfig: BundlerConfig, styleResults: StylesResults, moduleResults: ModuleResults, filesToWrite: FilesToWrite): LoadComponentRegistry[] {
+export function generateComponentRegistry(buildConfig: BuildConfig, bundlerConfig: BundlerConfig, styleResults: StylesResults, moduleResults: ModuleResults, filesToWrite: FilesToWrite): LoadComponentRegistry[] {
   const registry: ComponentRegistry = {};
 
   // create the minimal registry component data for each bundle
@@ -41,12 +41,13 @@ export function generateComponentRegistry(sys: StencilSystem, bundlerConfig: Bun
 
   const componentRegistry = formatComponentRegistry(registry, bundlerConfig.attrCase);
   const projectRegistry = {
-    namespace: bundlerConfig.namespace,
+    namespace: buildConfig.namespace,
     components: componentRegistry
   };
 
-  const registryFileName = `${bundlerConfig.namespace.toLowerCase()}.registry.json`;
-  const registryFilePath = sys.path.join(bundlerConfig.destDir, registryFileName);
+  const registryFileName = `${buildConfig.namespace.toLowerCase()}.registry.json`;
+  const registryFilePath = buildConfig.sys.path.join(buildConfig.dest, registryFileName);
+
   filesToWrite[registryFilePath] = JSON.stringify(projectRegistry, null, 2);
 
   return componentRegistry;

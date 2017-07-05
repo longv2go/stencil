@@ -1,5 +1,5 @@
 import { BuildConfig, Manifest } from '../util/interfaces';
-import { BuildResults, BundlerConfig, CompilerConfig, FilesToWrite } from './interfaces';
+import { BuildResults, BundlerConfig, FilesToWrite } from './interfaces';
 import { bundle } from './bundle';
 import { compile } from './compile';
 import { generateDependentManifests, mergeManifests, updateManifestUrls } from './manifest';
@@ -28,6 +28,7 @@ export function build(buildConfig: BuildConfig) {
   const filesToWrite: FilesToWrite = {};
 
   return Promise.resolve().then(() => {
+    // generate manifest phase
     return generateDependentManifests(
       sys,
       logger,
@@ -36,7 +37,8 @@ export function build(buildConfig: BuildConfig) {
       buildConfig.dest);
 
   }).then(dependentManifests => {
-    return compileProject(buildConfig, workerManager).then(compileResults => {
+    // compile phase
+    return compile(buildConfig, workerManager).then(compileResults => {
       if (compileResults.diagnostics) {
         buildResults.diagnostics = buildResults.diagnostics.concat(compileResults.diagnostics);
       }
@@ -57,8 +59,11 @@ export function build(buildConfig: BuildConfig) {
     });
 
   }).then(manifest => {
-    // bundle all of the components into their separate files
-    return bundleProject(buildConfig, workerManager, manifest).then(bundleResults => {
+    // bundle phase
+    const bundlerConfig: BundlerConfig = {
+      manifest: manifest
+    };
+    return bundle(buildConfig, bundlerConfig, workerManager).then(bundleResults => {
       if (bundleResults.diagnostics) {
         buildResults.diagnostics = buildResults.diagnostics.concat(bundleResults.diagnostics);
       }
@@ -109,37 +114,6 @@ export function build(buildConfig: BuildConfig) {
 
     return buildResults;
   });
-}
-
-
-function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) {
-  const config: CompilerConfig = {
-    collectionDir: buildConfig.collectionDest,
-    module: 'commonjs',
-    target: 'es5',
-    rootDir: buildConfig.src,
-    srcDir: buildConfig.src,
-    devMode: buildConfig.devMode,
-    bundles: buildConfig.bundles,
-    watch: buildConfig.watch,
-    collection: buildConfig.collection
-  };
-
-  return compile(buildConfig.sys, buildConfig.logger, workerManager, config);
-}
-
-
-function bundleProject(buildConfig: BuildConfig, workerManager: WorkerManager, manifest: Manifest) {
-  const bundlerConfig: BundlerConfig = {
-    namespace: buildConfig.namespace,
-    srcDir: buildConfig.src,
-    destDir: buildConfig.dest,
-    manifest: manifest,
-    devMode: buildConfig.devMode,
-    watch: buildConfig.watch
-  };
-
-  return bundle(buildConfig.sys, buildConfig.logger, bundlerConfig, workerManager);
 }
 
 
@@ -215,7 +189,7 @@ export function normalizeBuildConfig(buildConfig: BuildConfig) {
     buildConfig.collectionDest = DEFAULT_COLLECTION_DIR;
   }
   if (!buildConfig.sys.path.isAbsolute(buildConfig.collectionDest)) {
-    buildConfig.collectionDest = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.dest);
+    buildConfig.collectionDest = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.collectionDest);
   }
 
   if (typeof buildConfig.numWorkers === 'number') {
@@ -229,6 +203,10 @@ export function normalizeBuildConfig(buildConfig: BuildConfig) {
   buildConfig.collection = !!buildConfig.collection;
   buildConfig.collections = buildConfig.collections || [];
   buildConfig.bundles = buildConfig.bundles || [];
+  buildConfig.exclude = buildConfig.exclude || [
+    'node_modules',
+    'bower_components'
+  ];
 
   return buildConfig;
 }

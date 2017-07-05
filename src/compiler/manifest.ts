@@ -1,21 +1,22 @@
-import { CompileResults, Collection, ComponentMeta, CompilerConfig, FilesToWrite,
+import { BuildConfig, CompileResults, Collection, ComponentMeta,
   Logger, Manifest, Bundle, StencilSystem, StyleMeta } from './interfaces';
 import { readFile } from './util';
 import { resolveFrom } from './resolve-from';
 
 
-export function generateManifest(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, compileResults: CompileResults, filesToWrite: FilesToWrite) {
+export function generateManifest(buildConfig: BuildConfig, compileResults: CompileResults) {
   const manifest: Manifest = {
     components: [],
     bundles: []
   };
 
-  const destDir = compilerConfig.collectionDir;
+  const sys = buildConfig.sys;
+  const logger = buildConfig.logger;
 
-  logger.debug(`manifest, generateManifest, destDir: ${destDir}`);
+  logger.debug(`manifest, generateManifest, collectionDest: ${buildConfig.collectionDest}`);
 
   // normalize bundle component tags
-  compilerConfig.bundles.forEach(b => {
+  buildConfig.bundles.forEach(b => {
     if (Array.isArray(b.components)) {
       b.components = b.components.map(c => c.toLowerCase().trim());
       return;
@@ -34,8 +35,8 @@ export function generateManifest(sys: StencilSystem, logger: Logger, compilerCon
     if (!f.cmpMeta || !f.cmpMeta.tagNameMeta) return;
 
     let includeComponent = false;
-    for (var i = 0; i < compilerConfig.bundles.length; i++) {
-      if (compilerConfig.bundles[i].components.indexOf(f.cmpMeta.tagNameMeta) > -1) {
+    for (var i = 0; i < buildConfig.bundles.length; i++) {
+      if (buildConfig.bundles[i].components.indexOf(f.cmpMeta.tagNameMeta) > -1) {
         includeComponent = true;
         break;
       }
@@ -46,7 +47,7 @@ export function generateManifest(sys: StencilSystem, logger: Logger, compilerCon
     const cmpMeta: ComponentMeta = Object.assign({}, <any>f.cmpMeta);
 
     cmpMeta.componentClass = f.cmpClassName;
-    cmpMeta.componentUrl = f.jsFilePath.replace(destDir + sys.path.sep, '');
+    cmpMeta.componentUrl = f.jsFilePath.replace(buildConfig.collectionDest + sys.path.sep, '');
 
     const componentDir = sys.path.dirname(cmpMeta.componentUrl);
 
@@ -95,7 +96,7 @@ export function generateManifest(sys: StencilSystem, logger: Logger, compilerCon
     manifest.components.push(cmpMeta);
   });
 
-  manifest.bundles = (compilerConfig.bundles && compilerConfig.bundles.slice()) || [];
+  manifest.bundles = (buildConfig.bundles && buildConfig.bundles.slice()) || [];
 
   manifest.bundles = manifest.bundles.sort((a, b) => {
     if (a.components && a.components.length && b.components && b.components.length) {
@@ -111,12 +112,12 @@ export function generateManifest(sys: StencilSystem, logger: Logger, compilerCon
     return 0;
   });
 
-  const manifestFilePath = sys.path.join(compilerConfig.collectionDir, MANIFEST_FILE_NAME);
+  const manifestFilePath = sys.path.join(buildConfig.collectionDest, MANIFEST_FILE_NAME);
   const manifestJson = JSON.stringify(manifest, null, 2);
 
   logger.debug(`manifest, generateManifest: ${manifestFilePath}`);
 
-  filesToWrite[manifestFilePath] = manifestJson;
+  compileResults.filesToWrite[manifestFilePath] = manifestJson;
 
   return manifest;
 }

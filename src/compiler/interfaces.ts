@@ -1,31 +1,8 @@
 export * from '../util/interfaces';
-import { Bundle, ComponentMeta, Diagnostic, Manifest, LoadComponentRegistry } from '../util/interfaces';
-
-
-export interface CompilerConfig {
-  rootDir?: string;
-  srcDir: string;
-  collectionDir?: string;
-  exclude?: string[];
-  devMode?: boolean;
-  watch?: boolean;
-  bundles?: Bundle[];
-  collection?: boolean;
-  declaration?: boolean;
-  lib?: string[];
-  module?: 'es2015' | 'commonjs';
-  sourceMap?: boolean;
-  target?: 'es5' | 'es2015';
-}
+import { ComponentMeta, Diagnostic, Manifest, LoadComponentRegistry } from '../util/interfaces';
 
 
 export interface BundlerConfig {
-  namespace: string;
-  srcDir: string;
-  destDir: string;
-  devMode?: boolean;
-  attachRegistryTo?: 'core'|'loader';
-  watch?: boolean;
   attrCase?: number;
   manifest: Manifest;
 }

@@ -1,4 +1,4 @@
-import { BuildConfig, Bundle, BundlerConfig, CompilerConfig, CompileResults, ComponentMeta,
+import { BuildConfig, Bundle, CompileResults, ComponentMeta,
   Logger, ModuleFiles, ModuleResults, Process, StencilSystem, StylesResults } from './interfaces';
 import { compileFileWorker } from './compile';
 import { generateDefineComponentsWorker } from './bundle-modules';
@@ -18,7 +18,6 @@ export class WorkerManager {
   constructor(private sys: StencilSystem, public logger: Logger) {}
 
   connect(numWorkers: number) {
-    const self = this;
     this.numWorkers = numWorkers;
 
     if (numWorkers > 0) {
@@ -34,7 +33,7 @@ export class WorkerManager {
           this.workers.push(worker);
         }
       } catch (e) {
-        self.logger.error(`error creating worker, ${e}`);
+        this.logger.error(`error creating worker, ${e}`);
       }
 
     } else {
@@ -68,28 +67,26 @@ export class WorkerManager {
     }
   }
 
-  compileFile(compilerConfig: CompilerConfig, filePath: string): Promise<CompileResults> {
-    return this.sendTaskToWorker(this.nextWorkerId(), {
+  compileFile(buildConfig: BuildConfig, filePath: string): Promise<CompileResults> {
+    return this.sendTaskToWorker(buildConfig, this.nextWorkerId(), {
       taskName: 'compileFile',
-      compilerConfig: compilerConfig,
       filePath: filePath
 
     }).then((compileResults: CompileResults) => {
-
-      return this.updateWorkerModuleFiles(compileResults.workerId, compileResults.moduleFiles).then(() => {
+      return this.updateWorkerModuleFiles(buildConfig, compileResults.workerId, compileResults.moduleFiles).then(() => {
         return compileResults;
       });
 
     });
   }
 
-  updateWorkerModuleFiles(fromWorkerId: number, moduleFiles: ModuleFiles) {
+  updateWorkerModuleFiles(buildConfig: BuildConfig, fromWorkerId: number, moduleFiles: ModuleFiles) {
     const promises: Promise<any>[] = [];
 
     for (var workerId = 0; workerId < this.workers.length; workerId++) {
       if (workerId !== fromWorkerId) {
         promises.push(
-          this.sendTaskToWorker(workerId, {
+          this.sendTaskToWorker(buildConfig, workerId, {
             taskName: 'updateModuleFiles',
             moduleFiles: moduleFiles
           })
@@ -100,44 +97,43 @@ export class WorkerManager {
     return Promise.all(promises);
   }
 
-  generateBundleCss(bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle): Promise<StylesResults> {
-    return this.sendTaskToWorker(this.nextWorkerId(), {
+  generateBundleCss(buildConfig: BuildConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle): Promise<StylesResults> {
+    return this.sendTaskToWorker(buildConfig, this.nextWorkerId(), {
       taskName: 'generateBundleCss',
-      bundlerConfig: bundlerConfig,
       bundleComponentMeta: bundleComponentMeta,
       userBundle: userBundle
     });
   }
 
-  generateDefineComponents(bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[]): Promise<ModuleResults> {
-    return this.sendTaskToWorker(this.nextWorkerId(), {
+  generateDefineComponents(buildConfig: BuildConfig, bundleComponentMeta: ComponentMeta[]): Promise<ModuleResults> {
+    return this.sendTaskToWorker(buildConfig, this.nextWorkerId(), {
       taskName: 'generateDefineComponents',
-      bundlerConfig: bundlerConfig,
       bundleComponentMeta: bundleComponentMeta
     });
   }
 
-  private sendTaskToWorker(workerId: number, msg: WorkerMessage): Promise<any> {
+  private sendTaskToWorker(buildConfig: BuildConfig, workerId: number, msg: WorkerMessage): Promise<any> {
     return new Promise(resolve => {
       msg.taskId = this.taskId++;
       this.taskResolves.set(msg.taskId, resolve);
 
       msg.workerId = workerId;
-      let worker = this.workers[msg.workerId];
+      let worker = this.workers[workerId];
       if (worker && worker.connected && worker.send(msg)) {
         // all good, message sent to worker
         return;
       }
 
       // main thread fallback
-      workerReceivedMessageFromMain(this.sys, this.logger, this.mainThreadWorker, this.mainThreadModuleFilesCache, msg);
+      workerReceivedMessageFromMain(buildConfig, this.mainThreadModuleFilesCache, msg);
     });
   }
 
   nextWorkerId() {
-    let nextId = ++this.roundRobin;
-    if (nextId >= this.workers.length) {
+    let nextId = this.roundRobin++;
+    if (nextId === this.workers.length) {
       nextId = 0;
+      this.roundRobin = 1;
     }
     return nextId;
   }
@@ -145,27 +141,29 @@ export class WorkerManager {
 }
 
 
-function workerReceivedMessageFromMain(sys: StencilSystem, logger: Logger, worker: Process, moduleFileCache: ModuleFiles, msg: WorkerMessage) {
+function workerReceivedMessageFromMain(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, msg: WorkerMessage) {
+  const worker = buildConfig.process;
+
   try {
 
     switch (msg.taskName) {
 
       case 'compileFile':
-        compileFileWorker(msg.workerId, sys, moduleFileCache, msg.compilerConfig, msg.filePath)
+        compileFileWorker(buildConfig, msg.workerId, moduleFileCache, msg.filePath)
           .then((resolveData: any) => {
             sendMessageFromWorkerToMain(worker, msg.taskId, resolveData);
           });
         break;
 
       case 'generateBundleCss':
-        generateBundleCssWorker(sys, msg.bundlerConfig, msg.bundleComponentMeta, msg.userBundle)
+        generateBundleCssWorker(buildConfig, msg.bundleComponentMeta, msg.userBundle)
           .then(resolveData => {
             sendMessageFromWorkerToMain(worker, msg.taskId, resolveData);
           });
         break;
 
       case 'generateDefineComponents':
-        generateDefineComponentsWorker(sys, msg.bundlerConfig, moduleFileCache, msg.bundleComponentMeta, msg.userBundle)
+        generateDefineComponentsWorker(buildConfig, moduleFileCache, msg.bundleComponentMeta, msg.userBundle)
           .then(resolveData => {
             sendMessageFromWorkerToMain(worker, msg.taskId, resolveData);
           });
@@ -177,12 +175,12 @@ function workerReceivedMessageFromMain(sys: StencilSystem, logger: Logger, worke
         break;
 
       default:
-        logger.error(`worker message, invalid task name: ${msg.taskName}`);
+        buildConfig.logger.error(`worker message, invalid task name: ${msg.taskName}`);
         break;
     }
 
   } catch (e) {
-    logger.error(`workerReceivedMessageFromMain, ${e}`);
+    buildConfig.logger.error(`workerReceivedMessageFromMain, ${e}`);
   }
 }
 
@@ -228,12 +226,10 @@ export function setupWorkerProcess(buildConfig: BuildConfig) {
   normalizeBuildConfig(buildConfig);
 
   const moduleFileCache: ModuleFiles = {};
-  const sys = buildConfig.sys;
-  const logger = buildConfig.logger;
   const worker = buildConfig.process;
 
   worker.on('message', (msg: WorkerMessage) => {
-    workerReceivedMessageFromMain(sys, logger, worker, moduleFileCache, msg);
+    workerReceivedMessageFromMain(buildConfig, moduleFileCache, msg);
   });
 }
 
@@ -243,8 +239,6 @@ interface WorkerMessage {
   workerId?: number;
   taskName?: 'compileFile'|'generateBundleCss'|'generateDefineComponents'|'updateModuleFiles';
   moduleFiles?: ModuleFiles;
-  bundlerConfig?: BundlerConfig;
-  compilerConfig?: CompilerConfig;
   filePath?: string;
   bundleComponentMeta?: ComponentMeta[];
   userBundle?: Bundle;

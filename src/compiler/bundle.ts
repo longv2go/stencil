@@ -1,13 +1,14 @@
 import { ATTR_DASH_CASE, ATTR_LOWER_CASE } from '../util/constants';
 import { bundleModules } from './bundle-modules';
-import { BundleResults, BundlerConfig, Logger, Manifest, StencilSystem } from './interfaces';
+import { BuildConfig, BundleResults, BundlerConfig } from './interfaces';
 import { bundleStyles } from './bundle-styles';
 import { generateComponentRegistry } from './bundle-registry';
 import { WorkerManager } from './worker-manager';
 
 
-export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: BundlerConfig, workerManager: WorkerManager) {
+export function bundle(buildConfig: BuildConfig, bundlerConfig: BundlerConfig, workerManager: WorkerManager) {
   // within MAIN thread
+  const logger = buildConfig.logger;
   const timeSpan = logger.createTimeSpan(`bundle started`);
 
   const bundleResults: BundleResults = {
@@ -16,18 +17,16 @@ export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: Bundle
     componentRegistry: []
   };
 
-  logger.debug(`bundle, include: ${bundlerConfig.srcDir}`);
-  logger.debug(`bundle, outDir: ${bundlerConfig.destDir}`);
+  logger.debug(`bundle, src: ${buildConfig.src}`);
+  logger.debug(`bundle, dest: ${buildConfig.dest}`);
 
   return Promise.resolve().then(() => {
-    validateConfig(bundlerConfig);
-
-    const userManifest = validateUserManifest(bundlerConfig.manifest);
+    validateBundlerConfig(bundlerConfig);
 
     // kick off style and module bundling at the same time
     return Promise.all([
-      bundleStyles(logger, bundlerConfig, workerManager, userManifest),
-      bundleModules(logger, bundlerConfig, workerManager, userManifest)
+      bundleStyles(buildConfig, workerManager, bundlerConfig.manifest),
+      bundleModules(buildConfig, workerManager, bundlerConfig.manifest)
     ]);
 
   }).then(results => {
@@ -48,7 +47,7 @@ export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: Bundle
       Object.assign(bundleResults.filesToWrite, moduleResults.filesToWrite);
     }
 
-    bundleResults.componentRegistry = generateComponentRegistry(sys, bundlerConfig, styleResults, moduleResults, bundleResults.filesToWrite);
+    bundleResults.componentRegistry = generateComponentRegistry(buildConfig, bundlerConfig, styleResults, moduleResults, bundleResults.filesToWrite);
 
   })
   .catch(err => {
@@ -66,31 +65,27 @@ export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: Bundle
 }
 
 
-function validateConfig(config: BundlerConfig) {
-  config.attrCase = normalizeAttrCase(config.attrCase);
-}
+function validateBundlerConfig(bundlerConfig: BundlerConfig) {
+  bundlerConfig.attrCase = normalizeAttrCase(bundlerConfig.attrCase);
 
-
-function validateUserManifest(manifest: Manifest) {
-  if (!manifest) {
-    throw 'config.manifest required';
+  if (!bundlerConfig.manifest) {
+    throw new Error('config.manifest required');
   }
-  if (!manifest.bundles) {
-    throw 'config.manifest.bundles required';
+  if (!bundlerConfig.manifest.bundles) {
+    throw new Error('config.manifest.bundles required');
   }
-  if (!manifest.components) {
-    throw 'config.manifest.components required';
+  if (!bundlerConfig.manifest.components) {
+    throw new Error('config.manifest.components required');
   }
 
   // sort by tag name and ensure they're lower case
-  manifest.bundles.forEach(b => {
+  bundlerConfig.manifest.bundles.forEach(b => {
     b.components = b.components.sort().map(c => c.toLowerCase().trim());
   });
-  manifest.components.forEach(c => {
+
+  bundlerConfig.manifest.components.forEach(c => {
     c.tagNameMeta = c.tagNameMeta.toLowerCase().trim();
   });
-
-  return manifest;
 }
 
 

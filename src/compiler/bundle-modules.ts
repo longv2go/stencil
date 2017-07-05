@@ -1,13 +1,13 @@
-import { BundlerConfig, Bundle, ComponentMeta, Diagnostic, Manifest, ModuleFiles,
-  ModuleResults, Logger, StencilSystem } from './interfaces';
+import { BuildConfig, Bundle, ComponentMeta, Diagnostic,
+  Manifest, ModuleFiles, ModuleResults, StencilSystem } from './interfaces';
 import { BUNDLES_DIR } from '../util/constants';
 import { formatDefineComponents, formatJsBundleFileName, generateBundleId } from '../util/data-serialize';
 import { WorkerManager } from './worker-manager';
 
 
-export function bundleModules(logger: Logger, bundlerConfig: BundlerConfig, workerManager: WorkerManager, userManifest: Manifest) {
+export function bundleModules(buildConfig: BuildConfig, workerManager: WorkerManager, userManifest: Manifest) {
   // within MAIN thread
-  const timeSpan = logger.createTimeSpan(`bundle modules started`);
+  const timeSpan = buildConfig.logger.createTimeSpan(`bundle modules started`);
 
   // create main module results object
   const moduleResults: ModuleResults = {
@@ -17,7 +17,7 @@ export function bundleModules(logger: Logger, bundlerConfig: BundlerConfig, work
   };
 
   return Promise.all(userManifest.bundles.map(userBundle => {
-    return generateDefineComponents(bundlerConfig, workerManager, userManifest, userBundle, moduleResults);
+    return generateDefineComponents(buildConfig, workerManager, userManifest, userBundle, moduleResults);
 
   })).catch(err => {
     moduleResults.diagnostics.push({
@@ -33,7 +33,7 @@ export function bundleModules(logger: Logger, bundlerConfig: BundlerConfig, work
 }
 
 
-function generateDefineComponents(bundlerConfig: BundlerConfig, workerManager: WorkerManager, userManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults) {
+function generateDefineComponents(buildConfig: BuildConfig, workerManager: WorkerManager, userManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults) {
   // within MAIN thread
   const bundleComponentMeta = userBundle.components.map(userBundleComponentTag => {
     const cmpMeta = userManifest.components.find(c => c.tagNameMeta === userBundleComponentTag);
@@ -46,7 +46,7 @@ function generateDefineComponents(bundlerConfig: BundlerConfig, workerManager: W
     return cmpMeta;
   }).filter(c => !!c);
 
-  return workerManager.generateDefineComponents(bundlerConfig, bundleComponentMeta).then(workerResults => {
+  return workerManager.generateDefineComponents(buildConfig, bundleComponentMeta).then(workerResults => {
     // merge results into main results
     if (workerResults.bundles) {
       Object.assign(moduleResults.bundles, workerResults.bundles);
@@ -63,13 +63,15 @@ function generateDefineComponents(bundlerConfig: BundlerConfig, workerManager: W
 }
 
 
-export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig: BundlerConfig, moduleFiles: ModuleFiles, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
+export function generateDefineComponentsWorker(buildConfig: BuildConfig, moduleFiles: ModuleFiles, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
   // within WORKER thread
   const moduleResults: ModuleResults = {
     bundles: {},
     filesToWrite: {},
     diagnostics: []
   };
+
+  const sys = buildConfig.sys;
 
   // loop through each bundle the user wants and create the "defineComponents"
   return bundleComponentModules(sys, moduleFiles, bundleComponentMeta, moduleResults).then(jsModuleContent => {
@@ -79,11 +81,11 @@ export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig
     // format all the JS bundle content
     // insert the already bundled JS module into the defineComponents function
     let moduleContent = formatDefineComponents(
-      bundlerConfig.namespace, STENCIL_BUNDLE_ID,
+      buildConfig.namespace, STENCIL_BUNDLE_ID,
       jsModuleContent, bundleComponentMeta
     );
 
-    if (bundlerConfig.devMode) {
+    if (buildConfig.devMode) {
       // dev mode has filename from the bundled tag names
       moduleResults.bundles[bundleId] = userBundle.components.sort().join('.').toLowerCase();
 
@@ -112,7 +114,7 @@ export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig
 
     // create the file name and path of where the bundle will be saved
     const moduleFileName = formatJsBundleFileName(moduleResults.bundles[bundleId]);
-    const moduleFilePath = sys.path.join(bundlerConfig.destDir, BUNDLES_DIR, bundlerConfig.namespace.toLowerCase(), moduleFileName);
+    const moduleFilePath = sys.path.join(buildConfig.dest, BUNDLES_DIR, buildConfig.namespace.toLowerCase(), moduleFileName);
 
     moduleResults.filesToWrite[moduleFilePath] = moduleContent;
 

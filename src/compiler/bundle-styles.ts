@@ -1,13 +1,13 @@
 import { BUNDLES_DIR, HYDRATED_CSS } from '../util/constants';
-import { BundlerConfig, Logger, ComponentMeta, Manifest, Bundle, StencilSystem, StylesResults } from './interfaces';
+import { BuildConfig, ComponentMeta, Manifest, Bundle, StylesResults } from './interfaces';
 import { formatCssBundleFileName, generateBundleId } from '../util/data-serialize';
 import { readFile } from './util';
 import { WorkerManager } from './worker-manager';
 
 
-export function bundleStyles(logger: Logger, config: BundlerConfig, workerManager: WorkerManager, userManifest: Manifest) {
+export function bundleStyles(buildConfig: BuildConfig, workerManager: WorkerManager, userManifest: Manifest) {
   // within MAIN thread
-  const timeSpan = logger.createTimeSpan(`bundle styles started`);
+  const timeSpan = buildConfig.logger.createTimeSpan(`bundle styles started`);
 
   // create main style results object
   const stylesResults: StylesResults = {
@@ -19,7 +19,7 @@ export function bundleStyles(logger: Logger, config: BundlerConfig, workerManage
   // go through each bundle the user wants created
   // and create css files for each mode for each bundle
   return Promise.all(userManifest.bundles.map(userBundle => {
-    return generateBundleCss(config, workerManager, userManifest, userBundle, stylesResults).then(workerResults => {
+    return generateBundleCss(buildConfig, workerManager, userManifest, userBundle, stylesResults).then(workerResults => {
 
       // merge results into main results
       if (workerResults.bundles) {
@@ -51,7 +51,7 @@ export function bundleStyles(logger: Logger, config: BundlerConfig, workerManage
 }
 
 
-function generateBundleCss(bundlerConfig: BundlerConfig, workerManager: WorkerManager, userManifest: Manifest, userBundle: Bundle, stylesResults: StylesResults) {
+function generateBundleCss(buildConfig: BuildConfig, workerManager: WorkerManager, userManifest: Manifest, userBundle: Bundle, stylesResults: StylesResults) {
   // within MAIN thread
   // multiple modes can be on each component
   // and multiple components can be in each bundle
@@ -73,11 +73,11 @@ function generateBundleCss(bundlerConfig: BundlerConfig, workerManager: WorkerMa
     return foundComponentMeta;
   }).filter(c => c);
 
-  return workerManager.generateBundleCss(bundlerConfig, bundleComponentMeta, userBundle);
+  return workerManager.generateBundleCss(buildConfig, bundleComponentMeta, userBundle);
 }
 
 
-export function generateBundleCssWorker(sys: StencilSystem, bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
+export function generateBundleCssWorker(buildConfig: BuildConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
   // within WORKER thread
   const stylesResults: StylesResults = {
     bundles: {},
@@ -101,7 +101,7 @@ export function generateBundleCssWorker(sys: StencilSystem, bundlerConfig: Bundl
   // go through each mode this bundle has
   // and create a css file for this each mode in this bundle
   return Promise.all(bundleModes.map(modeName => {
-    return generateModeCss(sys, bundlerConfig, bundleComponentMeta, userBundle, modeName, stylesResults);
+    return generateModeCss(buildConfig, bundleComponentMeta, userBundle, modeName, stylesResults);
 
   })).catch(err => {
     stylesResults.diagnostics.push({
@@ -117,8 +117,7 @@ export function generateBundleCssWorker(sys: StencilSystem, bundlerConfig: Bundl
 
 
 function generateModeCss(
-  sys: StencilSystem,
-  bundlerConfig: BundlerConfig,
+  buildConfig: BuildConfig,
   bundleComponentMeta: ComponentMeta[],
   userBundle: Bundle,
   modeName: string,
@@ -127,8 +126,10 @@ function generateModeCss(
   // within WORKER thread
   // loop through each component in this bundle
   // and create a css file for all the same modes
+  const sys = buildConfig.sys;
+
   return Promise.all(bundleComponentMeta.map(cmpMeta => {
-    return generateComponentModeStyles(sys, bundlerConfig, cmpMeta, modeName, stylesResults);
+    return generateComponentModeStyles(buildConfig, cmpMeta, modeName, stylesResults);
 
   })).then(modeStyles => {
     // tack on the visibility css to each component tag selector
@@ -144,7 +145,7 @@ function generateModeCss(
     // ensure we've got some good objects before we start assigning stuff
     const stylesResult = stylesResults.bundles[bundleId] = stylesResults.bundles[bundleId] || {};
 
-    if (bundlerConfig.devMode) {
+    if (buildConfig.devMode) {
       // dev mode has filename from the bundled tag names
       stylesResult[modeName] = (userBundle.components.sort().join('.') + '.' + modeName).toLowerCase();
 
@@ -176,9 +177,9 @@ function generateModeCss(
     // create the file name and path of where the bundle will be saved
     const styleFileName = formatCssBundleFileName(stylesResult[modeName]);
     const styleFilePath = sys.path.join(
-      bundlerConfig.destDir,
+      buildConfig.dest,
       BUNDLES_DIR,
-      bundlerConfig.namespace.toLowerCase(),
+      buildConfig.namespace.toLowerCase(),
       styleFileName
     );
 
@@ -188,14 +189,14 @@ function generateModeCss(
 
 
 function generateComponentModeStyles(
-  sys: StencilSystem,
-  bundlerConfig: BundlerConfig,
+  buildConfig: BuildConfig,
   cmpMeta: ComponentMeta,
   modeName: string,
   stylesResults: StylesResults
 ) {
   // within WORKER thread
   const modeStyleMeta = cmpMeta.styleMeta[modeName];
+  const sys = buildConfig.sys;
 
   const promises: Promise<any>[] = [];
 
@@ -212,11 +213,11 @@ function generateComponentModeStyles(
 
         if (ext === '.scss' || ext === '.sass') {
           // sass file needs to be compiled
-          promises.push(compileScssFile(sys, bundlerConfig, styleUrl, styleCollection, stylesResults));
+          promises.push(compileScssFile(buildConfig, styleUrl, styleCollection, stylesResults));
 
         } else if (ext === '.css') {
           // plain ol' css file
-          promises.push(readCssFile(sys, bundlerConfig, styleUrl, styleCollection, stylesResults));
+          promises.push(readCssFile(buildConfig, styleUrl, styleCollection, stylesResults));
 
         } else {
           // idk
@@ -249,15 +250,16 @@ interface StyleCollection {
 }
 
 
-function compileScssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, styleUrl: string, styleCollection: StyleCollection, stylesResults: StylesResults) {
+function compileScssFile(buildConfig: BuildConfig, styleUrl: string, styleCollection: StyleCollection, stylesResults: StylesResults) {
   // this is a Sass file that needs to be compiled
   return new Promise(resolve => {
-    const scssFilePath = sys.path.join(bundlerConfig.srcDir, styleUrl);
+    const sys = buildConfig.sys;
+    const scssFilePath = sys.path.join(buildConfig.src, styleUrl);
     const scssFileName = sys.path.basename(styleUrl);
 
     const sassConfig = {
       file: scssFilePath,
-      outputStyle: bundlerConfig.devMode ? 'expanded' : 'compressed',
+      outputStyle: buildConfig.devMode ? 'expanded' : 'compressed',
     };
 
     sys.sass.render(sassConfig, (err, result) => {
@@ -272,7 +274,7 @@ function compileScssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, style
       } else if (result.css) {
         result.css = result.css.toString().trim();
 
-        if (bundlerConfig.devMode) {
+        if (buildConfig.devMode) {
           styleCollection[styleUrl] = `/********** ${scssFileName} **********/\n\n${result.css}\n\n`;
 
         } else {
@@ -286,17 +288,20 @@ function compileScssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, style
 }
 
 
-function readCssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, styleUrl: string, styleCollection: StyleCollection, stylesResults: StylesResults) {
+function readCssFile(buildConfig: BuildConfig, styleUrl: string, styleCollection: StyleCollection, stylesResults: StylesResults) {
   // this is just a plain css file
   // only open it up for its content
-  const cssFilePath = sys.path.join(bundlerConfig.srcDir, styleUrl);
+  const sys = buildConfig.sys;
+
+  const cssFilePath = sys.path.join(buildConfig.src, styleUrl);
   const cssFileName = sys.path.basename(styleUrl);
 
   return readFile(sys, cssFilePath).then(cssText => {
     cssText = cssText.toString().trim();
 
-    if (bundlerConfig.devMode) {
+    if (buildConfig.devMode) {
       styleCollection[styleUrl] = `/********** ${cssFileName} **********/\n\n${cssText}`;
+
     } else {
       styleCollection[styleUrl] = cssText;
     }

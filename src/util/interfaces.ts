@@ -431,6 +431,7 @@ export interface BuildConfig {
   sys: StencilSystem;
   logger: Logger;
   logLevel: 'error'|'warn'|'info'|'ok'|'debug';
+  exclude: string[];
   rootDir: string;
   namespace: string;
   src: string;

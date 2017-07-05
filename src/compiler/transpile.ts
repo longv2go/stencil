@@ -1,4 +1,4 @@
-import { CompilerConfig, Diagnostic, ModuleFiles, ModuleFileMeta, StencilSystem, TranspileResults } from './interfaces';
+import { BuildConfig, Diagnostic, ModuleFiles, ModuleFileMeta, StencilSystem, TranspileResults } from './interfaces';
 import { componentClass } from './transformers/component-class';
 import { jsxToVNode } from './transformers/jsx-to-vnode';
 import { readFile } from './util';
@@ -7,12 +7,14 @@ import { updateLifecycleMethods } from './transformers/update-lifecycle-methods'
 import * as ts from 'typescript';
 
 
-export function transpileWorker(sys: StencilSystem, moduleFileCache: ModuleFiles, compilerConfig: CompilerConfig, tsFilePath: string) {
+export function transpileWorker(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, tsFilePath: string) {
   // within WORKER thread
   const transpileResults: TranspileResults = {
     moduleFiles: {},
     diagnostics: []
   };
+
+  const sys = buildConfig.sys;
 
   return readFile(sys, tsFilePath).then(tsText => {
     const moduleFile: ModuleFileMeta = {
@@ -22,7 +24,7 @@ export function transpileWorker(sys: StencilSystem, moduleFileCache: ModuleFiles
     transpileResults.moduleFiles[tsFilePath] = moduleFile;
     moduleFileCache[tsFilePath] = moduleFile;
 
-    return transpileFile(sys, moduleFileCache, compilerConfig, moduleFile, transpileResults);
+    return transpileFile(buildConfig, moduleFileCache, moduleFile, transpileResults);
 
   }).then(() => {
     return transpileResults;
@@ -30,8 +32,9 @@ export function transpileWorker(sys: StencilSystem, moduleFileCache: ModuleFiles
 }
 
 
-function transpileFile(sys: StencilSystem, moduleFileCache: ModuleFiles, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, transpileResults: TranspileResults) {
-  const tsCompilerOptions = createTsCompilerConfigs(compilerConfig);
+function transpileFile(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, moduleFile: ModuleFileMeta, transpileResults: TranspileResults) {
+  const sys = buildConfig.sys;
+  const tsCompilerOptions = createTsCompilerConfigs(buildConfig);
 
   const moduleStylesToProcess: ModuleFileMeta[] = [];
 
@@ -178,7 +181,7 @@ function getIncludedSassFiles(sys: StencilSystem, diagnostics: Diagnostic[], mod
 }
 
 
-function createTsCompilerConfigs(compilerConfig: CompilerConfig) {
+function createTsCompilerConfigs(buildConfig: BuildConfig) {
   // create defaults
   const tsCompilerOptions: ts.CompilerOptions = {
     allowJs: true,
@@ -194,12 +197,12 @@ function createTsCompilerConfigs(compilerConfig: CompilerConfig) {
     module: ts.ModuleKind.ES2015,
     moduleResolution: ts.ModuleResolutionKind.NodeJs,
     noImplicitUseStrict: true,
-    target: ts.ScriptTarget.ES5
+    target: ts.ScriptTarget.ES5,
   };
 
   // add custom values
-  tsCompilerOptions.outDir = compilerConfig.collectionDir;
-  tsCompilerOptions.rootDir = compilerConfig.srcDir;
+  tsCompilerOptions.outDir = buildConfig.collectionDest;
+  tsCompilerOptions.rootDir = buildConfig.src;
 
   return tsCompilerOptions;
 }

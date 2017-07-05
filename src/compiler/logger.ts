@@ -2,7 +2,7 @@ import { Logger } from './interfaces';
 
 
 export class CmdLogger implements Logger {
-  private _level: string;
+  private _level = 'info';
   private stream: any;
   private chalk: any;
   private ttyWidth: number;
@@ -19,14 +19,16 @@ export class CmdLogger implements Logger {
   }
 
   set level(v: string) {
-    let s = v.toLowerCase().trim();
+    if (typeof v === 'string') {
+      let s = v.toLowerCase().trim();
 
-    if (!isLogLevel(s)) {
-      this.error(`Invalid log level '${this.chalk.bold(v)}' (choose from: ${LOG_LEVELS.map(l => this.chalk.bold(l)).join(', ')})`);
-      s = 'info';
+      if (!isLogLevel(s)) {
+        this.error(`Invalid log level '${this.chalk.bold(v)}' (choose from: ${LOG_LEVELS.map(l => this.chalk.bold(l)).join(', ')})`);
+        s = 'info';
+      }
+
+      this._level = s;
     }
-
-    this._level = s;
   }
 
   debug(msg: string) {

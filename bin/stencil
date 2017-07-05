@@ -26,8 +26,11 @@ try {
   }
 } catch (e) {}
 
-var buildConfig = {};
-buildConfig.numWorkers = Math.min(4, require('os').cpus().length);
+
+var buildConfig = {
+  numWorkers: Math.min(4, require('os').cpus().length),
+  process: process
+};
 
 
 var configFileName = 'stencil.config.js';
@@ -87,7 +90,7 @@ if (cmdArgs.indexOf('--debug') > -1) {
 
 
 var stencil = require(path.join(__dirname, '..', 'dist' , 'compiler'));
-var logger = new stencil.CmdLogger({
+buildConfig.logger = new stencil.CmdLogger({
   level: buildConfig.logLevel,
   stream: process.stdout,
   columns: process.stdout.columns,
@@ -202,8 +205,6 @@ buildConfig.sys.getClientCoreFile = function(opts) {
   fileName += '.js';
 
   const filePath = path.join(__dirname, '..', 'dist', 'client', fileName);
-
-  logger.debug('getClientCoreFile: ' + filePath)
 
   return new Promise(function(resolve, reject) {
     if (coreFileCache[filePath]) {

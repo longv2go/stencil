@@ -90,8 +90,6 @@ export function build(buildConfig: BuildConfig) {
     });
 
   }).then(() => {
-    // build process done!! we did it!!
-
     buildResults.diagnostics.forEach(d => {
       if (d.type === 'error' && logger.level === 'debug' && d.stack) {
         logger.error(d.stack);

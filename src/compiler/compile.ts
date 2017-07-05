@@ -21,7 +21,6 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
   const compileResults: CompileResults = {
     moduleFiles: {},
     diagnostics: [],
-    includedSassFiles: [],
     manifest: {},
     filesToWrite: {}
   };
@@ -166,13 +165,14 @@ function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfi
 }
 
 
-export function compileFileWorker(sys: StencilSystem, moduleFileCache: ModuleFiles, compilerConfig: CompilerConfig, filePath: string) {
+export function compileFileWorker(workerId: number, sys: StencilSystem, moduleFileCache: ModuleFiles, compilerConfig: CompilerConfig, filePath: string) {
   // within WORKER thread
 
   const compileResults: CompileResults = {
     moduleFiles: {},
     diagnostics: [],
-    filesToWrite: {}
+    filesToWrite: {},
+    workerId: workerId
   };
 
   return Promise.resolve().then(() => {
@@ -186,6 +186,9 @@ export function compileFileWorker(sys: StencilSystem, moduleFileCache: ModuleFil
       }
     });
 
+  }).then(() => {
+
+
   }).catch(err => {
     compileResults.diagnostics.push({
       msg: err.toString(),
@@ -195,6 +198,78 @@ export function compileFileWorker(sys: StencilSystem, moduleFileCache: ModuleFil
 
   }).then(() => {
     return compileResults;
+  });
+}
+
+
+function processIncludedStyles(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, compileResults: CompileResults) {
+  if (!moduleFile.cmpMeta || !moduleFile.cmpMeta.styleMeta) {
+    return Promise.resolve(null);
+  }
+
+  const destDir = compilerConfig.compilerOptions.outDir;
+
+  logger.debug(`compile, processStyles, destDir ${destDir}`);
+
+  const promises: Promise<any>[] = [];
+  compileResults.includedSassFiles = compileResults.includedSassFiles || [];
+
+  const modeNames = Object.keys(moduleFile.cmpMeta.styleMeta);
+  modeNames.forEach(modeName => {
+    const modeMeta = Object.assign({}, moduleFile.cmpMeta.styleMeta[modeName]);
+
+    if (modeMeta.styleUrls) {
+      modeMeta.styleUrls.forEach(styleUrl => {
+        const scssFileName = sys.path.basename(styleUrl);
+        const scssFilePath = sys.path.join(sys.path.dirname(moduleFile.filePath), scssFileName);
+        promises.push(
+          getIncludedSassFiles(sys, logger, compileResults, scssFilePath)
+        );
+      });
+    }
+
+  });
+
+  return Promise.all(promises);
+}
+
+
+function getIncludedSassFiles(sys: StencilSystem, logger: Logger, compileResults: CompileResults, scssFilePath: string) {
+  return new Promise(resolve => {
+
+    const sassConfig = {
+      file: scssFilePath,
+      outFile: `${scssFilePath}.tmp`
+    };
+
+    compileResults.includedSassFiles = compileResults.includedSassFiles || [];
+
+    if (compileResults.includedSassFiles.indexOf(scssFilePath) === -1) {
+      compileResults.includedSassFiles.push(scssFilePath);
+    }
+
+    logger.debug(`compile, getIncludedSassFiles: ${scssFilePath}`);
+
+    sys.sass.render(sassConfig, (err, result) => {
+      if (err) {
+        compileResults.diagnostics = compileResults.diagnostics || [];
+        compileResults.diagnostics.push({
+          msg: err,
+          type: 'error'
+        });
+
+      } else if (result.stats) {
+        result.stats.includedFiles.forEach((includedFile: string) => {
+          if (compileResults.includedSassFiles.indexOf(includedFile) === -1) {
+            compileResults.includedSassFiles.push(includedFile);
+          }
+        });
+      }
+
+      // always resolve
+      resolve();
+    });
+
   });
 }
 

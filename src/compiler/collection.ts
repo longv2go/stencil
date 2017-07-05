@@ -1,12 +1,13 @@
 import { BuildConfig } from '../util/interfaces';
-import { CompilerConfig, MainBuildContext } from './interfaces';
+import { BuildResults, CompilerConfig, FilesToWrite } from './interfaces';
 import { compile } from './compile';
 import { generateDependentManifests } from './manifest';
+import { updateDirectories, writeFiles } from './fs-util';
 import { validateBuildConfig } from './build';
 import { WorkerManager } from './worker-manager';
 
 
-export function collection(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
+export function collection(buildConfig: BuildConfig) {
   const sys = buildConfig.sys;
   const logger = buildConfig.logger;
 
@@ -14,12 +15,16 @@ export function collection(buildConfig: BuildConfig, mainCtx?: MainBuildContext)
 
   buildConfig.writeCompiledToDisk = true;
 
-  mainCtx = mainCtx || {};
+  const workerManager = new WorkerManager(buildConfig.sys, buildConfig.logger);
+  workerManager.connect(buildConfig.numWorkers);
 
-  if (!mainCtx.workerManager) {
-    mainCtx.workerManager = new WorkerManager(buildConfig.sys, buildConfig.logger);
-    mainCtx.workerManager.connect(buildConfig.numWorkers);
-  }
+  const buildResults: BuildResults = {
+    diagnostics: [],
+    manifest: {},
+    componentRegistry: []
+  };
+
+  const filesToWrite: FilesToWrite = {};
 
   return Promise.resolve().then(() => {
     // validate our data is good to go
@@ -33,18 +38,45 @@ export function collection(buildConfig: BuildConfig, mainCtx?: MainBuildContext)
       buildConfig.destDir);
 
   }).then(() => {
-    return compileProject(buildConfig, mainCtx.workerManager);
-
-  }).catch(err => {
-    buildConfig.logger.error(err);
+    return compileProject(buildConfig, workerManager).then(compileResults => {
+      if (compileResults.diagnostics) {
+        buildResults.diagnostics = buildResults.diagnostics.concat(compileResults.diagnostics);
+      }
+      if (compileResults.filesToWrite) {
+        Object.assign(filesToWrite, compileResults.filesToWrite);
+      }
+    });
 
   }).then(() => {
-    mainCtx.workerManager.disconnect();
+    // write all the files in one go
+    if (buildConfig.isDevMode) {
+      return writeFiles(sys, filesToWrite);
+
+    } else {
+      return updateDirectories(sys, filesToWrite, buildConfig.destDir);
+    }
+
+  }).catch(err => {
+    buildResults.diagnostics.push({
+      msg: err.toString(),
+      type: 'error',
+      stack: err.stack
+    });
+
+  }).then(() => {
+    buildResults.diagnostics.forEach(d => {
+      if (d.type === 'error' && logger.level === 'debug' && d.stack) {
+        logger.error(d.stack);
+      } else {
+        logger[d.type](d.msg);
+      }
+    });
 
     if (buildConfig.isWatch) {
       timeSpan.finish(`collection ready, watching files ...`);
 
     } else {
+      workerManager.disconnect();
       timeSpan.finish(`collection finished`);
     }
   });

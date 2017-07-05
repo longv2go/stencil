@@ -37,14 +37,14 @@ export interface BundlerConfig {
 
 
 export interface ModuleFileMeta {
-  fileName: string;
-  filePath: string;
-  srcText: string;
+  tsfilePath?: string;
+  tsText?: string;
   jsFilePath?: string;
   jsText?: string;
   hasCmpClass?: boolean;
   cmpMeta?: ComponentMeta;
   cmpClassName?: string;
+  includedSassFiles?: string[];
 }
 
 
@@ -56,9 +56,9 @@ export interface ModuleFiles {
 export interface CompileResults {
   moduleFiles: ModuleFiles;
   diagnostics: Diagnostic[];
-  includedSassFiles?: string[];
   manifest?: Manifest;
   filesToWrite: FilesToWrite;
+  workerId?: number;
 }
 
 

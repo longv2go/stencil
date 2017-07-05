@@ -1,28 +1,26 @@
-import { CompilerConfig, CompileResults, Diagnostic, Logger, ModuleFiles,
-  ModuleFileMeta, StencilSystem, TranspileResults } from './interfaces';
-import { readFile } from './util';
+import { CompilerConfig, Diagnostic, ModuleFiles, ModuleFileMeta, StencilSystem, TranspileResults } from './interfaces';
 import { componentClass } from './transformers/component-class';
 import { jsxToVNode } from './transformers/jsx-to-vnode';
+import { readFile } from './util';
 import { removeImports } from './transformers/remove-imports';
 import { updateLifecycleMethods } from './transformers/update-lifecycle-methods';
 import * as ts from 'typescript';
 
 
-export function transpileWorker(sys: StencilSystem, moduleFileCache: ModuleFiles, compilerConfig: CompilerConfig, filePath: string) {
+export function transpileWorker(sys: StencilSystem, moduleFileCache: ModuleFiles, compilerConfig: CompilerConfig, tsFilePath: string) {
   // within WORKER thread
   const transpileResults: TranspileResults = {
     moduleFiles: {},
     diagnostics: []
   };
 
-  return readFile(sys, filePath).then(srcText => {
+  return readFile(sys, tsFilePath).then(tsText => {
     const moduleFile: ModuleFileMeta = {
-      filePath: filePath,
-      fileName: sys.path.basename(filePath),
-      srcText: srcText
+      tsfilePath: tsFilePath,
+      tsText: tsText
     };
-    transpileResults.moduleFiles[filePath] = moduleFile;
-    moduleFileCache[filePath] = moduleFile;
+    transpileResults.moduleFiles[tsFilePath] = moduleFile;
+    moduleFileCache[tsFilePath] = moduleFile;
 
     return transpileFile(sys, moduleFileCache, compilerConfig, moduleFile, transpileResults);
 
@@ -35,8 +33,10 @@ export function transpileWorker(sys: StencilSystem, moduleFileCache: ModuleFiles
 function transpileFile(sys: StencilSystem, moduleFileCache: ModuleFiles, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, transpileResults: TranspileResults) {
   const tsCompilerOptions = createTsCompilerConfigs(compilerConfig);
 
+  const moduleStylesToProcess: ModuleFileMeta[] = [];
+
   const tsHost: ts.CompilerHost = {
-    getSourceFile: (filePath) => ts.createSourceFile(filePath, moduleFile.srcText, ts.ScriptTarget.ES2015),
+    getSourceFile: (filePath) => ts.createSourceFile(filePath, moduleFile.tsText, ts.ScriptTarget.ES2015),
     getDefaultLibFileName: () => 'lib.d.ts',
     getCurrentDirectory: () => '',
     getDirectories: () => [],
@@ -54,17 +54,16 @@ function transpileFile(sys: StencilSystem, moduleFileCache: ModuleFiles, compile
       if (!moduleFile) {
         // file not in-memory yet
         moduleFile = {
-          filePath: filePath,
-          fileName: sys.path.basename(filePath),
+          tsfilePath: filePath,
           // sync file read required :(
-          srcText: sys.fs.readFileSync(filePath, 'utf-8')
+          tsText: sys.fs.readFileSync(filePath, 'utf-8')
         };
 
         transpileResults.moduleFiles[filePath] = moduleFile;
         moduleFileCache[filePath] = moduleFile;
       }
 
-      return moduleFile.srcText;
+      return moduleFile.tsText;
     },
 
     writeFile: (jsFilePath: string, jsText: string, writeByteOrderMark: boolean, onError: any, sourceFiles: ts.SourceFile[]): void => {
@@ -73,13 +72,14 @@ function transpileFile(sys: StencilSystem, moduleFileCache: ModuleFiles, compile
         if (moduleFile) {
           moduleFile.jsFilePath = jsFilePath;
           moduleFile.jsText = jsText;
+          moduleStylesToProcess.push(moduleFile);
         }
       });
       writeByteOrderMark; onError;
     }
   };
 
-  const program = ts.createProgram([moduleFile.filePath], tsCompilerOptions, tsHost);
+  const program = ts.createProgram([moduleFile.tsfilePath], tsCompilerOptions, tsHost);
 
   const result = program.emit(undefined, tsHost.writeFile, undefined, false, {
     before: [
@@ -105,23 +105,18 @@ function transpileFile(sys: StencilSystem, moduleFileCache: ModuleFiles, compile
     transpileResults.diagnostics.push(diagnostic);
   });
 
-  // return Promise.all(processCssModulesFiles.map(moduleFile => {
-  //   return processIncludedStyles(sys, logger, compilerConfig, moduleFile, compileResults);
-  // }));
+  return Promise.all(moduleStylesToProcess.map(moduleFile => {
+    return processIncludedStyles(sys, transpileResults.diagnostics, moduleFile);
+  }));
 }
 
 
-export function processIncludedStyles(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, compileResults: CompileResults) {
+function processIncludedStyles(sys: StencilSystem, diagnostics: Diagnostic[], moduleFile: ModuleFileMeta) {
   if (!moduleFile.cmpMeta || !moduleFile.cmpMeta.styleMeta) {
-    return Promise.resolve(null);
+    return Promise.resolve([]);
   }
 
-  const destDir = compilerConfig.compilerOptions.outDir;
-
-  logger.debug(`compile, processStyles, destDir ${destDir}`);
-
   const promises: Promise<any>[] = [];
-  compileResults.includedSassFiles = compileResults.includedSassFiles || [];
 
   const modeNames = Object.keys(moduleFile.cmpMeta.styleMeta);
   modeNames.forEach(modeName => {
@@ -129,11 +124,15 @@ export function processIncludedStyles(sys: StencilSystem, logger: Logger, compil
 
     if (modeMeta.styleUrls) {
       modeMeta.styleUrls.forEach(styleUrl => {
-        const scssFileName = sys.path.basename(styleUrl);
-        const scssFilePath = sys.path.join(sys.path.dirname(moduleFile.filePath), scssFileName);
-        promises.push(
-          getIncludedSassFiles(sys, logger, compileResults, scssFilePath)
-        );
+        const ext = sys.path.extname(styleUrl).toLowerCase();
+
+        if (ext === '.scss' || ext === '.sass') {
+          const scssFileName = sys.path.basename(styleUrl);
+          const scssFilePath = sys.path.join(sys.path.dirname(moduleFile.tsfilePath), scssFileName);
+          promises.push(
+            getIncludedSassFiles(sys, diagnostics, moduleFile, scssFilePath)
+          );
+        }
       });
     }
 
@@ -143,39 +142,35 @@ export function processIncludedStyles(sys: StencilSystem, logger: Logger, compil
 }
 
 
-function getIncludedSassFiles(sys: StencilSystem, logger: Logger, compileResults: CompileResults, scssFilePath: string) {
+function getIncludedSassFiles(sys: StencilSystem, diagnostics: Diagnostic[], moduleFile: ModuleFileMeta, scssFilePath: string) {
   return new Promise(resolve => {
 
     const sassConfig = {
-      file: scssFilePath,
-      outFile: `${scssFilePath}.tmp`
+      file: scssFilePath
     };
 
-    compileResults.includedSassFiles = compileResults.includedSassFiles || [];
+    moduleFile.includedSassFiles = moduleFile.includedSassFiles || [];
 
-    if (compileResults.includedSassFiles.indexOf(scssFilePath) === -1) {
-      compileResults.includedSassFiles.push(scssFilePath);
+    if (moduleFile.includedSassFiles.indexOf(scssFilePath) === -1) {
+      moduleFile.includedSassFiles.push(scssFilePath);
     }
-
-    logger.debug(`compile, getIncludedSassFiles: ${scssFilePath}`);
 
     sys.sass.render(sassConfig, (err, result) => {
       if (err) {
-        compileResults.diagnostics = compileResults.diagnostics || [];
-        compileResults.diagnostics.push({
-          msg: err,
+        diagnostics.push({
+          msg: err.message,
+          filePath: err.file,
           type: 'error'
         });
 
-      } else if (result.stats) {
+      } else if (result.stats && result.stats.includedFiles) {
         result.stats.includedFiles.forEach((includedFile: string) => {
-          if (compileResults.includedSassFiles.indexOf(includedFile) === -1) {
-            compileResults.includedSassFiles.push(includedFile);
+          if (moduleFile.includedSassFiles.indexOf(includedFile) === -1) {
+            moduleFile.includedSassFiles.push(includedFile);
           }
         });
       }
 
-      // always resolve
       resolve();
     });
 

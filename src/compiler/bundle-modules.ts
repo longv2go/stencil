@@ -1,4 +1,5 @@
-import { BundlerConfig, Bundle, ComponentMeta, Manifest, ModuleResults, Logger, StencilSystem } from './interfaces';
+import { BundlerConfig, Bundle, ComponentMeta, Diagnostic, Manifest, ModuleFiles,
+  ModuleResults, Logger, StencilSystem } from './interfaces';
 import { BUNDLES_DIR } from '../util/constants';
 import { formatDefineComponents, formatJsBundleFileName, generateBundleId } from '../util/data-serialize';
 import { WorkerManager } from './worker-manager';
@@ -62,7 +63,7 @@ function generateDefineComponents(bundlerConfig: BundlerConfig, workerManager: W
 }
 
 
-export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
+export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig: BundlerConfig, moduleFiles: ModuleFiles, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
   // within WORKER thread
   const moduleResults: ModuleResults = {
     bundles: {},
@@ -71,7 +72,7 @@ export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig
   };
 
   // loop through each bundle the user wants and create the "defineComponents"
-  return bundleComponentModules(sys, bundleComponentMeta, moduleResults).then(jsModuleContent => {
+  return bundleComponentModules(sys, moduleFiles, bundleComponentMeta, moduleResults).then(jsModuleContent => {
 
     const bundleId = generateBundleId(userBundle.components);
 
@@ -128,7 +129,7 @@ export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig
 }
 
 
-function bundleComponentModules(sys: StencilSystem, bundleComponentMeta: ComponentMeta[], moduleResults: ModuleResults) {
+function bundleComponentModules(sys: StencilSystem, moduleFiles: ModuleFiles, bundleComponentMeta: ComponentMeta[], moduleResults: ModuleResults) {
   const entryFileLines: string[] = [];
 
   // loop through all the components this bundle needs
@@ -165,9 +166,9 @@ function bundleComponentModules(sys: StencilSystem, bundleComponentMeta: Compone
         sourceMap: false
       }),
       entryInMemoryPlugin(STENCIL_BUNDLE_ID, entryContent),
-      transpiledInMemoryPlugin(ctx)
+      transpiledInMemoryPlugin(sys, moduleFiles)
     ],
-    onwarn: createOnWarnFn(moduleResults)
+    onwarn: createOnWarnFn(moduleResults.diagnostics)
 
   }).catch(err => {
     throw err;
@@ -185,7 +186,7 @@ function bundleComponentModules(sys: StencilSystem, bundleComponentMeta: Compone
 }
 
 
-function createOnWarnFn(moduleResults: ModuleResults) {
+function createOnWarnFn(diagnostics: Diagnostic[]) {
   const previousWarns: {[key: string]: boolean} = {};
 
   return function onWarningMessage(warning: any) {
@@ -194,7 +195,7 @@ function createOnWarnFn(moduleResults: ModuleResults) {
     }
     previousWarns[warning.message] = true;
 
-    moduleResults.diagnostics.push({
+    diagnostics.push({
       msg: warning,
       type: 'warn'
     });
@@ -202,37 +203,36 @@ function createOnWarnFn(moduleResults: ModuleResults) {
 }
 
 
-function transpiledInMemoryPlugin(ctx: WorkerBuildContext) {
+function transpiledInMemoryPlugin(sys: StencilSystem, moduleFiles: ModuleFiles) {
   return {
     name: 'transpiledInMemoryPlugin',
-    resolveId(importee: string): string {
-      let fileMeta = ctx.moduleFiles.get(importee);
-      if (fileMeta && fileMeta.jsText) {
-        return importee;
-      }
 
-      var mapIter = ctx.moduleFiles.values();
-      while (fileMeta = mapIter.next().value) {
-        if (fileMeta.jsFilePath === importee && fileMeta.jsText) {
+    resolveId(importee: string): string {
+      const tsFileNames = Object.keys(moduleFiles);
+      for (var i = 0; i < tsFileNames.length; i++) {
+        if (moduleFiles[tsFileNames[i]].jsFilePath === importee) {
           return importee;
         }
       }
+
       return null;
     },
-    load(sourcePath: string): string {
-      let fileMeta = ctx.moduleFiles.get(sourcePath);
-      if (fileMeta && fileMeta.jsText) {
-        return fileMeta.jsText;
-      }
 
-      var mapIter = ctx.moduleFiles.values();
-      while (fileMeta = mapIter.next().value) {
-        if (fileMeta.jsFilePath === sourcePath && fileMeta.jsText) {
-          return fileMeta.jsText;
+    load(sourcePath: string): string {
+      const tsFileNames = Object.keys(moduleFiles);
+      for (var i = 0; i < tsFileNames.length; i++) {
+        if (moduleFiles[tsFileNames[i]].jsFilePath === sourcePath) {
+          return moduleFiles[i].jsText || '';
         }
       }
 
-      return null;
+      const jsText = sys.fs.readFileSync(sourcePath, 'utf-8' );
+      moduleFiles[sourcePath] = {
+        jsFilePath: sourcePath,
+        jsText: jsText
+      };
+
+      return jsText;
     }
   };
 }

@@ -39,7 +39,7 @@ export function getPropDecoratorMeta(moduleFile: ModuleFileMeta, diagnostics: Di
               diagnostics.push({
                 msg: `parse prop options: ${e}`,
                 type: 'error',
-                filePath: moduleFile.filePath
+                filePath: moduleFile.tsfilePath
               });
             }
           }

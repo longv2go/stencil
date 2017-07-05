@@ -3,7 +3,7 @@ import { BuildResults, BundlerConfig, CompilerConfig, FilesToWrite } from './int
 import { bundle } from './bundle';
 import { compile } from './compile';
 import { generateDependentManifests, mergeManifests, updateManifestUrls } from './manifest';
-import { generateProjectCore } from './build-project-core';
+import { generateProjectFiles } from './build-project';
 import { updateDirectories, writeFiles } from './fs-util';
 import { WorkerManager } from './worker-manager';
 
@@ -69,19 +69,19 @@ export function build(buildConfig: BuildConfig) {
         Object.assign(filesToWrite, bundleResults.filesToWrite);
       }
 
-      // generate the core loader and aux files for this project
-      return generateProjectCore(buildConfig, bundleResults.componentRegistry, filesToWrite);
+      // generate the loader and core files for this project
+      return generateProjectFiles(buildConfig, bundleResults.componentRegistry, filesToWrite);
     });
 
   }).then(() => {
     // write all the files in one go
     if (buildConfig.isDevMode) {
-      // only writes the files and ensure the directories it needs exists
+      // only ensure the directories it needs exists and writes the files
       return writeFiles(sys, filesToWrite, buildConfig.destDir);
 
     } else {
-      // writes the files and ensure the directories it needs exists
-      // and removes any directories and files that shouldn't be there
+      // first removes any directories and files that aren't in the files to write
+      // then ensure the directories it needs exists and writes the files
       return updateDirectories(sys, filesToWrite, buildConfig.destDir);
     }
 
@@ -102,7 +102,7 @@ export function build(buildConfig: BuildConfig) {
     });
 
     if (buildConfig.isWatch) {
-      timeSpan.finish(`build ready, watching files ...`);
+      timeSpan.finish(`build ready, watching files...`);
 
     } else {
       workerManager.disconnect();
@@ -111,22 +111,6 @@ export function build(buildConfig: BuildConfig) {
 
     return buildResults;
   });
-
-  // }).then(bundleProjectResults => {
-  //   // generate the core loader and aux files for this project
-  //   return generateProjectCore(buildConfig, bundleProjectResults.componentRegistry);
-
-  // }).then(() => {
-  //   // remove temp compiled dir
-  //   // remove is async but no need to wait on it
-  //   // removeFilePath(buildConfig.sys, buildConfig.compiledDir);
-
-  //   buildConfig.logger.info(`build, done`);
-
-  // }).catch(err => {
-  //   buildConfig.logger.error(err);
-  //   err.stack && buildConfig.logger.error(err.stack);
-  // });
 }
 
 

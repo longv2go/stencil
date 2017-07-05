@@ -2,8 +2,8 @@ import { BuildConfig, LoadComponentRegistry } from '../util/interfaces';
 import { FilesToWrite } from './interfaces';
 
 
-export function generateProjectCore(buildConfig: BuildConfig, componentRegistry: LoadComponentRegistry[], filesToWrite: FilesToWrite) {
-  buildConfig.logger.debug(`build, generateProjectCore: ${buildConfig.namespace}`);
+export function generateProjectFiles(buildConfig: BuildConfig, componentRegistry: LoadComponentRegistry[], filesToWrite: FilesToWrite) {
+  buildConfig.logger.debug(`build, generateProjectFiles: ${buildConfig.namespace}`);
 
   const promises: Promise<any>[] = [
     generateCore(buildConfig, false, filesToWrite),
@@ -36,7 +36,7 @@ function generateLoader(buildConfig: BuildConfig, componentRegistry: LoadCompone
         buildConfig.logger[d.type](d.msg);
       });
       if (minifyResult.output) {
-        registryStr = registryStr;
+        registryStr = minifyResult.output;
       }
     }
 

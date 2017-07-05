@@ -70,8 +70,33 @@ var sys = Object.defineProperties({}, {
   } },
   'sass': { get: () => require('node-sass') },
   'typescript': { get: () => require('typescript') },
-  'uglify': { get: () => require('uglify-js') },
 });
+
+
+sys.createWorker = function() {
+  const cp = require('child_process');
+
+  const args = cmdArgs.slice(2);
+  args[0] = 'worker';
+
+  const opts = {
+    env: {
+      FORCE_COLOR: true
+    }
+  };
+
+  return cp.fork(__filename, args, opts);
+};
+
+
+sys.generateContentHash = function(content) {
+  return crypto.createHash('sha1')
+               .update(content)
+               .digest('base64')
+               .replace(/\W/g, '')
+               .substr(0, 12)
+               .toLowerCase();
+};
 
 
 sys.minifyCss = function(input) {
@@ -122,32 +147,6 @@ sys.minifyJs = function(input) {
     sourceMap: result.sourceMap,
     diagnostics: diagnostics
   };
-}
-
-
-sys.createWorker = function() {
-  const cp = require('child_process');
-
-  const args = cmdArgs.slice(2);
-  args[0] = 'worker';
-
-  const opts = {
-    env: {
-      FORCE_COLOR: true
-    }
-  };
-
-  return cp.fork(__filename, args, opts);
-};
-
-
-sys.generateContentHash = function(content) {
-  return crypto.createHash('sha1')
-               .update(content)
-               .digest('base64')
-               .replace(/\W/g, '')
-               .substr(0, 12)
-               .toLowerCase();
 };
 
 

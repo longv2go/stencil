@@ -3,10 +3,13 @@ import { FilesToWrite, StencilSystem } from './interfaces';
 
 export function writeFiles(sys: StencilSystem, filesToWrite: FilesToWrite, ensureDir: string): Promise<any> {
   // copy this object incase somehow it changes during the async writes
+  // shouldn't be possible, but who knows
   filesToWrite = Object.assign({}, filesToWrite);
 
   const filePaths = Object.keys(filesToWrite);
-  if (!filePaths.length) return Promise.resolve();
+  if (!filePaths.length) {
+    return Promise.resolve();
+  }
 
   const directories = getDirectoriesFromFiles(sys, filesToWrite);
   if (directories.indexOf(ensureDir) === -1) {
@@ -87,6 +90,9 @@ function ensureDirectoriesExist(sys: StencilSystem, directories: string[], exist
 
         const dirPath = dirPaths.slice(0, pathSections).join(sys.path.sep);
         sys.fs.mkdir(dirPath, () => {
+          // not worrying about the error here
+          // if there's an error, it's probably because this directory already exists
+          // which is what we want, no need to check access AND mkdir
           existingDirectories.push(dirPath + '/');
           pathSections++;
           ensureSection();

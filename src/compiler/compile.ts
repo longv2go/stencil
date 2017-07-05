@@ -1,5 +1,5 @@
-import { access, isTsSourceFile, readFile, writeFiles } from './util';
-import { CompilerConfig, CompileResults, Logger, StencilSystem, WorkerBuildContext } from './interfaces';
+import { access, isTsSourceFile, readFile } from './util';
+import { CompilerConfig, CompileResults, FilesToWrite, Logger, StencilSystem } from './interfaces';
 import { generateManifest } from './manifest';
 import { transpileWorker } from './transpile';
 import { WorkerManager } from './worker-manager';
@@ -14,8 +14,6 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
 
   compilerConfig.include = compilerConfig.include || [];
 
-  const filesToWrite = new Map<string, string>();
-
   if (!compilerConfig.exclude) {
     compilerConfig.exclude = ['node_modules', 'bower_components'];
   }
@@ -24,7 +22,8 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
     moduleFiles: {},
     diagnostics: [],
     includedSassFiles: [],
-    manifest: {}
+    manifest: {},
+    filesToWrite: {}
   };
 
   return Promise.all(compilerConfig.include.map(includePath => {
@@ -32,7 +31,7 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
       if (!pathExists) {
         return Promise.resolve(null);
       }
-      return compileDirectory(sys, logger, includePath, compilerConfig, workerManager, compileResults, filesToWrite);
+      return compileDirectory(sys, logger, includePath, compilerConfig, workerManager, compileResults, compileResults.filesToWrite);
     });
 
   })).then(() => {
@@ -43,14 +42,11 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
       });
 
     } else {
-      compileResults.manifest = generateManifest(sys, logger, compilerConfig, compileResults, filesToWrite);
+      compileResults.manifest = generateManifest(sys, logger, compilerConfig, compileResults, compileResults.filesToWrite);
     }
 
   }).then(() => {
-    return copySourceSassFilesToDest(sys, compilerConfig, compileResults.includedSassFiles, filesToWrite);
-
-  }).then(() => {
-    return writeFiles(sys, filesToWrite);
+    return copySourceSassFilesToDest(sys, compilerConfig, compileResults.includedSassFiles, compileResults.filesToWrite);
 
   }).catch(err => {
     logger.error(err);
@@ -63,7 +59,7 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
 }
 
 
-function compileDirectory(sys: StencilSystem, logger: Logger, dir: string, compilerConfig: CompilerConfig, workerManager: WorkerManager, compileResults: CompileResults, filesToWrite: Map<string, string>): Promise<any> {
+function compileDirectory(sys: StencilSystem, logger: Logger, dir: string, compilerConfig: CompilerConfig, workerManager: WorkerManager, compileResults: CompileResults, filesToWrite: FilesToWrite): Promise<any> {
   // within MAIN thread
   return new Promise(resolve => {
     // loop through this directory and sub directories looking for
@@ -138,7 +134,7 @@ function compileDirectory(sys: StencilSystem, logger: Logger, dir: string, compi
 }
 
 
-function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfig, filePath: string, compileResults: CompileResults, filesToWrite: Map<string, string>) {
+function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfig, filePath: string, compileResults: CompileResults, filesToWrite: FilesToWrite) {
   // within MAIN thread
   // let's send this over to our worker manager who can
   // then assign a worker to this exact file
@@ -150,10 +146,7 @@ function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfi
         compileResults.moduleFiles[filePath] = compileWorkerResult.moduleFiles[filePath];
 
         if (compilerConfig.writeCompiledToDisk) {
-          filesToWrite.set(
-            compileResults.moduleFiles[filePath].jsFilePath,
-            compileResults.moduleFiles[filePath].jsText
-          );
+          filesToWrite[compileResults.moduleFiles[filePath].jsFilePath] = compileResults.moduleFiles[filePath].jsText;
         }
       });
     }
@@ -173,23 +166,30 @@ function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfi
 }
 
 
-export function compileFileWorker(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, filePath: string) {
+export function compileFileWorker(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, filePath: string) {
   // within WORKER thread
-  return transpileWorker(sys, logger, ctx, compilerConfig, filePath)
+
+  const compileResults: CompileResults = {
+    moduleFiles: {},
+    diagnostics: [],
+    filesToWrite: {}
+  };
+
+  return transpileWorker(sys, logger, compilerConfig, filePath, compileResults)
     .catch(err => {
-      const compileResult: CompileResults = {
-        diagnostics: [{
-          msg: err.toString(),
-          level: 'error',
-          stack: err.stack
-        }]
-      };
-      return compileResult;
+      compileResults.diagnostics.push({
+        msg: err.toString(),
+        level: 'error',
+        stack: err.stack
+      });
+
+    }).then(() => {
+      return compileResults;
     });
 }
 
 
-function copySourceSassFilesToDest(sys: StencilSystem, compilerConfig: CompilerConfig, includedSassFiles: string[], filesToWrite: Map<string, string>): Promise<any> {
+function copySourceSassFilesToDest(sys: StencilSystem, compilerConfig: CompilerConfig, includedSassFiles: string[], filesToWrite: FilesToWrite): Promise<any> {
   if (!compilerConfig.writeCompiledToDisk) {
     return Promise.resolve();
   }
@@ -212,7 +212,7 @@ function copySourceSassFilesToDest(sys: StencilSystem, compilerConfig: CompilerC
         );
       }
 
-      filesToWrite.set(sassDestPath, sassSrcText);
+      filesToWrite[sassDestPath] = sassSrcText;
     });
   }));
 }

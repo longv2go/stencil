@@ -1,14 +1,14 @@
 import { BuildConfig, Manifest } from '../util/interfaces';
-import { BundlerConfig, CompilerConfig, MainBuildContext } from './interfaces';
+import { BuildResults, BundlerConfig, CompilerConfig, FilesToWrite } from './interfaces';
 import { bundle } from './bundle';
 import { compile } from './compile';
 import { generateDependentManifests, mergeManifests, updateManifestUrls } from './manifest';
-// import { generateProjectCore } from './build-project-core';
+import { generateProjectCore } from './build-project-core';
+import { updateDirectories, writeFiles } from './fs-util';
 import { WorkerManager } from './worker-manager';
-// import { emptyDir } from './util';
 
 
-export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
+export function build(buildConfig: BuildConfig) {
   const sys = buildConfig.sys;
   const logger = buildConfig.logger;
 
@@ -16,12 +16,16 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
 
   buildConfig.writeCompiledToDisk = false;
 
-  mainCtx = mainCtx || {};
+  const workerManager = new WorkerManager(buildConfig.sys, buildConfig.logger);
+  workerManager.connect(buildConfig.numWorkers);
 
-  if (!mainCtx.workerManager) {
-    mainCtx.workerManager = new WorkerManager(buildConfig.sys, buildConfig.logger);
-    mainCtx.workerManager.connect(buildConfig.numWorkers);
-  }
+  const buildResults: BuildResults = {
+    diagnostics: [],
+    manifest: {},
+    componentRegistry: []
+  };
+
+  const filesToWrite: FilesToWrite = {};
 
   return Promise.resolve().then(() => {
     // validate our data is good to go
@@ -35,7 +39,13 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
       buildConfig.destDir);
 
   }).then(dependentManifests => {
-    return compileProject(buildConfig, mainCtx.workerManager).then(compileResults => {
+    return compileProject(buildConfig, workerManager).then(compileResults => {
+      if (compileResults.diagnostics) {
+        buildResults.diagnostics = buildResults.diagnostics.concat(compileResults.diagnostics);
+      }
+      if (compileResults.filesToWrite) {
+        Object.assign(filesToWrite, compileResults.filesToWrite);
+      }
 
       const resultsManifest: Manifest = compileResults.manifest || {};
 
@@ -51,21 +61,54 @@ export function build(buildConfig: BuildConfig, mainCtx?: MainBuildContext) {
 
   }).then(manifest => {
     // bundle all of the components into their separate files
-    return bundleProject(buildConfig, mainCtx, manifest);
+    return bundleProject(buildConfig, workerManager, manifest).then(bundleResults => {
+      if (bundleResults.diagnostics) {
+        buildResults.diagnostics = buildResults.diagnostics.concat(bundleResults.diagnostics);
+      }
+      if (bundleResults.filesToWrite) {
+        Object.assign(filesToWrite, bundleResults.filesToWrite);
+      }
 
-  }).catch(err => {
-    logger.error(err);
-    err.stack && logger.debug(err.stack);
+      // generate the core loader and aux files for this project
+      return generateProjectCore(buildConfig, bundleResults.componentRegistry, filesToWrite);
+    });
 
   }).then(() => {
-    mainCtx.workerManager.disconnect();
+    // write all the files in one go
+    if (buildConfig.isDevMode) {
+      return writeFiles(sys, filesToWrite);
+
+    } else {
+      return updateDirectories(sys, filesToWrite, buildConfig.destDir);
+    }
+
+  }).catch(err => {
+    buildResults.diagnostics.push({
+      msg: err.toString(),
+      level: 'error',
+      stack: err.stack
+    });
+
+  }).then(() => {
+    // build process done!! we did it!!
+
+    buildResults.diagnostics.forEach(d => {
+      if (d.level === 'error' && logger.level === 'debug' && d.stack) {
+        logger.error(d.stack);
+      } else {
+        logger[d.level](d.msg);
+      }
+    });
 
     if (buildConfig.isWatch) {
       timeSpan.finish(`build ready, watching files ...`);
 
     } else {
+      workerManager.disconnect();
       timeSpan.finish(`build finished`);
     }
+
+    return buildResults;
   });
 
   // }).then(bundleProjectResults => {
@@ -111,7 +154,7 @@ function compileProject(buildConfig: BuildConfig, workerManager: WorkerManager) 
 }
 
 
-function bundleProject(buildConfig: BuildConfig, mainCtx: MainBuildContext, manifest: Manifest) {
+function bundleProject(buildConfig: BuildConfig, workerManager: WorkerManager, manifest: Manifest) {
   const bundlerConfig: BundlerConfig = {
     namespace: buildConfig.namespace,
     srcDir: buildConfig.srcDir,
@@ -121,7 +164,7 @@ function bundleProject(buildConfig: BuildConfig, mainCtx: MainBuildContext, mani
     isWatch: buildConfig.isWatch
   };
 
-  return bundle(buildConfig.sys, buildConfig.logger, bundlerConfig, mainCtx);
+  return bundle(buildConfig.sys, buildConfig.logger, bundlerConfig, workerManager);
 }
 
 

@@ -1,6 +1,5 @@
 export * from '../util/interfaces';
-import { Bundle, ComponentMeta, Diagnostic, Manifest } from '../util/interfaces';
-import { WorkerManager } from './worker-manager';
+import { Bundle, ComponentMeta, Diagnostic, Manifest, LoadComponentRegistry } from '../util/interfaces';
 
 
 export interface CompilerConfig {
@@ -37,77 +36,73 @@ export interface BundlerConfig {
 }
 
 
-export interface FileMeta {
+export interface ModuleFileMeta {
   fileName: string;
-  fileExt: string;
   filePath: string;
   srcDir: string;
   srcText: string;
-  isWatching: boolean;
-  recompileOnChange: boolean;
-  rebundleOnChange: boolean;
+  jsFilePath?: string;
+  jsText?: string;
+  hasCmpClass?: boolean;
+  cmpMeta?: ComponentMeta;
+  cmpClassName?: string;
 }
 
 
-export interface ModuleFileMeta extends FileMeta {
-  jsFilePath: string;
-  jsText: string;
-  isTsSourceFile: boolean;
-  hasCmpClass: boolean;
-  cmpMeta: ComponentMeta;
-  cmpClassName: string;
-  transpiledCount: number;
-}
-
-
-export interface StyleFileMeta extends FileMeta {
-  cssFilePath: string;
-  cssText: string;
-  isScssSourceFile: boolean;
-}
-
-
-export interface MainBuildContext {
-  workerManager?: WorkerManager;
-  results?: Results;
-}
-
-
-export interface WorkerBuildContext {
-  moduleFiles?: Map<string, ModuleFileMeta>;
-  styleFiles?: Map<string, StyleFileMeta>;
-}
-
-
-export interface ModuleResults {
-  bundles?: {
-    [bundleId: string]: string;
-  };
-  diagnostics?: Diagnostic[];
+export interface ModuleFiles {
+  [filePath: string]: ModuleFileMeta;
 }
 
 
 export interface CompileResults {
-  moduleFiles?: {[filePath: string]: ModuleFileMeta};
-  diagnostics?: Diagnostic[];
+  moduleFiles: ModuleFiles;
+  diagnostics: Diagnostic[];
   includedSassFiles?: string[];
   manifest?: Manifest;
+  filesToWrite: FilesToWrite;
+}
+
+
+export interface TranspileResults {
+  moduleFiles: ModuleFiles;
+  diagnostics: Diagnostic[];
+}
+
+
+export interface ModuleResults {
+  bundles: {
+    [bundleId: string]: string;
+  };
+  filesToWrite: FilesToWrite;
+  diagnostics: Diagnostic[];
+}
+
+
+export interface FilesToWrite {
+  [filePath: string]: string;
 }
 
 
 export interface StylesResults {
-  bundles?: {
+  bundles: {
     [bundleId: string]: {
       [modeName: string]: string;
     };
   };
-  diagnostics?: Diagnostic[];
+  filesToWrite: FilesToWrite;
+  diagnostics: Diagnostic[];
 }
 
 
-export interface Results {
-  compileResults?: CompileResults;
-  diagnostics?: Diagnostic[];
-  manifest?: Manifest;
-  componentRegistry?: string;
+export interface BundleResults {
+  filesToWrite: FilesToWrite;
+  diagnostics: Diagnostic[];
+  componentRegistry: LoadComponentRegistry[];
+}
+
+
+export interface BuildResults {
+  diagnostics: Diagnostic[];
+  manifest: Manifest;
+  componentRegistry: LoadComponentRegistry[];
 }

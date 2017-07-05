@@ -73,13 +73,13 @@ var sys = Object.defineProperties({}, {
 });
 
 
-sys.minifyCss = function(input, opts) {
+sys.minifyCss = function(input) {
   var CleanCSS = require('clean-css');
-  var output = new CleanCSS(opts).minify(input);
+  var result = new CleanCSS().minify(input);
   var diagnostics = [];
 
-  if (output.errors) {
-    output.errors.forEach(msg => {
+  if (result.errors) {
+    result.errors.forEach(msg => {
       diagnostics.push({
         msg: msg,
         level: 'error'
@@ -87,8 +87,8 @@ sys.minifyCss = function(input, opts) {
     });
   }
 
-  if (output.warnings) {
-    output.warnings.forEach(msg => {
+  if (result.warnings) {
+    result.warnings.forEach(msg => {
       diagnostics.push({
         msg: msg,
         level: 'warn'
@@ -97,11 +97,31 @@ sys.minifyCss = function(input, opts) {
   }
 
   return {
-    output: output.styles,
-    sourceMap: output.sourceMap,
+    output: result.styles,
+    sourceMap: result.sourceMap,
     diagnostics: diagnostics
   };
 };
+
+
+sys.minifyJs = function(input) {
+  var UglifyJS = require("uglify-js");
+  var result = UglifyJS.minify(code);
+  var diagnostics = [];
+
+  if (result.error) {
+    diagnostics.push({
+      msg: result.error.message,
+      level: 'error'
+    });
+  }
+
+  return {
+    output: result.code,
+    sourceMap: result.sourceMap,
+    diagnostics: diagnostics
+  };
+}
 
 
 sys.createWorker = function() {
@@ -130,6 +150,7 @@ sys.generateContentHash = function(content) {
 };
 
 
+var fileCache = {};
 sys.getClientCoreFile = function(opts) {
   var fileName = opts.staticName;
 
@@ -146,13 +167,19 @@ sys.getClientCoreFile = function(opts) {
   logger.debug('getClientCoreFile: ' + filePath)
 
   return new Promise(function(resolve, reject) {
-    sys.fs.readFile(filePath, 'utf-8', (err, data) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(data);
-      }
-    });
+    if (fileCache[filePath]) {
+      resolve(fileCache[filePath]);
+
+    } else {
+      sys.fs.readFile(filePath, 'utf-8', (err, data) => {
+        if (err) {
+          reject(err);
+        } else {
+          fileCache[filePath] = data;
+          resolve(data);
+        }
+      });
+    }
   });
 };
 

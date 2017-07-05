@@ -446,6 +446,7 @@ export interface BuildConfig {
 
 
 export interface Logger {
+  level: string;
   debug(msg: string): void;
   info(msg: string): void;
   ok(msg: string): void;
@@ -983,15 +984,15 @@ export interface StencilSystem {
   };
   generateContentHash?(content: string): string;
   getClientCoreFile?(opts: {staticName: string, es5?: boolean, devMode: boolean}): Promise<string>;
-  minifyCss?(input: string, opts?: any): {
+  minifyCss?(input: string): {
     output: string;
     sourceMap?: any;
     diagnostics?: Diagnostic[];
   };
-  minifyJs?(input: string, opts?: any): {
+  minifyJs?(input: string): {
     output: string;
     sourceMap?: any;
-    diagnostis?: Diagnostic[];
+    diagnostics?: Diagnostic[];
   };
   module?: {
     _nodeModulePaths(fromDir: string): any;
@@ -1034,18 +1035,6 @@ export interface StencilSystem {
     ): void;
   };
   typescript?: any;
-  uglify?: {
-    minify: {(content: string, opts?: {}): {
-      code: string;
-      error: {
-       message: string;
-       filename: string;
-       line: number;
-       col: number;
-       pos: number;
-      };
-    }};
-  };
   vm?: {
     createContext(sandbox?: any): any;
     runInContext(code: string, contextifiedSandbox: any, options?: any): any;

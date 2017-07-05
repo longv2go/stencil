@@ -1,5 +1,5 @@
-import { Bundle, BundlerConfig, CompilerConfig, CompileResults, ComponentMeta, Logger,
-  ModuleResults, Process, StencilSystem, StylesResults, WorkerBuildContext } from './interfaces';
+import { Bundle, BundlerConfig, CompilerConfig, CompileResults, ComponentMeta,
+  Logger, ModuleResults, Process, StencilSystem, StylesResults } from './interfaces';
 import { compileFileWorker } from './compile';
 import { generateDefineComponentsWorker } from './bundle-modules';
 import { generateBundleCssWorker } from './bundle-styles';
@@ -7,14 +7,11 @@ import { generateBundleCssWorker } from './bundle-styles';
 
 export class WorkerManager {
   private workers: Process[] = [];
-  private files: Map<string, File> = new Map();
-  private tagWorkerIds: Map<string, number> = new Map();
-  private roundRobin: number[] = [];
+  private roundRobin: number = 0;
   private numWorkers: number;
   private taskId = 0;
   private taskResolves: Map<number, Function> = new Map();
   private mainThreadWorker: Process;
-  private mainThreadContext: WorkerBuildContext;
 
   constructor(private sys: StencilSystem, public logger: Logger) {}
 
@@ -33,7 +30,6 @@ export class WorkerManager {
           });
 
           this.workers.push(worker);
-          this.roundRobin.push(0);
         }
       } catch (e) {
         self.logger.error(`error creating worker, ${e}`);
@@ -41,28 +37,22 @@ export class WorkerManager {
 
     } else {
       this.logger.debug(`WorkerManager, main process only`);
-
-      this.mainThreadContext = {
-        moduleFiles: new Map(),
-        styleFiles: new Map()
-      };
-
-      this.mainThreadWorker = {
-        connected: true,
-        kill: () => {},
-        on: (event, cb) => {
-          event;
-          cb();
-        },
-        pid: 0,
-        send: (msg: WorkerMessage) => {
-          mainReceivedMessageFromWorker(this.logger, this.taskResolves, msg);
-          return true;
-        }
-      };
-
     }
 
+    // used mainly as a backup
+    this.mainThreadWorker = {
+      connected: true,
+      kill: () => {},
+      on: (event, cb) => {
+        event;
+        cb();
+      },
+      pid: 0,
+      send: (msg: WorkerMessage) => {
+        mainReceivedMessageFromWorker(this.logger, this.taskResolves, msg);
+        return true;
+      }
+    };
   }
 
   disconnect() {
@@ -77,23 +67,15 @@ export class WorkerManager {
   }
 
   compileFile(compilerConfig: CompilerConfig, filePath: string): Promise<CompileResults> {
-    const f = this.getFile(filePath);
-
-    return this.sendTaskToWorker(f.workerId, {
+    return this.sendTaskToWorker({
       taskName: 'compileFile',
       config: compilerConfig,
-      filePath: f.filePath
+      filePath: filePath
     });
   }
 
   generateBundleCss(bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle): Promise<StylesResults> {
-    if (!bundleComponentMeta.length) {
-      return Promise.resolve({});
-    }
-
-    const workerId = this.getStyleBundleWorkerId(bundleComponentMeta);
-
-    return this.sendTaskToWorker(workerId, {
+    return this.sendTaskToWorker({
       taskName: 'generateBundleCss',
       config: bundlerConfig,
       bundleComponentMeta: bundleComponentMeta,
@@ -102,20 +84,19 @@ export class WorkerManager {
   }
 
   generateDefineComponents(bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[]): Promise<ModuleResults> {
-    const workerId = this.getStyleBundleWorkerId(bundleComponentMeta);
-
-    return this.sendTaskToWorker(workerId, {
-      taskName: 'generateBundleCss',
+    return this.sendTaskToWorker({
+      taskName: 'generateDefineComponents',
       config: bundlerConfig,
       bundleComponentMeta: bundleComponentMeta
     });
   }
 
-  private sendTaskToWorker(workerId: number, msg: WorkerMessage) {
+  private sendTaskToWorker(msg: WorkerMessage): Promise<any> {
     return new Promise(resolve => {
       msg.taskId = this.taskId++;
       this.taskResolves.set(msg.taskId, resolve);
 
+      let workerId = this.nextWorkerId();
       let worker = this.workers[workerId];
       if (worker) {
         if (!worker.connected) {
@@ -126,103 +107,47 @@ export class WorkerManager {
             mainReceivedMessageFromWorker(this.logger, this.taskResolves, msg);
           });
         }
-        worker.send(msg);
-
-      } else {
-        // main thread
-        workerReceivedMessageFromMain(this.sys, this.logger, this.mainThreadContext, this.mainThreadWorker, msg);
+        if (worker.send(msg)) {
+          // all good, message sent to worker
+          return;
+        }
       }
+
+      // main thread fallback
+      workerReceivedMessageFromMain(this.sys, this.logger, this.mainThreadWorker, msg);
     });
-  }
-
-  private getFile(filePath: string) {
-    filePath = this.normalizeFilePath(filePath);
-
-    let f = this.files.get(filePath);
-
-    if (!f) {
-      f = new File();
-      f.filePath = filePath;
-      f.workerId = this.nextWorkerId();
-      this.files.set(filePath, f);
-    }
-
-    return f;
-  }
-
-  private getStyleBundleWorkerId(bundleComponentMeta: ComponentMeta[]) {
-    if (bundleComponentMeta.length) {
-      const tagName = bundleComponentMeta[0].tagNameMeta;
-      let workerId = this.tagWorkerIds.get(tagName);
-
-      if (typeof workerId !== 'number') {
-        workerId = this.nextWorkerId();
-        this.tagWorkerIds.set(tagName, workerId);
-      }
-
-      return workerId;
-    }
-
-    return 0;
   }
 
   nextWorkerId() {
-    for (var i = 0; i < this.roundRobin.length; i++) {
-      this.roundRobin[i] = 0;
+    let nextId = ++this.roundRobin;
+    if (nextId >= this.workers.length) {
+      nextId = 0;
     }
-
-    this.files.forEach(f => {
-      this.roundRobin[f.workerId]++;
-    });
-
-    let workerId = 0;
-    let fewest = 999999999;
-    for (i = 0; i < this.numWorkers; i++) {
-      if (this.roundRobin[i] < fewest) {
-        workerId = i;
-        fewest = this.roundRobin[i];
-      }
-    }
-    return workerId;
+    return nextId;
   }
 
-  normalizeFilePath(filePath: string) {
-    if (typeof filePath !== 'string') {
-      this.logger.error(`StencilFileSystem, ${filePath} is not a string`);
-    } else {
-      filePath = filePath.trim();
-      if (filePath === '') {
-        this.logger.error(`StencilFileSystem, ${filePath} is an empty string`);
-
-      } else if (!this.sys.path.isAbsolute(filePath)) {
-        this.logger.error(`StencilFileSystem, ${filePath} must be an absolute path`);
-      }
-    }
-
-    return filePath;
-  }
 }
 
 
-function workerReceivedMessageFromMain(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, worker: Process, msg: WorkerMessage) {
+function workerReceivedMessageFromMain(sys: StencilSystem, logger: Logger, worker: Process, msg: WorkerMessage) {
   try {
     switch (msg.taskName) {
       case 'compileFile':
-        compileFileWorker(sys, logger, ctx, msg.config, msg.filePath)
+        compileFileWorker(sys, logger, msg.config, msg.filePath)
           .then((resolveData: any) => {
             sendMessageFromWorkerToMain(worker, msg.taskId, resolveData);
           });
         break;
 
       case 'generateBundleCss':
-        generateBundleCssWorker(sys, ctx, msg.config, msg.bundleComponentMeta, msg.userBundle)
+        generateBundleCssWorker(sys, msg.config, msg.bundleComponentMeta, msg.userBundle)
           .then(resolveData => {
             sendMessageFromWorkerToMain(worker, msg.taskId, resolveData);
           });
         break;
 
       case 'generateDefineComponents':
-        generateDefineComponentsWorker(sys, ctx, msg.config, msg.bundleComponentMeta, msg.userBundle)
+        generateDefineComponentsWorker(sys, msg.config, msg.bundleComponentMeta, msg.userBundle)
           .then(resolveData => {
             sendMessageFromWorkerToMain(worker, msg.taskId, resolveData);
           });
@@ -264,20 +189,9 @@ function sendMessageFromWorkerToMain(worker: Process, taskId: number, resolveDat
 
 
 export function setupWorkerProcess(sys: StencilSystem, logger: Logger, worker: Process) {
-  const ctx: WorkerBuildContext = {
-    moduleFiles: new Map(),
-    styleFiles: new Map()
-  };
-
   worker.on('message', (msg: WorkerMessage) => {
-    workerReceivedMessageFromMain(sys, logger, ctx, worker, msg);
+    workerReceivedMessageFromMain(sys, logger, worker, msg);
   });
-}
-
-
-class File {
-  filePath: string;
-  workerId: number;
 }
 
 

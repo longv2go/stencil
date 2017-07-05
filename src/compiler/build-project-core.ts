@@ -1,25 +1,26 @@
-import { BuildConfig } from '../util/interfaces';
-import { writeFile } from './util';
+import { BuildConfig, LoadComponentRegistry } from '../util/interfaces';
+import { FilesToWrite } from './interfaces';
 
 
-export function generateProjectCore(buildConfig: BuildConfig, projectComponentRegistry: string) {
+export function generateProjectCore(buildConfig: BuildConfig, componentRegistry: LoadComponentRegistry[], filesToWrite: FilesToWrite) {
   buildConfig.logger.debug(`build, generateProjectCore: ${buildConfig.namespace}`);
 
   const promises: Promise<any>[] = [
-    generateCore(buildConfig, false),
-    generateLoader(buildConfig, projectComponentRegistry)
+    generateCore(buildConfig, false, filesToWrite),
+    generateLoader(buildConfig, componentRegistry, filesToWrite)
   ];
 
   if (!buildConfig.isDevMode) {
-    // only do the es5 version in prod mode
-    generateCore(buildConfig, true);
+    // don't bother with es5 mode in dev mode
+    // also no need to wait on it to finish
+    generateCore(buildConfig, true, filesToWrite);
   }
 
   return Promise.all(promises);
 }
 
 
-function generateLoader(buildConfig: BuildConfig, projectComponentRegistry: string) {
+function generateLoader(buildConfig: BuildConfig, componentRegistry: LoadComponentRegistry[], filesToWrite: FilesToWrite) {
   const sys = buildConfig.sys;
 
   const projectLoaderFileName = `${buildConfig.namespace.toLowerCase()}.js`;
@@ -27,9 +28,21 @@ function generateLoader(buildConfig: BuildConfig, projectComponentRegistry: stri
 
   return sys.getClientCoreFile({ staticName: STENCIL_LOADER_NAME, devMode: buildConfig.isDevMode }).then(stencilLoaderContent => {
     // replace the default loader with the project's namespace and components
+
+    let registryStr = JSON.stringify(componentRegistry);
+    if (!buildConfig.isDevMode) {
+      const minifyResult = buildConfig.sys.minifyJs(registryStr);
+      minifyResult.diagnostics.forEach(d => {
+        buildConfig.logger[d.level](d.msg);
+      });
+      if (minifyResult.output) {
+        registryStr = registryStr;
+      }
+    }
+
     stencilLoaderContent = stencilLoaderContent.replace(
       STENCIL_PROJECT_REGEX,
-      `"${buildConfig.namespace}",${projectComponentRegistry}`
+      `"${buildConfig.namespace}",${registryStr}`
     );
 
     // concat the projects loader code
@@ -40,12 +53,12 @@ function generateLoader(buildConfig: BuildConfig, projectComponentRegistry: stri
 
     buildConfig.logger.debug(`build, writing: ${projectLoaderFilePath}`);
 
-    return writeFile(sys, projectLoaderFilePath, projectCode.join(''));
+    filesToWrite[projectLoaderFilePath] = projectCode.join('');
   });
 }
 
 
-function generateCore(buildConfig: BuildConfig, es5: boolean) {
+function generateCore(buildConfig: BuildConfig, es5: boolean, filesToWrite: FilesToWrite) {
   const sys = buildConfig.sys;
 
   let projectLoaderFileName = `${buildConfig.namespace.toLowerCase()}.core`;
@@ -71,7 +84,7 @@ function generateCore(buildConfig: BuildConfig, es5: boolean) {
 
     buildConfig.logger.debug(`build, writing: ${projectLoaderFilePath}`);
 
-    return writeFile(sys, projectLoaderFilePath, projectCode.join(''));
+    filesToWrite[projectLoaderFilePath] = projectCode.join('');
   });
 }
 

@@ -1,10 +1,10 @@
-import { CompileResults, Collection, ComponentMeta, CompilerConfig,
+import { CompileResults, Collection, ComponentMeta, CompilerConfig, FilesToWrite,
   Logger, Manifest, Bundle, StencilSystem, StyleMeta } from './interfaces';
 import { readFile } from './util';
 import { resolveFrom } from './resolve-from';
 
 
-export function generateManifest(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, compileResults: CompileResults, filesToWrite: Map<string, string>) {
+export function generateManifest(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, compileResults: CompileResults, filesToWrite: FilesToWrite) {
   const manifest: Manifest = {
     components: [],
     bundles: []
@@ -116,7 +116,7 @@ export function generateManifest(sys: StencilSystem, logger: Logger, compilerCon
 
   logger.debug(`manifest, generateManifest: ${manifestFilePath}`);
 
-  filesToWrite.set(manifestFilePath, manifestJson);
+  filesToWrite[manifestFilePath] = manifestJson;
 
   return manifest;
 }

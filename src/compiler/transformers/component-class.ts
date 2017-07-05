@@ -1,4 +1,4 @@
-import { WorkerBuildContext, ModuleFileMeta, Logger } from '../interfaces';
+import { ModuleFiles, ModuleFileMeta, Logger } from '../interfaces';
 import { getComponentDecoratorData } from './component-decorator';
 import { getListenDecoratorMeta } from './listen-decorator';
 import { getMethodDecoratorMeta } from './method-decorator';
@@ -8,32 +8,32 @@ import { getStateDecoratorMeta } from './state-decorator';
 import * as ts from 'typescript';
 
 
-export function componentClass(logger: Logger, ctx: WorkerBuildContext): ts.TransformerFactory<ts.SourceFile> {
+export function componentClass(logger: Logger, moduleFiles: ModuleFiles): ts.TransformerFactory<ts.SourceFile> {
 
   return (transformContext) => {
 
-    function visitClass(fileMeta: ModuleFileMeta, classNode: ts.ClassDeclaration) {
+    function visitClass(moduleFile: ModuleFileMeta, classNode: ts.ClassDeclaration) {
       const cmpMeta = getComponentDecoratorData(logger, classNode);
 
       if (cmpMeta) {
-        if (fileMeta.cmpMeta) {
-          throw `file cannot have multiple @Components: ${fileMeta.filePath}`;
+        if (moduleFile.cmpMeta) {
+          throw `file cannot have multiple @Components: ${moduleFile.filePath}`;
         }
 
-        fileMeta.cmpMeta = cmpMeta;
-        fileMeta.hasCmpClass = true;
-        fileMeta.cmpClassName = classNode.name.getText().trim();
+        moduleFile.cmpMeta = cmpMeta;
+        moduleFile.hasCmpClass = true;
+        moduleFile.cmpClassName = classNode.name.getText().trim();
 
-        getMethodDecoratorMeta(fileMeta, classNode);
-        getStateDecoratorMeta(fileMeta, classNode);
-        getPropDecoratorMeta(logger, fileMeta, classNode);
-        getListenDecoratorMeta(logger, fileMeta, classNode);
-        getPropChangeDecoratorMeta(fileMeta, classNode);
+        getMethodDecoratorMeta(moduleFile, classNode);
+        getStateDecoratorMeta(moduleFile, classNode);
+        getPropDecoratorMeta(logger, moduleFile, classNode);
+        getListenDecoratorMeta(logger, moduleFile, classNode);
+        getPropChangeDecoratorMeta(moduleFile, classNode);
 
         return removeClassDecorator(classNode);
 
-      } else if (!fileMeta.cmpMeta) {
-        fileMeta.hasCmpClass = false;
+      } else if (!moduleFile.cmpMeta) {
+        moduleFile.hasCmpClass = false;
       }
 
       return classNode;
@@ -55,9 +55,9 @@ export function componentClass(logger: Logger, ctx: WorkerBuildContext): ts.Tran
 
 
     return (tsSourceFile) => {
-      const fileMeta = ctx.moduleFiles.get(tsSourceFile.fileName);
-      if (fileMeta && fileMeta.hasCmpClass) {
-        return visit(fileMeta, tsSourceFile) as ts.SourceFile;
+      const moduleFile = moduleFiles[tsSourceFile.fileName];
+      if (moduleFile && moduleFile.hasCmpClass) {
+        return visit(moduleFile, tsSourceFile) as ts.SourceFile;
       }
 
       return tsSourceFile;

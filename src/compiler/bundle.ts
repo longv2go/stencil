@@ -1,13 +1,20 @@
 import { ATTR_DASH_CASE, ATTR_LOWER_CASE } from '../util/constants';
-import { BundlerConfig, Logger, MainBuildContext, Manifest, Results, StencilSystem } from './interfaces';
-// import { bundleModules } from './bundle-modules';
+import { bundleModules } from './bundle-modules';
+import { BundleResults, BundlerConfig, Logger, Manifest, StencilSystem } from './interfaces';
 import { bundleStyles } from './bundle-styles';
-// import { generateComponentRegistry } from './bundle-registry';
+import { generateComponentRegistry } from './bundle-registry';
+import { WorkerManager } from './worker-manager';
 
 
-export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: BundlerConfig, mainCtx: MainBuildContext): Promise<Results> {
+export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: BundlerConfig, workerManager: WorkerManager) {
   // within MAIN thread
   const timeSpan = logger.createTimeSpan(`bundle started`);
+
+  const bundleResults: BundleResults = {
+    filesToWrite: {},
+    diagnostics: [],
+    componentRegistry: []
+  };
 
   logger.debug(`bundle, srcDir: ${bundlerConfig.srcDir}`);
   logger.debug(`bundle, destDir: ${bundlerConfig.destDir}`);
@@ -17,42 +24,43 @@ export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: Bundle
 
     const userManifest = validateUserManifest(bundlerConfig.manifest);
 
-sys;
     // kick off style and module bundling at the same time
     return Promise.all([
-      bundleStyles(logger, bundlerConfig, mainCtx.workerManager, userManifest),
-      // bundleModules(logger, bundlerConfig, mainCtx.workerManager, userManifest)
+      bundleStyles(logger, bundlerConfig, workerManager, userManifest),
+      bundleModules(logger, bundlerConfig, workerManager, userManifest)
     ]);
 
-  }).then(bundleResults => {
+  }).then(results => {
     // both styles and modules are done bundling
-    const styleResults = bundleResults[0];
-    if (styleResults.diagnostics && styleResults.diagnostics.length) {
-      styleResults.diagnostics.forEach(d => {
-        logger[d.level](d.msg);
-        d.stack && logger.debug(d.stack);
-      });
+    const styleResults = results[0];
+    if (styleResults.diagnostics) {
+      bundleResults.diagnostics = bundleResults.diagnostics.concat(styleResults.diagnostics);
+    }
+    if (styleResults.filesToWrite) {
+      Object.assign(bundleResults.filesToWrite, styleResults.filesToWrite);
     }
 
-    // const moduleResults = bundleResults[1];
-    // if (moduleResults.diagnostics && moduleResults.diagnostics.length) {
-    //   moduleResults.diagnostics.forEach(d => {
-    //     logger[d.level](d.msg);
-    //     d.stack && logger.debug(d.stack);
-    //   });
-    // }
+    const moduleResults = results[1];
+    if (moduleResults.diagnostics && moduleResults.diagnostics.length) {
+      bundleResults.diagnostics = bundleResults.diagnostics.concat(moduleResults.diagnostics);
+    }
+    if (moduleResults.filesToWrite) {
+      Object.assign(bundleResults.filesToWrite, moduleResults.filesToWrite);
+    }
 
-    // return generateComponentRegistry(sys, bundlerConfig, styleResults, moduleResults);
+    bundleResults.componentRegistry = generateComponentRegistry(sys, bundlerConfig, styleResults, moduleResults, bundleResults.filesToWrite);
 
   })
   .catch(err => {
-    logger.error(err);
-    err.stack && logger.debug(err.stack);
+    bundleResults.diagnostics.push({
+      msg: err.toString(),
+      level: 'error',
+      stack: err.stack
+    });
   })
   .then(() => {
     timeSpan.finish('bundle, done');
-
-    return mainCtx.results;
+    return bundleResults;
   });
 }
 

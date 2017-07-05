@@ -1,14 +1,14 @@
-import { WorkerBuildContext, ModuleFileMeta } from '../interfaces';
+import { ModuleFiles, ModuleFileMeta } from '../interfaces';
 import { HAS_SLOTS, HAS_NAMED_SLOTS, SLOT_TAG } from '../../util/constants';
 import * as ts from 'typescript';
 import * as util from './util';
 
 
-export function jsxToVNode(ctx: WorkerBuildContext): ts.TransformerFactory<ts.SourceFile> {
+export function jsxToVNode(moduleFiles: ModuleFiles): ts.TransformerFactory<ts.SourceFile> {
 
   return (transformContext: ts.TransformationContext) => {
 
-    function visit(fileMeta: ModuleFileMeta, node: ts.Node, parentNamespace: string): ts.VisitResult<ts.Node> {
+    function visit(moduleFile: ModuleFileMeta, node: ts.Node, parentNamespace: string): ts.VisitResult<ts.Node> {
 
       switch (node.kind) {
         case ts.SyntaxKind.CallExpression:
@@ -17,7 +17,7 @@ export function jsxToVNode(ctx: WorkerBuildContext): ts.TransformerFactory<ts.So
           if ((<ts.Identifier>callNode.expression).text === 'h') {
             const data: ParentData = { namespace: parentNamespace };
 
-            node = convertJsxToVNode(fileMeta, callNode, data);
+            node = convertJsxToVNode(moduleFile, callNode, data);
 
             if (data.namespace) {
               parentNamespace = data.namespace;
@@ -26,14 +26,14 @@ export function jsxToVNode(ctx: WorkerBuildContext): ts.TransformerFactory<ts.So
 
         default:
           return ts.visitEachChild(node, (node) => {
-            return visit(fileMeta, node, parentNamespace);
+            return visit(moduleFile, node, parentNamespace);
           }, transformContext);
       }
     }
 
     return (tsSourceFile) => {
-      const fileMeta = ctx.moduleFiles.get(tsSourceFile.fileName);
-      return visit(fileMeta, tsSourceFile, null) as ts.SourceFile;
+      const moduleFile = moduleFiles[tsSourceFile.fileName];
+      return visit(moduleFile, tsSourceFile, null) as ts.SourceFile;
     };
   };
 }

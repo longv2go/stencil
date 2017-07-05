@@ -1,9 +1,9 @@
-import { BundlerConfig, ComponentRegistry, ModuleResults, StyleMeta, StylesResults, StencilSystem } from './interfaces';
+import { BundlerConfig, ComponentRegistry, FilesToWrite, ModuleResults,
+  LoadComponentRegistry, StyleMeta, StylesResults, StencilSystem } from './interfaces';
 import { formatComponentRegistry } from '../util/data-serialize';
-import { writeFile } from './util';
 
 
-export function generateComponentRegistry(sys: StencilSystem, config: BundlerConfig, styleResults: StylesResults, moduleResults: ModuleResults) {
+export function generateComponentRegistry(sys: StencilSystem, bundlerConfig: BundlerConfig, styleResults: StylesResults, moduleResults: ModuleResults, filesToWrite: FilesToWrite): LoadComponentRegistry[] {
   const registry: ComponentRegistry = {};
 
   // create the minimal registry component data for each bundle
@@ -23,7 +23,7 @@ export function generateComponentRegistry(sys: StencilSystem, config: BundlerCon
     }
 
     components.forEach(tag => {
-      registry[tag] = registry[tag] || config.manifest.components.find(c => c.tagNameMeta === tag);
+      registry[tag] = registry[tag] || bundlerConfig.manifest.components.find(c => c.tagNameMeta === tag);
       registry[tag].styleMeta = styleMeta;
     });
   });
@@ -34,27 +34,20 @@ export function generateComponentRegistry(sys: StencilSystem, config: BundlerCon
     const moduleId = moduleResults.bundles[bundleId];
 
     components.forEach(tag => {
-      registry[tag] = registry[tag] || config.manifest.components.find(c => c.tagNameMeta === tag);
+      registry[tag] = registry[tag] || bundlerConfig.manifest.components.find(c => c.tagNameMeta === tag);
       registry[tag].moduleId = moduleId;
     });
   });
 
-  const componentRegistry = formatComponentRegistry(registry, config.attrCase);
+  const componentRegistry = formatComponentRegistry(registry, bundlerConfig.attrCase);
   const projectRegistry = {
-    namespace: config.namespace,
+    namespace: bundlerConfig.namespace,
     components: componentRegistry
   };
 
-  const registryFileName = `${config.namespace.toLowerCase()}.registry.json`;
-  const registryFilePath = sys.path.join(config.destDir, registryFileName);
+  const registryFileName = `${bundlerConfig.namespace.toLowerCase()}.registry.json`;
+  const registryFilePath = sys.path.join(bundlerConfig.destDir, registryFileName);
+  filesToWrite[registryFilePath] = JSON.stringify(projectRegistry, null, 2);
 
-  // add the component registry as a string to the results
-  // ctx.results.componentRegistry = JSON.stringify(componentRegistry);
-
-  // write the registry as a json file
-  return writeFile(
-    sys,
-    registryFilePath,
-    JSON.stringify(projectRegistry, null, 2)
-  );
+  return componentRegistry;
 }

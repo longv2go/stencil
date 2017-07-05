@@ -1,27 +1,39 @@
-import { BundlerConfig, Bundle, ComponentMeta, Manifest, ModuleResults, Logger, StencilSystem, WorkerBuildContext } from './interfaces';
+import { BundlerConfig, Bundle, ComponentMeta, Manifest, ModuleResults, Logger, StencilSystem } from './interfaces';
 import { BUNDLES_DIR } from '../util/constants';
 import { formatDefineComponents, formatJsBundleFileName, generateBundleId } from '../util/data-serialize';
-import { writeFile } from './util';
 import { WorkerManager } from './worker-manager';
 
 
 export function bundleModules(logger: Logger, bundlerConfig: BundlerConfig, workerManager: WorkerManager, userManifest: Manifest) {
-  logger.debug(`bundleModules`);
+  // within MAIN thread
+  const timeSpan = logger.createTimeSpan(`bundle modules started`);
 
+  // create main module results object
   const moduleResults: ModuleResults = {
     bundles: {},
+    filesToWrite: {},
     diagnostics: []
   };
 
   return Promise.all(userManifest.bundles.map(userBundle => {
     return generateDefineComponents(bundlerConfig, workerManager, userManifest, userBundle, moduleResults);
-  })).then(() => {
+
+  })).catch(err => {
+    moduleResults.diagnostics.push({
+      msg: err.toString(),
+      level: 'error',
+      stack: err.stack
+    });
+
+  }).then(() => {
+    timeSpan.finish('bundle modules finished');
     return moduleResults;
   });
 }
 
 
 function generateDefineComponents(bundlerConfig: BundlerConfig, workerManager: WorkerManager, userManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults) {
+  // within MAIN thread
   const bundleComponentMeta = userBundle.components.map(userBundleComponentTag => {
     const cmpMeta = userManifest.components.find(c => c.tagNameMeta === userBundleComponentTag);
     if (!cmpMeta) {
@@ -34,8 +46,13 @@ function generateDefineComponents(bundlerConfig: BundlerConfig, workerManager: W
   }).filter(c => !!c);
 
   return workerManager.generateDefineComponents(bundlerConfig, bundleComponentMeta).then(bundleModuleResults => {
+    // merge results into main results
     if (bundleModuleResults.bundles) {
       Object.assign(moduleResults.bundles, bundleModuleResults.bundles);
+    }
+
+    if (bundleModuleResults.filesToWrite) {
+      Object.assign(moduleResults.filesToWrite, bundleModuleResults.filesToWrite);
     }
 
     if (bundleModuleResults.diagnostics) {
@@ -45,13 +62,16 @@ function generateDefineComponents(bundlerConfig: BundlerConfig, workerManager: W
 }
 
 
-export function generateDefineComponentsWorker(sys: StencilSystem, ctx: WorkerBuildContext, bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
+export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
+  // within WORKER thread
   const moduleResults: ModuleResults = {
-    bundles: {}
+    bundles: {},
+    filesToWrite: {},
+    diagnostics: []
   };
 
   // loop through each bundle the user wants and create the "defineComponents"
-  return bundleComponentModules(sys, ctx, bundleComponentMeta, moduleResults).then(jsModuleContent => {
+  return bundleComponentModules(sys, bundleComponentMeta, moduleResults).then(jsModuleContent => {
 
     const bundleId = generateBundleId(userBundle.components);
 
@@ -73,17 +93,13 @@ export function generateDefineComponentsWorker(sys: StencilSystem, ctx: WorkerBu
 
     } else {
       // minify the JS content in prod mode
-      const minifyResults = sys.uglify.minify(moduleContent);
+      const minifyJsResults = sys.minifyJs(moduleContent);
+      minifyJsResults.diagnostics.forEach(d => {
+        moduleResults.diagnostics.push(d);
+      });
 
-      if (minifyResults.error) {
-        moduleResults.diagnostics = moduleResults.diagnostics || [];
-        moduleResults.diagnostics.push({
-          msg: minifyResults.error.message,
-          level: 'error'
-        });
-
-      } else {
-        moduleContent = minifyResults.code;
+      if (minifyJsResults.output) {
+        moduleContent = minifyJsResults.output;
       }
 
       // in prod mode, create bundle id from hashing the content
@@ -97,32 +113,22 @@ export function generateDefineComponentsWorker(sys: StencilSystem, ctx: WorkerBu
     const moduleFileName = formatJsBundleFileName(moduleResults.bundles[bundleId]);
     const moduleFilePath = sys.path.join(bundlerConfig.destDir, BUNDLES_DIR, bundlerConfig.namespace.toLowerCase(), moduleFileName);
 
-    return writeFile(sys, moduleFilePath, moduleContent).then(() => {
-      return moduleResults;
-
-    }).catch(err => {
-      // writeFile error
-      moduleResults.diagnostics = moduleResults.diagnostics || [];
-      moduleResults.diagnostics.push({
-        msg: err.toString(),
-        level: 'error'
-      });
-      return moduleResults;
-    });
+    moduleResults.filesToWrite[moduleFilePath] = moduleContent;
 
   }).catch(err => {
-    // bundleComponentModules error
-    moduleResults.diagnostics = moduleResults.diagnostics || [];
     moduleResults.diagnostics.push({
       msg: err.toString(),
-      level: 'error'
+      level: 'error',
+      stack: err.stack
     });
+
+  }).then(() => {
     return moduleResults;
   });
 }
 
 
-function bundleComponentModules(sys: StencilSystem, ctx: WorkerBuildContext, bundleComponentMeta: ComponentMeta[], moduleResults: ModuleResults) {
+function bundleComponentModules(sys: StencilSystem, bundleComponentMeta: ComponentMeta[], moduleResults: ModuleResults) {
   const entryFileLines: string[] = [];
 
   // loop through all the components this bundle needs

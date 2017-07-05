@@ -1,5 +1,5 @@
-import { WorkerBuildContext, CompilerConfig, Logger, ModuleFileMeta, StencilSystem, CompileResults, Diagnostic } from './interfaces';
-import { createModuleFileMeta, getFileMeta } from './util';
+import { CompilerConfig, Logger, ModuleFileMeta, StencilSystem, CompileResults, Diagnostic, TranspileResults } from './interfaces';
+import { readFile } from './util';
 import { componentClass } from './transformers/component-class';
 import { jsxToVNode } from './transformers/jsx-to-vnode';
 import { removeImports } from './transformers/remove-imports';
@@ -7,24 +7,34 @@ import { updateLifecycleMethods } from './transformers/update-lifecycle-methods'
 import * as ts from 'typescript';
 
 
-export function transpileWorker(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, tsFileName: string) {
+export function transpileWorker(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, filePath: string) {
   // within WORKER thread
-  logger.debug(`transpile: ${tsFileName}`);
+  logger.debug(`transpile: ${filePath}`);
 
-  return getFileMeta(sys, ctx, tsFileName).then(moduleFile => {
-    return transpileFile(sys, logger, ctx, compilerConfig, moduleFile);
+  const transpileResults: TranspileResults = {
+    moduleFiles: {},
+    diagnostics: []
+  };
+
+  return readFile(sys, filePath).then(srcText => {
+    const moduleFile: ModuleFileMeta = {
+      fileName: sys.path.basename(filePath),
+      filePath: filePath,
+      srcDir: sys.path.dirname(filePath),
+      srcText: srcText
+    };
+    transpileResults.moduleFiles[filePath] = moduleFile;
+
+    return transpileFile(sys, logger, compilerConfig, moduleFile, transpileResults);
+
+  }).then(() => {
+    return transpileResults;
   });
 }
 
 
-function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildContext, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta) {
+function transpileFile(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, transpileResults: TranspileResults) {
   const tsCompilerOptions = createTsCompilerConfigs(compilerConfig);
-
-  const compileResults: CompileResults = {
-    moduleFiles: {}
-  };
-
-  const processCssModulesFiles: ModuleFileMeta[] = [];
 
   const tsHost: ts.CompilerHost = {
     getSourceFile: (filePath) => ts.createSourceFile(filePath, moduleFile.srcText, ts.ScriptTarget.ES2015),
@@ -36,36 +46,36 @@ function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildConte
     getNewLine: () => '\n',
 
     fileExists: (filePath) => {
-      return ctx.moduleFiles.has(filePath);
+      return !!filePath;
     },
 
     readFile: (filePath) => {
-      let moduleFile = ctx.moduleFiles.get(filePath);
-      if (moduleFile) {
-        // already have this file in-memory
-        return moduleFile.srcText;
+      let moduleFile = transpileResults.moduleFiles[filePath];
+
+      if (!moduleFile) {
+        // file not in-memory yet
+        moduleFile = {
+          fileName: sys.path.basename(filePath),
+          filePath: filePath,
+          srcDir: sys.path.dirname(filePath),
+
+          // sync file read required :(
+          srcText: sys.fs.readFileSync(filePath, 'utf-8')
+        };
+        transpileResults.moduleFiles[filePath] = moduleFile;
       }
 
-      // file not in-memory yet
-      moduleFile = createModuleFileMeta(sys, ctx, filePath, sys.fs.readFileSync(filePath, 'utf-8'));
-      moduleFile.recompileOnChange = true;
       return moduleFile.srcText;
     },
 
     writeFile: (jsFilePath: string, jsText: string, writeByteOrderMark: boolean, onError: any, sourceFiles: ts.SourceFile[]): void => {
-      sourceFiles.forEach(s => {
-        const moduleFile = ctx.moduleFiles.get(s.fileName);
+      sourceFiles.forEach(tsSourceFile => {
+        const moduleFile = transpileResults.moduleFiles[tsSourceFile.fileName];
         if (moduleFile) {
-          moduleFile.recompileOnChange = true;
           moduleFile.jsFilePath = jsFilePath;
           moduleFile.jsText = jsText;
-
-          processCssModulesFiles.push(moduleFile);
-
-          compileResults.moduleFiles[s.fileName] = moduleFile;
         }
       });
-
       writeByteOrderMark; onError;
     }
   };
@@ -74,16 +84,16 @@ function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildConte
 
   const result = program.emit(undefined, tsHost.writeFile, undefined, false, {
     before: [
-      componentClass(logger, ctx),
+      componentClass(logger, transpileResults.moduleFiles),
       removeImports(),
       updateLifecycleMethods()
     ],
     after: [
-      jsxToVNode(ctx)
+      jsxToVNode(transpileResults.moduleFiles)
     ]
   });
 
-  compileResults.diagnostics = result.diagnostics.map(d => {
+  result.diagnostics.forEach(d => {
     const diagnostic: Diagnostic = {
       msg: d.messageText.toString(),
       level: 'error',
@@ -93,19 +103,17 @@ function transpileFile(sys: StencilSystem, logger: Logger, ctx: WorkerBuildConte
       category: d.category,
       code: d.code
     };
-    return diagnostic;
+    transpileResults.diagnostics.push(diagnostic);
   });
 
-  return Promise.all(processCssModulesFiles.map(moduleFile => {
-    return processIncludedStyles(sys, logger, compilerConfig, moduleFile, compileResults);
-  })).then(() => {
-    return compileResults;
-  });
+  // return Promise.all(processCssModulesFiles.map(moduleFile => {
+  //   return processIncludedStyles(sys, logger, compilerConfig, moduleFile, compileResults);
+  // }));
 }
 
 
-function processIncludedStyles(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, compileResults: CompileResults) {
-  if (!moduleFile.isTsSourceFile || !moduleFile.cmpMeta || !moduleFile.cmpMeta.styleMeta) {
+export function processIncludedStyles(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, compileResults: CompileResults) {
+  if (!moduleFile.cmpMeta || !moduleFile.cmpMeta.styleMeta) {
     return Promise.resolve(null);
   }
 

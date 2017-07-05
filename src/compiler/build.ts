@@ -85,7 +85,7 @@ export function build(buildConfig: BuildConfig) {
   }).catch(err => {
     buildResults.diagnostics.push({
       msg: err.toString(),
-      level: 'error',
+      type: 'error',
       stack: err.stack
     });
 
@@ -93,10 +93,10 @@ export function build(buildConfig: BuildConfig) {
     // build process done!! we did it!!
 
     buildResults.diagnostics.forEach(d => {
-      if (d.level === 'error' && logger.level === 'debug' && d.stack) {
+      if (d.type === 'error' && logger.level === 'debug' && d.stack) {
         logger.error(d.stack);
       } else {
-        logger[d.level](d.msg);
+        logger[d.type](d.msg);
       }
     });
 

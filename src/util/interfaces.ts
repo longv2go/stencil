@@ -955,7 +955,7 @@ export interface StencilConfig {
 
 export interface Diagnostic {
   msg: string;
-  level: 'error'|'warn';
+  type: 'error'|'warn';
   filePath?: string;
   start?: number;
   length?: number;

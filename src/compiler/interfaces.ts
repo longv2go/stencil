@@ -39,7 +39,6 @@ export interface BundlerConfig {
 export interface ModuleFileMeta {
   fileName: string;
   filePath: string;
-  srcDir: string;
   srcText: string;
   jsFilePath?: string;
   jsText?: string;

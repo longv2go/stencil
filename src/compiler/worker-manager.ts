@@ -1,5 +1,5 @@
 import { Bundle, BundlerConfig, CompilerConfig, CompileResults, ComponentMeta,
-  Logger, ModuleResults, Process, StencilSystem, StylesResults } from './interfaces';
+  Logger, ModuleFiles, ModuleResults, Process, StencilSystem, StylesResults } from './interfaces';
 import { compileFileWorker } from './compile';
 import { generateDefineComponentsWorker } from './bundle-modules';
 import { generateBundleCssWorker } from './bundle-styles';
@@ -12,6 +12,7 @@ export class WorkerManager {
   private taskId = 0;
   private taskResolves: Map<number, Function> = new Map();
   private mainThreadWorker: Process;
+  private mainThreadModuleFilesCache: ModuleFiles = {};
 
   constructor(private sys: StencilSystem, public logger: Logger) {}
 
@@ -69,7 +70,7 @@ export class WorkerManager {
   compileFile(compilerConfig: CompilerConfig, filePath: string): Promise<CompileResults> {
     return this.sendTaskToWorker({
       taskName: 'compileFile',
-      config: compilerConfig,
+      compilerConfig: compilerConfig,
       filePath: filePath
     });
   }
@@ -77,7 +78,7 @@ export class WorkerManager {
   generateBundleCss(bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle): Promise<StylesResults> {
     return this.sendTaskToWorker({
       taskName: 'generateBundleCss',
-      config: bundlerConfig,
+      bundlerConfig: bundlerConfig,
       bundleComponentMeta: bundleComponentMeta,
       userBundle: userBundle
     });
@@ -86,7 +87,7 @@ export class WorkerManager {
   generateDefineComponents(bundlerConfig: BundlerConfig, bundleComponentMeta: ComponentMeta[]): Promise<ModuleResults> {
     return this.sendTaskToWorker({
       taskName: 'generateDefineComponents',
-      config: bundlerConfig,
+      bundlerConfig: bundlerConfig,
       bundleComponentMeta: bundleComponentMeta
     });
   }
@@ -107,14 +108,14 @@ export class WorkerManager {
             mainReceivedMessageFromWorker(this.logger, this.taskResolves, msg);
           });
         }
-        if (worker.send(msg)) {
+        if (worker.connected && worker.send(msg)) {
           // all good, message sent to worker
           return;
         }
       }
 
       // main thread fallback
-      workerReceivedMessageFromMain(this.sys, this.logger, this.mainThreadWorker, msg);
+      workerReceivedMessageFromMain(this.sys, this.logger, this.mainThreadWorker, this.mainThreadModuleFilesCache, msg);
     });
   }
 
@@ -129,25 +130,25 @@ export class WorkerManager {
 }
 
 
-function workerReceivedMessageFromMain(sys: StencilSystem, logger: Logger, worker: Process, msg: WorkerMessage) {
+function workerReceivedMessageFromMain(sys: StencilSystem, logger: Logger, worker: Process, moduleFileCache: ModuleFiles, msg: WorkerMessage) {
   try {
     switch (msg.taskName) {
       case 'compileFile':
-        compileFileWorker(sys, logger, msg.config, msg.filePath)
+        compileFileWorker(sys, moduleFileCache, msg.compilerConfig, msg.filePath)
           .then((resolveData: any) => {
             sendMessageFromWorkerToMain(worker, msg.taskId, resolveData);
           });
         break;
 
       case 'generateBundleCss':
-        generateBundleCssWorker(sys, msg.config, msg.bundleComponentMeta, msg.userBundle)
+        generateBundleCssWorker(sys, msg.bundlerConfig, msg.bundleComponentMeta, msg.userBundle)
           .then(resolveData => {
             sendMessageFromWorkerToMain(worker, msg.taskId, resolveData);
           });
         break;
 
       case 'generateDefineComponents':
-        generateDefineComponentsWorker(sys, msg.config, msg.bundleComponentMeta, msg.userBundle)
+        generateDefineComponentsWorker(sys, msg.bundlerConfig, msg.bundleComponentMeta, msg.userBundle)
           .then(resolveData => {
             sendMessageFromWorkerToMain(worker, msg.taskId, resolveData);
           });
@@ -189,8 +190,10 @@ function sendMessageFromWorkerToMain(worker: Process, taskId: number, resolveDat
 
 
 export function setupWorkerProcess(sys: StencilSystem, logger: Logger, worker: Process) {
+  const moduleFileCache: ModuleFiles = {};
+
   worker.on('message', (msg: WorkerMessage) => {
-    workerReceivedMessageFromMain(sys, logger, worker, msg);
+    workerReceivedMessageFromMain(sys, logger, worker, moduleFileCache, msg);
   });
 }
 
@@ -198,7 +201,8 @@ export function setupWorkerProcess(sys: StencilSystem, logger: Logger, worker: P
 interface WorkerMessage {
   taskId?: number;
   taskName?: 'compileFile'|'generateBundleCss'|'generateDefineComponents';
-  config?: any;
+  bundlerConfig?: BundlerConfig;
+  compilerConfig?: CompilerConfig;
   filePath?: string;
   bundleComponentMeta?: ComponentMeta[];
   userBundle?: Bundle;

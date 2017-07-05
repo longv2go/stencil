@@ -1,4 +1,5 @@
-import { CompilerConfig, Logger, ModuleFileMeta, StencilSystem, CompileResults, Diagnostic, TranspileResults } from './interfaces';
+import { CompilerConfig, CompileResults, Diagnostic, Logger, ModuleFiles,
+  ModuleFileMeta, StencilSystem, TranspileResults } from './interfaces';
 import { readFile } from './util';
 import { componentClass } from './transformers/component-class';
 import { jsxToVNode } from './transformers/jsx-to-vnode';
@@ -7,10 +8,8 @@ import { updateLifecycleMethods } from './transformers/update-lifecycle-methods'
 import * as ts from 'typescript';
 
 
-export function transpileWorker(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, filePath: string) {
+export function transpileWorker(sys: StencilSystem, moduleFileCache: ModuleFiles, compilerConfig: CompilerConfig, filePath: string) {
   // within WORKER thread
-  logger.debug(`transpile: ${filePath}`);
-
   const transpileResults: TranspileResults = {
     moduleFiles: {},
     diagnostics: []
@@ -18,14 +17,14 @@ export function transpileWorker(sys: StencilSystem, logger: Logger, compilerConf
 
   return readFile(sys, filePath).then(srcText => {
     const moduleFile: ModuleFileMeta = {
-      fileName: sys.path.basename(filePath),
       filePath: filePath,
-      srcDir: sys.path.dirname(filePath),
+      fileName: sys.path.basename(filePath),
       srcText: srcText
     };
     transpileResults.moduleFiles[filePath] = moduleFile;
+    moduleFileCache[filePath] = moduleFile;
 
-    return transpileFile(sys, logger, compilerConfig, moduleFile, transpileResults);
+    return transpileFile(sys, moduleFileCache, compilerConfig, moduleFile, transpileResults);
 
   }).then(() => {
     return transpileResults;
@@ -33,7 +32,7 @@ export function transpileWorker(sys: StencilSystem, logger: Logger, compilerConf
 }
 
 
-function transpileFile(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, transpileResults: TranspileResults) {
+function transpileFile(sys: StencilSystem, moduleFileCache: ModuleFiles, compilerConfig: CompilerConfig, moduleFile: ModuleFileMeta, transpileResults: TranspileResults) {
   const tsCompilerOptions = createTsCompilerConfigs(compilerConfig);
 
   const tsHost: ts.CompilerHost = {
@@ -50,19 +49,19 @@ function transpileFile(sys: StencilSystem, logger: Logger, compilerConfig: Compi
     },
 
     readFile: (filePath) => {
-      let moduleFile = transpileResults.moduleFiles[filePath];
+      let moduleFile = moduleFileCache[filePath];
 
       if (!moduleFile) {
         // file not in-memory yet
         moduleFile = {
-          fileName: sys.path.basename(filePath),
           filePath: filePath,
-          srcDir: sys.path.dirname(filePath),
-
+          fileName: sys.path.basename(filePath),
           // sync file read required :(
           srcText: sys.fs.readFileSync(filePath, 'utf-8')
         };
+
         transpileResults.moduleFiles[filePath] = moduleFile;
+        moduleFileCache[filePath] = moduleFile;
       }
 
       return moduleFile.srcText;
@@ -84,7 +83,7 @@ function transpileFile(sys: StencilSystem, logger: Logger, compilerConfig: Compi
 
   const result = program.emit(undefined, tsHost.writeFile, undefined, false, {
     before: [
-      componentClass(logger, transpileResults.moduleFiles),
+      componentClass(transpileResults.moduleFiles, transpileResults.diagnostics),
       removeImports(),
       updateLifecycleMethods()
     ],
@@ -96,7 +95,7 @@ function transpileFile(sys: StencilSystem, logger: Logger, compilerConfig: Compi
   result.diagnostics.forEach(d => {
     const diagnostic: Diagnostic = {
       msg: d.messageText.toString(),
-      level: 'error',
+      type: 'error',
       filePath: d.file && d.file.fileName,
       start: d.start,
       length: d.length,
@@ -131,7 +130,7 @@ export function processIncludedStyles(sys: StencilSystem, logger: Logger, compil
     if (modeMeta.styleUrls) {
       modeMeta.styleUrls.forEach(styleUrl => {
         const scssFileName = sys.path.basename(styleUrl);
-        const scssFilePath = sys.path.join(moduleFile.srcDir, scssFileName);
+        const scssFilePath = sys.path.join(sys.path.dirname(moduleFile.filePath), scssFileName);
         promises.push(
           getIncludedSassFiles(sys, logger, compileResults, scssFilePath)
         );
@@ -165,7 +164,7 @@ function getIncludedSassFiles(sys: StencilSystem, logger: Logger, compileResults
         compileResults.diagnostics = compileResults.diagnostics || [];
         compileResults.diagnostics.push({
           msg: err,
-          level: 'error'
+          type: 'error'
         });
 
       } else if (result.stats) {

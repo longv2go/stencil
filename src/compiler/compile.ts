@@ -1,5 +1,5 @@
 import { access, isTsSourceFile, readFile } from './util';
-import { CompilerConfig, CompileResults, FilesToWrite, Logger, StencilSystem } from './interfaces';
+import { CompilerConfig, CompileResults, FilesToWrite, Logger, ModuleFiles, StencilSystem } from './interfaces';
 import { generateManifest } from './manifest';
 import { transpileWorker } from './transpile';
 import { WorkerManager } from './worker-manager';
@@ -37,7 +37,7 @@ export function compile(sys: StencilSystem, logger: Logger, workerManager: Worke
   })).then(() => {
     if (compileResults.diagnostics && compileResults.diagnostics.length) {
       compileResults.diagnostics.forEach(d => {
-        logger[d.level](d.msg);
+        logger[d.type](d.msg);
         d.stack && logger.debug(d.stack);
       });
 
@@ -70,7 +70,7 @@ function compileDirectory(sys: StencilSystem, logger: Logger, dir: string, compi
       if (err) {
         compileResults.diagnostics.push({
           msg: `compileDirectory, fs.readdir: ${dir}, ${err}`,
-          level: 'error'
+          type: 'error'
         });
         resolve();
         return;
@@ -94,7 +94,7 @@ function compileDirectory(sys: StencilSystem, logger: Logger, dir: string, compi
               // derp, not sure what's up here, let's just print out the error
               compileResults.diagnostics.push({
                 msg: `compileDirectory, fs.stat: ${readPath}, ${err}`,
-                level: 'error'
+                type: 'error'
               });
               resolve();
 
@@ -166,7 +166,7 @@ function compileFile(workerManager: WorkerManager, compilerConfig: CompilerConfi
 }
 
 
-export function compileFileWorker(sys: StencilSystem, logger: Logger, compilerConfig: CompilerConfig, filePath: string) {
+export function compileFileWorker(sys: StencilSystem, moduleFileCache: ModuleFiles, compilerConfig: CompilerConfig, filePath: string) {
   // within WORKER thread
 
   const compileResults: CompileResults = {
@@ -175,17 +175,27 @@ export function compileFileWorker(sys: StencilSystem, logger: Logger, compilerCo
     filesToWrite: {}
   };
 
-  return transpileWorker(sys, logger, compilerConfig, filePath, compileResults)
-    .catch(err => {
-      compileResults.diagnostics.push({
-        msg: err.toString(),
-        level: 'error',
-        stack: err.stack
-      });
+  return Promise.resolve().then(() => {
 
-    }).then(() => {
-      return compileResults;
+    return transpileWorker(sys, moduleFileCache, compilerConfig, filePath).then(transpileResults => {
+      if (transpileResults.diagnostics) {
+        compileResults.diagnostics = compileResults.diagnostics.concat(transpileResults.diagnostics);
+      }
+      if (transpileResults.moduleFiles) {
+        Object.assign(compileResults.moduleFiles, transpileResults.moduleFiles);
+      }
     });
+
+  }).catch(err => {
+    compileResults.diagnostics.push({
+      msg: err.toString(),
+      type: 'error',
+      stack: err.stack
+    });
+
+  }).then(() => {
+    return compileResults;
+  });
 }
 
 

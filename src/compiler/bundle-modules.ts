@@ -21,7 +21,7 @@ export function bundleModules(logger: Logger, bundlerConfig: BundlerConfig, work
   })).catch(err => {
     moduleResults.diagnostics.push({
       msg: err.toString(),
-      level: 'error',
+      type: 'error',
       stack: err.stack
     });
 
@@ -39,7 +39,7 @@ function generateDefineComponents(bundlerConfig: BundlerConfig, workerManager: W
     if (!cmpMeta) {
       moduleResults.diagnostics.push({
         msg: `Unable to find component "${cmpMeta.tagNameMeta}" in available config and collection`,
-        level: 'error'
+        type: 'error'
       });
     }
     return cmpMeta;
@@ -118,7 +118,7 @@ export function generateDefineComponentsWorker(sys: StencilSystem, bundlerConfig
   }).catch(err => {
     moduleResults.diagnostics.push({
       msg: err.toString(),
-      level: 'error',
+      type: 'error',
       stack: err.stack
     });
 
@@ -194,10 +194,9 @@ function createOnWarnFn(moduleResults: ModuleResults) {
     }
     previousWarns[warning.message] = true;
 
-    moduleResults.diagnostics = moduleResults.diagnostics || [];
     moduleResults.diagnostics.push({
       msg: warning,
-      level: 'warn'
+      type: 'warn'
     });
   };
 }

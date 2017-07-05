@@ -1,4 +1,4 @@
-import { ModuleFiles, ModuleFileMeta, Logger } from '../interfaces';
+import { Diagnostic, ModuleFiles, ModuleFileMeta } from '../interfaces';
 import { getComponentDecoratorData } from './component-decorator';
 import { getListenDecoratorMeta } from './listen-decorator';
 import { getMethodDecoratorMeta } from './method-decorator';
@@ -8,16 +8,21 @@ import { getStateDecoratorMeta } from './state-decorator';
 import * as ts from 'typescript';
 
 
-export function componentClass(logger: Logger, moduleFiles: ModuleFiles): ts.TransformerFactory<ts.SourceFile> {
+export function componentClass(moduleFiles: ModuleFiles, diagnostics: Diagnostic[]): ts.TransformerFactory<ts.SourceFile> {
 
   return (transformContext) => {
 
     function visitClass(moduleFile: ModuleFileMeta, classNode: ts.ClassDeclaration) {
-      const cmpMeta = getComponentDecoratorData(logger, classNode);
+      const cmpMeta = getComponentDecoratorData(moduleFile, diagnostics, classNode);
 
       if (cmpMeta) {
         if (moduleFile.cmpMeta) {
-          throw `file cannot have multiple @Components: ${moduleFile.filePath}`;
+          diagnostics.push({
+            msg: `Cannot have multiple @Components in the same source file`,
+            type: 'error',
+            filePath: moduleFile.filePath
+          });
+          return classNode;
         }
 
         moduleFile.cmpMeta = cmpMeta;
@@ -26,8 +31,8 @@ export function componentClass(logger: Logger, moduleFiles: ModuleFiles): ts.Tra
 
         getMethodDecoratorMeta(moduleFile, classNode);
         getStateDecoratorMeta(moduleFile, classNode);
-        getPropDecoratorMeta(logger, moduleFile, classNode);
-        getListenDecoratorMeta(logger, moduleFile, classNode);
+        getPropDecoratorMeta(moduleFile, diagnostics, classNode);
+        getListenDecoratorMeta(moduleFile, diagnostics, classNode);
         getPropChangeDecoratorMeta(moduleFile, classNode);
 
         return removeClassDecorator(classNode);

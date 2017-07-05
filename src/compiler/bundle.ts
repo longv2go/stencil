@@ -54,9 +54,10 @@ export function bundle(sys: StencilSystem, logger: Logger, bundlerConfig: Bundle
   .catch(err => {
     bundleResults.diagnostics.push({
       msg: err.toString(),
-      level: 'error',
+      type: 'error',
       stack: err.stack
     });
+
   })
   .then(() => {
     timeSpan.finish('bundle, done');

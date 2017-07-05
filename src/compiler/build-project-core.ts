@@ -33,7 +33,7 @@ function generateLoader(buildConfig: BuildConfig, componentRegistry: LoadCompone
     if (!buildConfig.isDevMode) {
       const minifyResult = buildConfig.sys.minifyJs(registryStr);
       minifyResult.diagnostics.forEach(d => {
-        buildConfig.logger[d.level](d.msg);
+        buildConfig.logger[d.type](d.msg);
       });
       if (minifyResult.output) {
         registryStr = registryStr;

@@ -39,7 +39,7 @@ export function bundleStyles(logger: Logger, config: BundlerConfig, workerManage
   .catch(err => {
     stylesResults.diagnostics.push({
       msg: err.toString(),
-      level: 'error',
+      type: 'error',
       stack: err.stack
     });
 
@@ -67,7 +67,7 @@ function generateBundleCss(bundlerConfig: BundlerConfig, workerManager: WorkerMa
       stylesResults.diagnostics = stylesResults.diagnostics || [];
       stylesResults.diagnostics.push({
         msg: `The component tag "${userBundleComponentTag.toLowerCase()}" is defined in a bundle but no component was found with this tag.`,
-        level: 'error'
+        type: 'error'
       });
     }
     return foundComponentMeta;
@@ -106,7 +106,7 @@ export function generateBundleCssWorker(sys: StencilSystem, bundlerConfig: Bundl
   })).catch(err => {
     stylesResults.diagnostics.push({
       msg: err.toString(),
-      level: 'error',
+      type: 'error',
       stack: err.stack
     });
 
@@ -222,7 +222,7 @@ function generateComponentModeStyles(
           // idk
           stylesResults.diagnostics.push({
             msg: `style url "${styleUrl}" on component "${cmpMeta.tagNameMeta.toLowerCase()}" is not a supported file type`,
-            level: 'error'
+            type: 'error'
           });
         }
       });
@@ -265,7 +265,7 @@ function compileScssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, style
         stylesResults.diagnostics.push({
           filePath: scssFilePath,
           msg: `${err}`,
-          level: 'error',
+          type: 'error',
           stack: err.stack
         });
 
@@ -305,7 +305,7 @@ function readCssFile(sys: StencilSystem, bundlerConfig: BundlerConfig, styleUrl:
     stylesResults.diagnostics.push({
       filePath: cssFilePath,
       msg: `Error opening file. ${err}`,
-      level: 'error',
+      type: 'error',
       stack: err.stack
     });
   });

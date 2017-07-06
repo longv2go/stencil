@@ -36,9 +36,6 @@ export function componentClass(moduleFiles: ModuleFiles, diagnostics: Diagnostic
         getPropChangeDecoratorMeta(moduleFile, classNode);
 
         return removeClassDecorator(classNode);
-
-      } else if (!moduleFile.cmpMeta) {
-        moduleFile.hasCmpClass = false;
       }
 
       return classNode;
@@ -61,7 +58,8 @@ export function componentClass(moduleFiles: ModuleFiles, diagnostics: Diagnostic
 
     return (tsSourceFile) => {
       const moduleFile = moduleFiles[tsSourceFile.fileName];
-      if (moduleFile && moduleFile.hasCmpClass) {
+      if (moduleFile) {
+        moduleFile.hasCmpClass = false;
         return visit(moduleFile, tsSourceFile) as ts.SourceFile;
       }
 

@@ -29,12 +29,7 @@ export function build(buildConfig: BuildConfig) {
 
   return Promise.resolve().then(() => {
     // generate manifest phase
-    return generateDependentManifests(
-      sys,
-      logger,
-      buildConfig.collections,
-      buildConfig.rootDir,
-      buildConfig.dest);
+    return generateDependentManifests(buildConfig);
 
   }).then(dependentManifests => {
     // compile phase
@@ -49,10 +44,8 @@ export function build(buildConfig: BuildConfig) {
       const resultsManifest: Manifest = compileResults.manifest || {};
 
       const localManifest = updateManifestUrls(
-        logger,
-        sys,
+        buildConfig,
         resultsManifest,
-        buildConfig.dest,
         buildConfig.dest
       );
       return mergeManifests([].concat((localManifest || []), dependentManifests));

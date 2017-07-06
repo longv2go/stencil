@@ -186,7 +186,15 @@ function transpiledInMemoryPlugin(sys: StencilSystem, ctx: BuildContext) {
   return {
     name: 'transpiledInMemoryPlugin',
 
-    resolveId(importee: string): string {
+    resolveId(importee: string, importer: string): string {
+      if (!sys.path.isAbsolute(importee)) {
+        importee = sys.path.resolve(importer ? sys.path.dirname(importer) : sys.path.resolve(), importee);
+
+        if (importee.indexOf('.js') === -1) {
+          importee += '.js';
+        }
+      }
+
       const tsFileNames = Object.keys(ctx.moduleFiles);
       for (var i = 0; i < tsFileNames.length; i++) {
         if (ctx.moduleFiles[tsFileNames[i]].jsFilePath === importee) {

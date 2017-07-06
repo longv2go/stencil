@@ -133,39 +133,6 @@ export function normalizeBuildConfig(buildConfig: BuildConfig) {
   if (!buildConfig.sys) {
     throw new Error('config.sys required');
   }
-  if (!buildConfig.sys.fs) {
-    throw new Error('config.sys.fs required');
-  }
-  if (!buildConfig.sys.createWorker) {
-    throw new Error('config.sys.createWorker required');
-  }
-  if (!buildConfig.sys.generateContentHash) {
-    throw new Error('config.sys.generateContentHash required');
-  }
-  if (!buildConfig.sys.getClientCoreFile) {
-    throw new Error('config.sys.getClientCoreFile required');
-  }
-  if (!buildConfig.sys.minifyCss) {
-    throw new Error('config.sys.minifyCss required');
-  }
-  if (!buildConfig.sys.minifyJs) {
-    throw new Error('config.sys.minifyJs required');
-  }
-  if (!buildConfig.sys.module) {
-    throw new Error('config.sys.module required');
-  }
-  if (!buildConfig.sys.path) {
-    throw new Error('config.sys.path required');
-  }
-  if (!buildConfig.sys.rollup) {
-    throw new Error('config.sys.rollup required');
-  }
-  if (!buildConfig.sys.sass) {
-    throw new Error('config.sys.sass required');
-  }
-  if (!buildConfig.sys.typescript) {
-    throw new Error('config.sys.typescript required');
-  }
 
   if (typeof buildConfig.namespace !== 'string') {
     buildConfig.namespace = DEFAULT_NAMESPACE;

@@ -55,7 +55,7 @@ function parseComponentMetaData(moduleFile: ModuleFileMeta, diagnostics: Diagnos
     diagnostics.push({
       msg: `${e}: text`,
       type: 'error',
-      filePath: moduleFile.tsfilePath
+      filePath: moduleFile.tsFilePath
     });
   }
   return null;
@@ -68,7 +68,7 @@ function normalizeTag(moduleFile: ModuleFileMeta, diagnostics: Diagnostic[], use
     diagnostics.push({
       msg: `Please use "tag" instead of "selector" in component decorator: ${(<any>userOpts).selector}`,
       type: 'error',
-      filePath: moduleFile.tsfilePath
+      filePath: moduleFile.tsFilePath
     });
     cmpMeta.tagNameMeta = (<any>userOpts).selector;
   }

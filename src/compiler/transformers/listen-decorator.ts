@@ -35,7 +35,7 @@ export function getListenDecoratorMeta(moduleFile: ModuleFileMeta, diagnostics: 
               diagnostics.push({
                 msg: `parse listener options: ${e}`,
                 type: 'error',
-                filePath: moduleFile.tsfilePath
+                filePath: moduleFile.tsFilePath
               });
             }
           }
@@ -75,22 +75,22 @@ function validateListener(fileMeta: ModuleFileMeta, eventName: string, rawListen
 
   let splt = eventName.split(':');
   if (splt.length > 2) {
-    throw `@Listen can only contain one colon: ${eventName} in ${fileMeta.tsfilePath}`;
+    throw `@Listen can only contain one colon: ${eventName} in ${fileMeta.tsFilePath}`;
   }
   if (splt.length > 1) {
     if (VALID_ELEMENT_REF_PREFIXES.indexOf(splt[0]) === -1) {
-      throw `invalid @Listen prefix "${splt[0]}" for "${eventName}" in ${fileMeta.tsfilePath}`;
+      throw `invalid @Listen prefix "${splt[0]}" for "${eventName}" in ${fileMeta.tsFilePath}`;
     }
     rawEventName = splt[1];
   }
 
   splt = rawEventName.split('.');
   if (splt.length > 2) {
-    throw `@Listen can only contain one period: ${eventName} in ${fileMeta.tsfilePath}`;
+    throw `@Listen can only contain one period: ${eventName} in ${fileMeta.tsFilePath}`;
   }
   if (splt.length > 1) {
     if (VALID_KEYCODE_SUFFIX.indexOf(splt[1]) === -1) {
-      throw `invalid @Listen suffix "${splt[1]}" for "${eventName}" in ${fileMeta.tsfilePath}`;
+      throw `invalid @Listen suffix "${splt[1]}" for "${eventName}" in ${fileMeta.tsFilePath}`;
     }
     rawEventName = splt[0];
   }

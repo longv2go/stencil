@@ -9,7 +9,7 @@ export interface BundlerConfig {
 
 
 export interface ModuleFileMeta {
-  tsfilePath?: string;
+  tsFilePath?: string;
   tsText?: string;
   jsFilePath?: string;
   jsText?: string;

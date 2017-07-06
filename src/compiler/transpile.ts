@@ -18,13 +18,20 @@ export function transpileWorker(buildConfig: BuildConfig, moduleFileCache: Modul
 
   return readFile(sys, tsFilePath).then(tsText => {
     const moduleFile: ModuleFileMeta = {
-      tsfilePath: tsFilePath,
+      tsFilePath: tsFilePath,
       tsText: tsText
     };
     transpileResults.moduleFiles[tsFilePath] = moduleFile;
     moduleFileCache[tsFilePath] = moduleFile;
 
     return transpileFile(buildConfig, moduleFileCache, moduleFile, transpileResults);
+
+  }).catch(err => {
+    transpileResults.diagnostics.push({
+      msg: err,
+      type: 'error',
+      stack: err.stack
+    });
 
   }).then(() => {
     return transpileResults;
@@ -35,35 +42,36 @@ export function transpileWorker(buildConfig: BuildConfig, moduleFileCache: Modul
 function transpileFile(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, moduleFile: ModuleFileMeta, transpileResults: TranspileResults) {
   const sys = buildConfig.sys;
   const tsCompilerOptions = createTsCompilerConfigs(buildConfig);
-
   const moduleStylesToProcess: ModuleFileMeta[] = [];
 
   const tsHost: ts.CompilerHost = {
-    getSourceFile: (filePath) => ts.createSourceFile(filePath, moduleFile.tsText, ts.ScriptTarget.ES2015),
+    getSourceFile: (filePath) => {
+      return ts.createSourceFile(filePath, moduleFile.tsText, ts.ScriptTarget.ES2015);
+    },
     getDefaultLibFileName: () => 'lib.d.ts',
     getCurrentDirectory: () => '',
     getDirectories: () => [],
     getCanonicalFileName: (fileName) => fileName,
-    useCaseSensitiveFileNames: () => true,
+    useCaseSensitiveFileNames: () => false,
     getNewLine: () => '\n',
 
     fileExists: (filePath) => {
-      return !!filePath;
+      return filePath === moduleFile.tsFilePath;
     },
 
-    readFile: (filePath) => {
-      let moduleFile = moduleFileCache[filePath];
+    readFile: (tsFilePath) => {
+      let moduleFile = moduleFileCache[tsFilePath];
 
       if (!moduleFile) {
         // file not in-memory yet
         moduleFile = {
-          tsfilePath: filePath,
+          tsFilePath: tsFilePath,
           // sync file read required :(
-          tsText: sys.fs.readFileSync(filePath, 'utf-8')
+          tsText: sys.fs.readFileSync(tsFilePath, 'utf-8')
         };
 
-        transpileResults.moduleFiles[filePath] = moduleFile;
-        moduleFileCache[filePath] = moduleFile;
+        transpileResults.moduleFiles[tsFilePath] = moduleFile;
+        moduleFileCache[tsFilePath] = moduleFile;
       }
 
       return moduleFile.tsText;
@@ -82,7 +90,7 @@ function transpileFile(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, m
     }
   };
 
-  const program = ts.createProgram([moduleFile.tsfilePath], tsCompilerOptions, tsHost);
+  const program = ts.createProgram([moduleFile.tsFilePath], tsCompilerOptions, tsHost);
 
   const result = program.emit(undefined, tsHost.writeFile, undefined, false, {
     before: [
@@ -131,7 +139,7 @@ function processIncludedStyles(sys: StencilSystem, diagnostics: Diagnostic[], mo
 
         if (ext === '.scss' || ext === '.sass') {
           const scssFileName = sys.path.basename(styleUrl);
-          const scssFilePath = sys.path.join(sys.path.dirname(moduleFile.tsfilePath), scssFileName);
+          const scssFilePath = sys.path.join(sys.path.dirname(moduleFile.tsFilePath), scssFileName);
           promises.push(
             getIncludedSassFiles(sys, diagnostics, moduleFile, scssFilePath)
           );
@@ -185,6 +193,10 @@ function createTsCompilerConfigs(buildConfig: BuildConfig) {
   // create defaults
   const tsCompilerOptions: ts.CompilerOptions = {
     allowJs: true,
+
+    // Filename can be non-ts file.
+    allowNonTsExtensions: true,
+
     allowSyntheticDefaultImports: true,
     isolatedModules: true,
     jsx: ts.JsxEmit.React,
@@ -197,6 +209,10 @@ function createTsCompilerConfigs(buildConfig: BuildConfig) {
     module: ts.ModuleKind.ES2015,
     moduleResolution: ts.ModuleResolutionKind.NodeJs,
     noImplicitUseStrict: true,
+
+    // transpileModule does not write anything to disk so there is no need to verify that there are no conflicts between input and output paths.
+    suppressOutputPathCheck: true,
+
     target: ts.ScriptTarget.ES5,
   };
 

@@ -24,7 +24,9 @@ export function generateComponentRegistry(buildConfig: BuildConfig, bundlerConfi
 
     components.forEach(tag => {
       registry[tag] = registry[tag] || bundlerConfig.manifest.components.find(c => c.tagNameMeta === tag);
-      registry[tag].styleMeta = styleMeta;
+      if (registry[tag]) {
+        registry[tag].styleMeta = styleMeta;
+      }
     });
   });
 
@@ -35,7 +37,9 @@ export function generateComponentRegistry(buildConfig: BuildConfig, bundlerConfi
 
     components.forEach(tag => {
       registry[tag] = registry[tag] || bundlerConfig.manifest.components.find(c => c.tagNameMeta === tag);
-      registry[tag].moduleId = moduleId;
+      if (registry[tag]) {
+        registry[tag].moduleId = moduleId;
+      }
     });
   });
 

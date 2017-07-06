@@ -14,63 +14,6 @@ export function readFile(sys: StencilSystem, filePath: string) {
 }
 
 
-export function writeFile(sys: StencilSystem, filePath: string, content: string): Promise<any> {
-  return new Promise((resolve, reject) => {
-    sys.fs.writeFile(filePath, content, (err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-
-export function copyFile(sys: StencilSystem, src: string, dest: string) {
-  return readFile(sys, src).then(content => {
-    return writeFile(sys, dest, content);
-  });
-}
-
-
-export function writeFiles(sys: StencilSystem, files: Map<string, string>): Promise<any> {
-  if (!files || !files.size) {
-    return Promise.resolve();
-  }
-
-  const paths: string[] = [];
-
-  files.forEach((content, filePath) => {
-    content;
-    paths.push(filePath);
-  });
-
-  return ensureDirs(sys, paths).then(() => {
-    const promises: Promise<any>[] = [];
-
-    files.forEach((content, filePath) => {
-      promises.push(writeFile(sys, filePath, content));
-    });
-
-    return Promise.all(promises);
-  });
-}
-
-
-export function access(sys: StencilSystem, filePath: string): Promise<boolean> {
-  return new Promise(resolve => {
-    sys.fs.access(filePath, err => {
-      if (err) {
-        resolve(false);
-      } else {
-        resolve(true);
-      }
-    });
-  });
-}
-
-
 export function ensureDir(sys: StencilSystem, filePath: string) {
   return ensureDirs(sys, [filePath]);
 }
@@ -193,31 +136,6 @@ export function remove(sys: StencilSystem, fsPath: string) {
         });
       }
     });
-  });
-}
-
-
-export function emptyDir(sys: StencilSystem, path: string): Promise<any> {
-  return access(sys, path).then(pathExists => {
-    if (pathExists) {
-      // path already exists, so let's remove all sub files/directories
-      return new Promise(resolve => {
-        sys.fs.readdir(path, (err, files) => {
-          if (err) {
-            return Promise.resolve();
-          }
-          return Promise.all(files.map(fsPath => {
-            return remove(sys, sys.path.join(path, fsPath));
-          })).then(() => {
-            resolve();
-          });
-        });
-      });
-
-    } else {
-      // make sure it was created if it didn't already exist
-      return ensureDir(sys, sys.path.join(path, 'file.tmp'));
-    }
   });
 }
 

@@ -20,7 +20,7 @@ export function componentClass(moduleFiles: ModuleFiles, diagnostics: Diagnostic
           diagnostics.push({
             msg: `Cannot have multiple @Components in the same source file`,
             type: 'error',
-            filePath: moduleFile.tsfilePath
+            filePath: moduleFile.tsFilePath
           });
           return classNode;
         }

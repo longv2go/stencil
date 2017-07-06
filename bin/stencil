@@ -3,12 +3,11 @@
 'use strict';
 
 process.title = 'stencil';
-process.on('unhandledRejection', r => console.error(r));
+process.on('unhandledRejection', function(r) { console.error(r) });
 process.env.IONIC_CLI_BIN = __filename;
 
 
 var chalk = require('chalk');
-var crypto = require('crypto');
 var path = require('path');
 var semver = require('semver');
 
@@ -98,30 +97,35 @@ buildConfig.logger = new stencil.CmdLogger({
 });
 
 
-buildConfig.sys = Object.defineProperties({}, {
-  'fs': { get: () => require('fs') },
-  'module': { get: () => require('module') },
-  'path': { get: () => path },
-  'rollup': { get: () => {
-    var rollup = require('rollup');
-    rollup.plugins = {
-      commonjs: require('rollup-plugin-commonjs'),
-      nodeResolve: require('rollup-plugin-node-resolve')
-    };
-    return rollup;
-  } },
-  'sass': { get: () => require('node-sass') },
-  'typescript': { get: () => require('typescript') },
+buildConfig.sys = Object.defineProperties({
+  // direct reference
+  'path': path,
+
+}, {
+  // on-demand getters
+  'fs': { get: function() { return require('fs') } },
+  'module': { get: function() { return require('module') } },
+  'rollup': { get: function() {
+      var rollup = require('rollup');
+      rollup.plugins = {
+        commonjs: require('rollup-plugin-commonjs'),
+        nodeResolve: require('rollup-plugin-node-resolve')
+      };
+      return rollup;
+    }
+  },
+  'sass': { get: function() { return require('node-sass'); } },
+  'typescript': { get: function() { return require('typescript') } },
 });
 
 
 buildConfig.sys.createWorker = function() {
-  const cp = require('child_process');
+  var cp = require('child_process');
 
-  const args = cmdArgs.slice(2);
+  var args = cmdArgs.slice(2);
   args[0] = 'worker';
 
-  const opts = {
+  var opts = {
     env: {
       FORCE_COLOR: true
     }
@@ -132,6 +136,7 @@ buildConfig.sys.createWorker = function() {
 
 
 buildConfig.sys.generateContentHash = function(content) {
+  var crypto = require('crypto');
   return crypto.createHash('sha1')
                .update(content)
                .digest('base64')
@@ -147,7 +152,7 @@ buildConfig.sys.minifyCss = function(input) {
   var diagnostics = [];
 
   if (result.errors) {
-    result.errors.forEach(msg => {
+    result.errors.forEach(function(msg) {
       diagnostics.push({
         msg: msg,
         level: 'error'
@@ -156,7 +161,7 @@ buildConfig.sys.minifyCss = function(input) {
   }
 
   if (result.warnings) {
-    result.warnings.forEach(msg => {
+    result.warnings.forEach(function(msg) {
       diagnostics.push({
         msg: msg,
         level: 'warn'
@@ -204,14 +209,14 @@ buildConfig.sys.getClientCoreFile = function(opts) {
   }
   fileName += '.js';
 
-  const filePath = path.join(__dirname, '..', 'dist', 'client', fileName);
+  var filePath = path.join(__dirname, '..', 'dist', 'client', fileName);
 
   return new Promise(function(resolve, reject) {
     if (coreFileCache[filePath]) {
       resolve(coreFileCache[filePath]);
 
     } else {
-      buildConfig.sys.fs.readFile(filePath, 'utf-8', (err, data) => {
+      buildConfig.sys.fs.readFile(filePath, 'utf-8', function(err, data) {
         if (err) {
           reject(err);
         } else {

@@ -61,8 +61,8 @@ function writeToDisk(sys: StencilSystem, filesToWrite: FilesToWrite): Promise<an
 function ensureDirectoriesExist(sys: StencilSystem, directories: string[], existingDirectories: string[]) {
   return new Promise(resolve => {
 
-    existingDirectories = existingDirectories.map(existingDirectory => {
-      return existingDirectory + '/';
+    const knowExistingDirPaths = existingDirectories.map(existingDirectory => {
+      return existingDirectory.split(sys.path.sep);
     });
 
     const checkDirectories = sortDirectories(sys, directories).slice();
@@ -74,26 +74,42 @@ function ensureDirectoriesExist(sys: StencilSystem, directories: string[], exist
       }
 
       const checkDirectory = checkDirectories.shift();
-      if (existingDirectories.indexOf(checkDirectory + '/') > -1) {
-        ensureDir();
-        return;
-      }
 
       const dirPaths = checkDirectory.split(sys.path.sep);
       let pathSections = 1;
 
       function ensureSection() {
-        if (pathSections >= dirPaths.length) {
+        if (pathSections > dirPaths.length) {
           ensureDir();
           return;
         }
 
-        const dirPath = dirPaths.slice(0, pathSections).join(sys.path.sep);
+        const checkDirPaths = dirPaths.slice(0, pathSections);
+        const dirPath = checkDirPaths.join(sys.path.sep);
+
+        for (var i = 0; i < knowExistingDirPaths.length; i++) {
+          var existingDirPaths = knowExistingDirPaths[i];
+          var alreadyExists = true;
+
+          for (var j = 0; j < checkDirPaths.length; j++) {
+            if (checkDirPaths[j] !== existingDirPaths[j]) {
+              alreadyExists = false;
+              break;
+            }
+          }
+
+          if (alreadyExists) {
+            pathSections++;
+            ensureSection();
+            return;
+          }
+        }
+
         sys.fs.mkdir(dirPath, () => {
           // not worrying about the error here
           // if there's an error, it's probably because this directory already exists
           // which is what we want, no need to check access AND mkdir
-          existingDirectories.push(dirPath + '/');
+          knowExistingDirPaths.push(dirPath.split(sys.path.sep));
           pathSections++;
           ensureSection();
         });

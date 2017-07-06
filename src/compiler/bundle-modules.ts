@@ -39,14 +39,14 @@ function generateDefineComponents(buildConfig: BuildConfig, workerManager: Worke
     const cmpMeta = userManifest.components.find(c => c.tagNameMeta === userBundleComponentTag);
     if (!cmpMeta) {
       moduleResults.diagnostics.push({
-        msg: `Unable to find component "${cmpMeta.tagNameMeta}" in available config and collection`,
+        msg: `Unable to find component "${userBundleComponentTag}" in available config and collection.`,
         type: 'error'
       });
     }
     return cmpMeta;
   }).filter(c => !!c);
 
-  return workerManager.generateDefineComponents(buildConfig, bundleComponentMeta).then(workerResults => {
+  return workerManager.generateDefineComponents(buildConfig, bundleComponentMeta, userBundle).then(workerResults => {
     // merge results into main results
     if (workerResults.bundles) {
       Object.assign(moduleResults.bundles, workerResults.bundles);
@@ -170,7 +170,7 @@ function bundleComponentModules(sys: StencilSystem, moduleFiles: ModuleFiles, bu
       entryInMemoryPlugin(STENCIL_BUNDLE_ID, entryContent),
       transpiledInMemoryPlugin(sys, moduleFiles)
     ],
-    onwarn: createOnWarnFn(moduleResults.diagnostics)
+    onwarn: createOnWarnFn(bundleComponentMeta, moduleResults.diagnostics)
 
   }).catch(err => {
     throw err;
@@ -188,7 +188,7 @@ function bundleComponentModules(sys: StencilSystem, moduleFiles: ModuleFiles, bu
 }
 
 
-function createOnWarnFn(diagnostics: Diagnostic[]) {
+function createOnWarnFn(bundleComponentMeta: ComponentMeta[], diagnostics: Diagnostic[]) {
   const previousWarns: {[key: string]: boolean} = {};
 
   return function onWarningMessage(warning: any) {
@@ -197,8 +197,13 @@ function createOnWarnFn(diagnostics: Diagnostic[]) {
     }
     previousWarns[warning.message] = true;
 
+    let label = bundleComponentMeta.map(c => c.tagNameMeta).join(', ').trim();
+    if (label.length) {
+      label += ': ';
+    }
+
     diagnostics.push({
-      msg: warning,
+      msg: label + warning.toString(),
       type: 'warn'
     });
   };

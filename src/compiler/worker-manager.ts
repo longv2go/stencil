@@ -72,12 +72,13 @@ export class WorkerManager {
       taskName: 'compileFile',
       filePath: filePath
 
-    }).then((compileResults: CompileResults) => {
-      return this.updateWorkerModuleFiles(buildConfig, compileResults.workerId, compileResults.moduleFiles).then(() => {
-        return compileResults;
-      });
+    })
+    // .then((compileResults: CompileResults) => {
+    //   return this.updateWorkerModuleFiles(buildConfig, compileResults.workerId, compileResults.moduleFiles).then(() => {
+    //     return compileResults;
+    //   });
 
-    });
+    // });
   }
 
   updateWorkerModuleFiles(buildConfig: BuildConfig, fromWorkerId: number, moduleFiles: ModuleFiles) {
@@ -105,10 +106,11 @@ export class WorkerManager {
     });
   }
 
-  generateDefineComponents(buildConfig: BuildConfig, bundleComponentMeta: ComponentMeta[]): Promise<ModuleResults> {
+  generateDefineComponents(buildConfig: BuildConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle): Promise<ModuleResults> {
     return this.sendTaskToWorker(buildConfig, this.nextWorkerId(), {
       taskName: 'generateDefineComponents',
-      bundleComponentMeta: bundleComponentMeta
+      bundleComponentMeta: bundleComponentMeta,
+      userBundle: userBundle
     });
   }
 
@@ -125,7 +127,7 @@ export class WorkerManager {
       }
 
       // main thread fallback
-      workerReceivedMessageFromMain(buildConfig, this.mainThreadModuleFilesCache, msg);
+      workerReceivedMessageFromMain(buildConfig, this.mainThreadWorker, this.mainThreadModuleFilesCache, msg);
     });
   }
 
@@ -141,9 +143,7 @@ export class WorkerManager {
 }
 
 
-function workerReceivedMessageFromMain(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, msg: WorkerMessage) {
-  const worker = buildConfig.process;
-
+function workerReceivedMessageFromMain(buildConfig: BuildConfig, worker: Process, moduleFileCache: ModuleFiles, msg: WorkerMessage) {
   try {
 
     switch (msg.taskName) {
@@ -229,7 +229,7 @@ export function setupWorkerProcess(buildConfig: BuildConfig) {
   const worker = buildConfig.process;
 
   worker.on('message', (msg: WorkerMessage) => {
-    workerReceivedMessageFromMain(buildConfig, moduleFileCache, msg);
+    workerReceivedMessageFromMain(buildConfig, worker, moduleFileCache, msg);
   });
 }
 

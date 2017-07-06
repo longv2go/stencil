@@ -1,9 +1,9 @@
-import { BuildConfig, BundlerConfig, ComponentRegistry, FilesToWrite, ModuleResults,
+import { BuildConfig, BuildContext, BundlerConfig, ComponentRegistry, ModuleResults,
   LoadComponentRegistry, StyleMeta, StylesResults } from './interfaces';
 import { formatComponentRegistry } from '../util/data-serialize';
 
 
-export function generateComponentRegistry(buildConfig: BuildConfig, bundlerConfig: BundlerConfig, styleResults: StylesResults, moduleResults: ModuleResults, filesToWrite: FilesToWrite): LoadComponentRegistry[] {
+export function generateComponentRegistry(buildConfig: BuildConfig, ctx: BuildContext, bundlerConfig: BundlerConfig, styleResults: StylesResults, moduleResults: ModuleResults): LoadComponentRegistry[] {
   const registry: ComponentRegistry = {};
 
   // create the minimal registry component data for each bundle
@@ -52,7 +52,7 @@ export function generateComponentRegistry(buildConfig: BuildConfig, bundlerConfi
   const registryFileName = `${buildConfig.namespace.toLowerCase()}.registry.json`;
   const registryFilePath = buildConfig.sys.path.join(buildConfig.dest, registryFileName);
 
-  filesToWrite[registryFilePath] = JSON.stringify(projectRegistry, null, 2);
+  ctx.filesToWrite[registryFilePath] = JSON.stringify(projectRegistry, null, 2);
 
   return componentRegistry;
 }

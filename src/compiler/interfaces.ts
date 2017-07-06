@@ -20,6 +20,12 @@ export interface ModuleFileMeta {
 }
 
 
+export interface BuildContext {
+  moduleFiles: ModuleFiles;
+  filesToWrite: FilesToWrite;
+}
+
+
 export interface ModuleFiles {
   [filePath: string]: ModuleFileMeta;
 }
@@ -29,9 +35,7 @@ export interface CompileResults {
   moduleFiles: ModuleFiles;
   diagnostics: Diagnostic[];
   manifest?: Manifest;
-  filesToWrite: FilesToWrite;
   includedSassFiles?: string[];
-  workerId?: number;
 }
 
 
@@ -45,7 +49,6 @@ export interface ModuleResults {
   bundles: {
     [bundleId: string]: string;
   };
-  filesToWrite: FilesToWrite;
   diagnostics: Diagnostic[];
 }
 
@@ -61,13 +64,11 @@ export interface StylesResults {
       [modeName: string]: string;
     };
   };
-  filesToWrite: FilesToWrite;
   diagnostics: Diagnostic[];
 }
 
 
 export interface BundleResults {
-  filesToWrite: FilesToWrite;
   diagnostics: Diagnostic[];
   componentRegistry: LoadComponentRegistry[];
 }

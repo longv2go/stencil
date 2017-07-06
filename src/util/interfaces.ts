@@ -444,7 +444,6 @@ export interface BuildConfig {
   watch: boolean;
   preamble: string;
   process: Process;
-  numWorkers: number;
 }
 
 

@@ -1,26 +1,26 @@
 import { BuildConfig, LoadComponentRegistry } from '../util/interfaces';
-import { FilesToWrite } from './interfaces';
+import { BuildContext } from './interfaces';
 
 
-export function generateProjectFiles(buildConfig: BuildConfig, componentRegistry: LoadComponentRegistry[], filesToWrite: FilesToWrite) {
+export function generateProjectFiles(buildConfig: BuildConfig, ctx: BuildContext, componentRegistry: LoadComponentRegistry[]) {
   buildConfig.logger.debug(`build, generateProjectFiles: ${buildConfig.namespace}`);
 
   const promises: Promise<any>[] = [
-    generateCore(buildConfig, false, filesToWrite),
-    generateLoader(buildConfig, componentRegistry, filesToWrite)
+    generateCore(buildConfig, ctx, false),
+    generateLoader(buildConfig, ctx, componentRegistry)
   ];
 
   if (!buildConfig.devMode) {
     // don't bother with es5 mode in dev mode
     // also no need to wait on it to finish
-    generateCore(buildConfig, true, filesToWrite);
+    generateCore(buildConfig, ctx, true);
   }
 
   return Promise.all(promises);
 }
 
 
-function generateLoader(buildConfig: BuildConfig, componentRegistry: LoadComponentRegistry[], filesToWrite: FilesToWrite) {
+function generateLoader(buildConfig: BuildConfig, ctx: BuildContext, componentRegistry: LoadComponentRegistry[]) {
   const sys = buildConfig.sys;
 
   const projectLoaderFileName = `${buildConfig.namespace.toLowerCase()}.js`;
@@ -53,12 +53,12 @@ function generateLoader(buildConfig: BuildConfig, componentRegistry: LoadCompone
 
     buildConfig.logger.debug(`build, writing: ${projectLoaderFilePath}`);
 
-    filesToWrite[projectLoaderFilePath] = projectCode.join('');
+    ctx.filesToWrite[projectLoaderFilePath] = projectCode.join('');
   });
 }
 
 
-function generateCore(buildConfig: BuildConfig, es5: boolean, filesToWrite: FilesToWrite) {
+function generateCore(buildConfig: BuildConfig, ctx: BuildContext, es5: boolean) {
   const sys = buildConfig.sys;
 
   let projectLoaderFileName = `${buildConfig.namespace.toLowerCase()}.core`;
@@ -84,7 +84,7 @@ function generateCore(buildConfig: BuildConfig, es5: boolean, filesToWrite: File
 
     buildConfig.logger.debug(`build, writing: ${projectLoaderFilePath}`);
 
-    filesToWrite[projectLoaderFilePath] = projectCode.join('');
+    ctx.filesToWrite[projectLoaderFilePath] = projectCode.join('');
   });
 }
 

@@ -1,9 +1,9 @@
-import { BuildConfig, CompileResults, ComponentMeta, Manifest, Bundle, StyleMeta } from './interfaces';
+import { BuildConfig, BuildContext, CompileResults, ComponentMeta, Manifest, Bundle, StyleMeta } from './interfaces';
 import { readFile } from './util';
 import { resolveFrom } from './resolve-from';
 
 
-export function generateManifest(buildConfig: BuildConfig, compileResults: CompileResults) {
+export function generateManifest(buildConfig: BuildConfig, ctx: BuildContext, compileResults: CompileResults) {
   const manifest: Manifest = {
     components: [],
     bundles: []
@@ -117,7 +117,7 @@ export function generateManifest(buildConfig: BuildConfig, compileResults: Compi
 
     logger.debug(`manifest, write: ${manifestFilePath}`);
 
-    compileResults.filesToWrite[manifestFilePath] = manifestJson;
+    ctx.filesToWrite[manifestFilePath] = manifestJson;
   }
 
   return manifest;

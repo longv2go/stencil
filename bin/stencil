@@ -27,7 +27,6 @@ try {
 
 
 var buildConfig = {
-  numWorkers: Math.min(4, require('os').cpus().length),
   process: process
 };
 
@@ -244,14 +243,6 @@ switch (cmdArgs[2]) {
         console.log('Invalid stencil collection command: "' + cmdArgs[3] + '"');
         process.exit(1);
     }
-    break;
-
-  case 'init':
-    stencil.init(buildConfig);
-    break;
-
-  case 'worker':
-    stencil.setupWorkerProcess(buildConfig);
     break;
 
   default:

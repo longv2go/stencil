@@ -1,18 +1,16 @@
 import { ATTR_DASH_CASE, ATTR_LOWER_CASE } from '../util/constants';
 import { bundleModules } from './bundle-modules';
-import { BuildConfig, BundleResults, BundlerConfig } from './interfaces';
+import { BuildContext, BuildConfig, BundleResults, BundlerConfig } from './interfaces';
 import { bundleStyles } from './bundle-styles';
 import { generateComponentRegistry } from './bundle-registry';
-import { WorkerManager } from './worker-manager';
 
 
-export function bundle(buildConfig: BuildConfig, bundlerConfig: BundlerConfig, workerManager: WorkerManager) {
+export function bundle(buildConfig: BuildConfig, ctx: BuildContext, bundlerConfig: BundlerConfig) {
   // within MAIN thread
   const logger = buildConfig.logger;
   const timeSpan = logger.createTimeSpan(`bundle started`);
 
   const bundleResults: BundleResults = {
-    filesToWrite: {},
     diagnostics: [],
     componentRegistry: []
   };
@@ -25,8 +23,8 @@ export function bundle(buildConfig: BuildConfig, bundlerConfig: BundlerConfig, w
 
     // kick off style and module bundling at the same time
     return Promise.all([
-      bundleStyles(buildConfig, workerManager, bundlerConfig.manifest),
-      bundleModules(buildConfig, workerManager, bundlerConfig.manifest)
+      bundleStyles(buildConfig, ctx, bundlerConfig.manifest),
+      bundleModules(buildConfig, ctx, bundlerConfig.manifest)
     ]);
 
   }).then(results => {
@@ -35,19 +33,13 @@ export function bundle(buildConfig: BuildConfig, bundlerConfig: BundlerConfig, w
     if (styleResults.diagnostics) {
       bundleResults.diagnostics = bundleResults.diagnostics.concat(styleResults.diagnostics);
     }
-    if (styleResults.filesToWrite) {
-      Object.assign(bundleResults.filesToWrite, styleResults.filesToWrite);
-    }
 
     const moduleResults = results[1];
     if (moduleResults.diagnostics && moduleResults.diagnostics.length) {
       bundleResults.diagnostics = bundleResults.diagnostics.concat(moduleResults.diagnostics);
     }
-    if (moduleResults.filesToWrite) {
-      Object.assign(bundleResults.filesToWrite, moduleResults.filesToWrite);
-    }
 
-    bundleResults.componentRegistry = generateComponentRegistry(buildConfig, bundlerConfig, styleResults, moduleResults, bundleResults.filesToWrite);
+    bundleResults.componentRegistry = generateComponentRegistry(buildConfig, ctx, bundlerConfig, styleResults, moduleResults);
 
   })
   .catch(err => {

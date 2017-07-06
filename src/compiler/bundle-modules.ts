@@ -1,23 +1,21 @@
-import { BuildConfig, Bundle, ComponentMeta, Diagnostic,
-  Manifest, ModuleFiles, ModuleResults, StencilSystem } from './interfaces';
+import { BuildConfig, BuildContext, Bundle, ComponentMeta, Diagnostic,
+  Manifest, ModuleResults, StencilSystem } from './interfaces';
 import { BUNDLES_DIR } from '../util/constants';
 import { formatDefineComponents, formatJsBundleFileName, generateBundleId } from '../util/data-serialize';
-import { WorkerManager } from './worker-manager';
 
 
-export function bundleModules(buildConfig: BuildConfig, workerManager: WorkerManager, userManifest: Manifest) {
+export function bundleModules(buildConfig: BuildConfig, ctx: BuildContext, userManifest: Manifest) {
   // within MAIN thread
   const timeSpan = buildConfig.logger.createTimeSpan(`bundle modules started`);
 
   // create main module results object
   const moduleResults: ModuleResults = {
     bundles: {},
-    filesToWrite: {},
     diagnostics: []
   };
 
   return Promise.all(userManifest.bundles.map(userBundle => {
-    return generateDefineComponents(buildConfig, workerManager, userManifest, userBundle, moduleResults);
+    return generateDefineComponents(buildConfig, ctx, userManifest, userBundle, moduleResults);
 
   })).catch(err => {
     moduleResults.diagnostics.push({
@@ -33,8 +31,9 @@ export function bundleModules(buildConfig: BuildConfig, workerManager: WorkerMan
 }
 
 
-function generateDefineComponents(buildConfig: BuildConfig, workerManager: WorkerManager, userManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults) {
-  // within MAIN thread
+function generateDefineComponents(buildConfig: BuildConfig, ctx: BuildContext, userManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults) {
+  const sys = buildConfig.sys;
+
   const bundleComponentMeta = userBundle.components.map(userBundleComponentTag => {
     const cmpMeta = userManifest.components.find(c => c.tagNameMeta === userBundleComponentTag);
     if (!cmpMeta) {
@@ -46,35 +45,8 @@ function generateDefineComponents(buildConfig: BuildConfig, workerManager: Worke
     return cmpMeta;
   }).filter(c => !!c);
 
-  return workerManager.generateDefineComponents(buildConfig, bundleComponentMeta, userBundle).then(workerResults => {
-    // merge results into main results
-    if (workerResults.bundles) {
-      Object.assign(moduleResults.bundles, workerResults.bundles);
-    }
-
-    if (workerResults.filesToWrite) {
-      Object.assign(moduleResults.filesToWrite, workerResults.filesToWrite);
-    }
-
-    if (workerResults.diagnostics) {
-      moduleResults.diagnostics = moduleResults.diagnostics.concat(workerResults.diagnostics);
-    }
-  });
-}
-
-
-export function generateDefineComponentsWorker(buildConfig: BuildConfig, moduleFiles: ModuleFiles, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
-  // within WORKER thread
-  const moduleResults: ModuleResults = {
-    bundles: {},
-    filesToWrite: {},
-    diagnostics: []
-  };
-
-  const sys = buildConfig.sys;
-
   // loop through each bundle the user wants and create the "defineComponents"
-  return bundleComponentModules(sys, moduleFiles, bundleComponentMeta, moduleResults).then(jsModuleContent => {
+  return bundleComponentModules(sys, ctx, bundleComponentMeta, moduleResults).then(jsModuleContent => {
 
     const bundleId = generateBundleId(userBundle.components);
 
@@ -116,7 +88,7 @@ export function generateDefineComponentsWorker(buildConfig: BuildConfig, moduleF
     const moduleFileName = formatJsBundleFileName(moduleResults.bundles[bundleId]);
     const moduleFilePath = sys.path.join(buildConfig.dest, BUNDLES_DIR, buildConfig.namespace.toLowerCase(), moduleFileName);
 
-    moduleResults.filesToWrite[moduleFilePath] = moduleContent;
+    ctx.filesToWrite[moduleFilePath] = moduleContent;
 
   }).catch(err => {
     moduleResults.diagnostics.push({
@@ -131,7 +103,7 @@ export function generateDefineComponentsWorker(buildConfig: BuildConfig, moduleF
 }
 
 
-function bundleComponentModules(sys: StencilSystem, moduleFiles: ModuleFiles, bundleComponentMeta: ComponentMeta[], moduleResults: ModuleResults) {
+function bundleComponentModules(sys: StencilSystem, ctx: BuildContext, bundleComponentMeta: ComponentMeta[], moduleResults: ModuleResults) {
   const entryFileLines: string[] = [];
 
   // loop through all the components this bundle needs
@@ -168,7 +140,7 @@ function bundleComponentModules(sys: StencilSystem, moduleFiles: ModuleFiles, bu
         sourceMap: false
       }),
       entryInMemoryPlugin(STENCIL_BUNDLE_ID, entryContent),
-      transpiledInMemoryPlugin(sys, moduleFiles)
+      transpiledInMemoryPlugin(sys, ctx)
     ],
     onwarn: createOnWarnFn(bundleComponentMeta, moduleResults.diagnostics)
 
@@ -210,14 +182,14 @@ function createOnWarnFn(bundleComponentMeta: ComponentMeta[], diagnostics: Diagn
 }
 
 
-function transpiledInMemoryPlugin(sys: StencilSystem, moduleFiles: ModuleFiles) {
+function transpiledInMemoryPlugin(sys: StencilSystem, ctx: BuildContext) {
   return {
     name: 'transpiledInMemoryPlugin',
 
     resolveId(importee: string): string {
-      const tsFileNames = Object.keys(moduleFiles);
+      const tsFileNames = Object.keys(ctx.moduleFiles);
       for (var i = 0; i < tsFileNames.length; i++) {
-        if (moduleFiles[tsFileNames[i]].jsFilePath === importee) {
+        if (ctx.moduleFiles[tsFileNames[i]].jsFilePath === importee) {
           return importee;
         }
       }
@@ -226,15 +198,15 @@ function transpiledInMemoryPlugin(sys: StencilSystem, moduleFiles: ModuleFiles) 
     },
 
     load(sourcePath: string): string {
-      const tsFileNames = Object.keys(moduleFiles);
+      const tsFileNames = Object.keys(ctx.moduleFiles);
       for (var i = 0; i < tsFileNames.length; i++) {
-        if (moduleFiles[tsFileNames[i]].jsFilePath === sourcePath) {
-          return moduleFiles[i].jsText || '';
+        if (ctx.moduleFiles[tsFileNames[i]].jsFilePath === sourcePath) {
+          return ctx.moduleFiles[tsFileNames[i]].jsText || '';
         }
       }
 
       const jsText = sys.fs.readFileSync(sourcePath, 'utf-8' );
-      moduleFiles[sourcePath] = {
+      ctx.moduleFiles[sourcePath] = {
         jsFilePath: sourcePath,
         jsText: jsText
       };

@@ -15,10 +15,6 @@ export function readFile(sys: StencilSystem, filePath: string) {
 
 
 export function writeFiles(sys: StencilSystem, rootDir: string, filesToWrite: FilesToWrite, ensureDir: string): Promise<any> {
-  // copy this object incase somehow it changes during the async writes
-  // shouldn't be possible, but who knows
-  filesToWrite = Object.assign({}, filesToWrite);
-
   const filePaths = Object.keys(filesToWrite);
   if (!filePaths.length) {
     return Promise.resolve();

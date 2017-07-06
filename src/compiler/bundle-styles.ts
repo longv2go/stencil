@@ -1,40 +1,23 @@
 import { BUNDLES_DIR, HYDRATED_CSS } from '../util/constants';
-import { BuildConfig, ComponentMeta, Manifest, Bundle, StylesResults } from './interfaces';
+import { BuildContext, BuildConfig, ComponentMeta, Manifest, Bundle, StylesResults } from './interfaces';
 import { formatCssBundleFileName, generateBundleId } from '../util/data-serialize';
 import { readFile } from './util';
-import { WorkerManager } from './worker-manager';
 
 
-export function bundleStyles(buildConfig: BuildConfig, workerManager: WorkerManager, userManifest: Manifest) {
+export function bundleStyles(buildConfig: BuildConfig, ctx: BuildContext, userManifest: Manifest) {
   // within MAIN thread
   const timeSpan = buildConfig.logger.createTimeSpan(`bundle styles started`);
 
   // create main style results object
   const stylesResults: StylesResults = {
     bundles: {},
-    filesToWrite: {},
     diagnostics: []
   };
 
   // go through each bundle the user wants created
   // and create css files for each mode for each bundle
   return Promise.all(userManifest.bundles.map(userBundle => {
-    return generateBundleCss(buildConfig, workerManager, userManifest, userBundle, stylesResults).then(workerResults => {
-
-      // merge results into main results
-      if (workerResults.bundles) {
-        Object.assign(stylesResults.bundles, workerResults.bundles);
-      }
-
-      if (workerResults.filesToWrite) {
-        Object.assign(stylesResults.filesToWrite, workerResults.filesToWrite);
-      }
-
-      if (workerResults.diagnostics) {
-        stylesResults.diagnostics = stylesResults.diagnostics.concat(workerResults.diagnostics);
-      }
-    });
-
+    return generateBundleCss(buildConfig, ctx, userManifest, userBundle, stylesResults);
   }))
   .catch(err => {
     stylesResults.diagnostics.push({
@@ -51,7 +34,7 @@ export function bundleStyles(buildConfig: BuildConfig, workerManager: WorkerMana
 }
 
 
-function generateBundleCss(buildConfig: BuildConfig, workerManager: WorkerManager, userManifest: Manifest, userBundle: Bundle, stylesResults: StylesResults) {
+function generateBundleCss(buildConfig: BuildConfig, ctx: BuildContext, userManifest: Manifest, userBundle: Bundle, stylesResults: StylesResults) {
   // within MAIN thread
   // multiple modes can be on each component
   // and multiple components can be in each bundle
@@ -73,18 +56,6 @@ function generateBundleCss(buildConfig: BuildConfig, workerManager: WorkerManage
     return foundComponentMeta;
   }).filter(c => c);
 
-  return workerManager.generateBundleCss(buildConfig, bundleComponentMeta, userBundle);
-}
-
-
-export function generateBundleCssWorker(buildConfig: BuildConfig, bundleComponentMeta: ComponentMeta[], userBundle: Bundle) {
-  // within WORKER thread
-  const stylesResults: StylesResults = {
-    bundles: {},
-    filesToWrite: {},
-    diagnostics: []
-  };
-
   // figure out all of the possible modes this bundle has
   let bundleModes: string[] = [];
   bundleComponentMeta
@@ -101,7 +72,7 @@ export function generateBundleCssWorker(buildConfig: BuildConfig, bundleComponen
   // go through each mode this bundle has
   // and create a css file for this each mode in this bundle
   return Promise.all(bundleModes.map(modeName => {
-    return generateModeCss(buildConfig, bundleComponentMeta, userBundle, modeName, stylesResults);
+    return generateModeCss(buildConfig, ctx, bundleComponentMeta, userBundle, modeName, stylesResults);
 
   })).catch(err => {
     stylesResults.diagnostics.push({
@@ -118,6 +89,7 @@ export function generateBundleCssWorker(buildConfig: BuildConfig, bundleComponen
 
 function generateModeCss(
   buildConfig: BuildConfig,
+  ctx: BuildContext,
   bundleComponentMeta: ComponentMeta[],
   userBundle: Bundle,
   modeName: string,
@@ -183,7 +155,7 @@ function generateModeCss(
       styleFileName
     );
 
-    stylesResults.filesToWrite[styleFilePath] = styleContent;
+    ctx.filesToWrite[styleFilePath] = styleContent;
   });
 }
 

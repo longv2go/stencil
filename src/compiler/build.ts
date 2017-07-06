@@ -1,11 +1,10 @@
 import { BuildConfig, Manifest } from '../util/interfaces';
-import { BuildResults, BundlerConfig, FilesToWrite } from './interfaces';
+import { BuildContext, BuildResults, BundlerConfig } from './interfaces';
 import { bundle } from './bundle';
 import { compile } from './compile';
 import { generateDependentManifests, mergeManifests, updateManifestUrls } from './manifest';
 import { generateProjectFiles } from './build-project';
 import { updateDirectories, writeFiles } from './util';
-import { WorkerManager } from './worker-manager';
 
 
 export function build(buildConfig: BuildConfig) {
@@ -16,16 +15,16 @@ export function build(buildConfig: BuildConfig) {
 
   const timeSpan = logger.createTimeSpan(`build, ${buildConfig.devMode ? 'dev' : 'prod'} mode, started`);
 
-  const workerManager = new WorkerManager(buildConfig.sys, buildConfig.logger);
-  workerManager.connect(buildConfig.numWorkers);
-
   const buildResults: BuildResults = {
     diagnostics: [],
     manifest: {},
     componentRegistry: []
   };
 
-  const filesToWrite: FilesToWrite = {};
+  const ctx: BuildContext = {
+    moduleFiles: {},
+    filesToWrite: {}
+  };
 
   return Promise.resolve().then(() => {
     // generate manifest phase
@@ -33,12 +32,9 @@ export function build(buildConfig: BuildConfig) {
 
   }).then(dependentManifests => {
     // compile phase
-    return compile(buildConfig, workerManager).then(compileResults => {
+    return compile(buildConfig, ctx).then(compileResults => {
       if (compileResults.diagnostics) {
         buildResults.diagnostics = buildResults.diagnostics.concat(compileResults.diagnostics);
-      }
-      if (compileResults.filesToWrite) {
-        Object.assign(filesToWrite, compileResults.filesToWrite);
       }
 
       const resultsManifest: Manifest = compileResults.manifest || {};
@@ -56,20 +52,21 @@ export function build(buildConfig: BuildConfig) {
     const bundlerConfig: BundlerConfig = {
       manifest: manifest
     };
-    return bundle(buildConfig, bundlerConfig, workerManager).then(bundleResults => {
+
+    return bundle(buildConfig, ctx, bundlerConfig).then(bundleResults => {
       if (bundleResults.diagnostics) {
         buildResults.diagnostics = buildResults.diagnostics.concat(bundleResults.diagnostics);
       }
-      if (bundleResults.filesToWrite) {
-        Object.assign(filesToWrite, bundleResults.filesToWrite);
-      }
 
       // generate the loader and core files for this project
-      return generateProjectFiles(buildConfig, bundleResults.componentRegistry, filesToWrite);
+      return generateProjectFiles(buildConfig, ctx, bundleResults.componentRegistry);
     });
 
   }).then(() => {
     // write all the files in one go
+    const filesToWrite = Object.assign({}, ctx.filesToWrite);
+    ctx.filesToWrite = {};
+
     if (buildConfig.devMode) {
       // dev mode
       // only ensure the directories it needs exists and writes the files
@@ -101,7 +98,6 @@ export function build(buildConfig: BuildConfig) {
       timeSpan.finish(`build ready, watching files...`);
 
     } else {
-      workerManager.disconnect();
       timeSpan.finish(`build finished`);
     }
 
@@ -152,12 +148,6 @@ export function normalizeBuildConfig(buildConfig: BuildConfig) {
     buildConfig.collectionDest = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.collectionDest);
   }
 
-  if (typeof buildConfig.numWorkers === 'number') {
-    buildConfig.numWorkers = Math.min(Math.max(buildConfig.numWorkers, 0), 8);
-  } else {
-    buildConfig.numWorkers = DEFAULT_NUM_OF_WORKERS;
-  }
-
   buildConfig.devMode = !!buildConfig.devMode;
   buildConfig.watch = !!buildConfig.watch;
   buildConfig.collection = !!buildConfig.collection;
@@ -176,4 +166,3 @@ const DEFAULT_NAMESPACE = 'App';
 const DEFAULT_SRC_DIR = 'src';
 const DEFAULT_DEST_DIR = 'dist';
 const DEFAULT_COLLECTION_DIR = 'collection';
-const DEFAULT_NUM_OF_WORKERS = 4;

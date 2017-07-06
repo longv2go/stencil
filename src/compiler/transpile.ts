@@ -1,4 +1,4 @@
-import { BuildConfig, Diagnostic, ModuleFiles, ModuleFileMeta, StencilSystem, TranspileResults } from './interfaces';
+import { BuildConfig, BuildContext, Diagnostic, ModuleFileMeta, StencilSystem, TranspileResults } from './interfaces';
 import { componentClass } from './transformers/component-class';
 import { jsxToVNode } from './transformers/jsx-to-vnode';
 import { readFile } from './util';
@@ -7,7 +7,7 @@ import { updateLifecycleMethods } from './transformers/update-lifecycle-methods'
 import * as ts from 'typescript';
 
 
-export function transpileWorker(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, tsFilePath: string) {
+export function transpile(buildConfig: BuildConfig, ctx: BuildContext, tsFilePath: string) {
   // within WORKER thread
   const transpileResults: TranspileResults = {
     moduleFiles: {},
@@ -22,9 +22,9 @@ export function transpileWorker(buildConfig: BuildConfig, moduleFileCache: Modul
       tsText: tsText
     };
     transpileResults.moduleFiles[tsFilePath] = moduleFile;
-    moduleFileCache[tsFilePath] = moduleFile;
+    ctx.moduleFiles[tsFilePath] = moduleFile;
 
-    return transpileFile(buildConfig, moduleFileCache, moduleFile, transpileResults);
+    return transpileFile(buildConfig, ctx, moduleFile, transpileResults);
 
   }).catch(err => {
     transpileResults.diagnostics.push({
@@ -39,7 +39,7 @@ export function transpileWorker(buildConfig: BuildConfig, moduleFileCache: Modul
 }
 
 
-function transpileFile(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, moduleFile: ModuleFileMeta, transpileResults: TranspileResults) {
+function transpileFile(buildConfig: BuildConfig, ctx: BuildContext, moduleFile: ModuleFileMeta, transpileResults: TranspileResults) {
   const sys = buildConfig.sys;
   const tsCompilerOptions = createTsCompilerConfigs(buildConfig);
   const moduleStylesToProcess: ModuleFileMeta[] = [];
@@ -60,7 +60,7 @@ function transpileFile(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, m
     },
 
     readFile: (tsFilePath) => {
-      let moduleFile = moduleFileCache[tsFilePath];
+      let moduleFile = ctx.moduleFiles[tsFilePath];
 
       if (!moduleFile) {
         // file not in-memory yet
@@ -71,7 +71,7 @@ function transpileFile(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, m
         };
 
         transpileResults.moduleFiles[tsFilePath] = moduleFile;
-        moduleFileCache[tsFilePath] = moduleFile;
+        ctx.moduleFiles[tsFilePath] = moduleFile;
       }
 
       return moduleFile.tsText;
@@ -79,12 +79,20 @@ function transpileFile(buildConfig: BuildConfig, moduleFileCache: ModuleFiles, m
 
     writeFile: (jsFilePath: string, jsText: string, writeByteOrderMark: boolean, onError: any, sourceFiles: ts.SourceFile[]): void => {
       sourceFiles.forEach(tsSourceFile => {
-        const moduleFile = transpileResults.moduleFiles[tsSourceFile.fileName];
-        if (moduleFile) {
+        const moduleFile = ctx.moduleFiles[tsSourceFile.fileName];
+        if (module) {
           moduleFile.jsFilePath = jsFilePath;
           moduleFile.jsText = jsText;
-          moduleStylesToProcess.push(moduleFile);
+
+        } else {
+          ctx.moduleFiles[tsSourceFile.fileName] = {
+            tsFilePath: tsSourceFile.fileName,
+            jsFilePath: jsFilePath,
+            jsText: jsText
+          };
         }
+
+        transpileResults.moduleFiles[tsSourceFile.fileName] = ctx.moduleFiles[tsSourceFile.fileName];
       });
       writeByteOrderMark; onError;
     }

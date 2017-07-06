@@ -79,20 +79,23 @@ function transpileFile(buildConfig: BuildConfig, ctx: BuildContext, moduleFile: 
 
     writeFile: (jsFilePath: string, jsText: string, writeByteOrderMark: boolean, onError: any, sourceFiles: ts.SourceFile[]): void => {
       sourceFiles.forEach(tsSourceFile => {
-        const moduleFile = ctx.moduleFiles[tsSourceFile.fileName];
+        let module = ctx.moduleFiles[tsSourceFile.fileName];
+
         if (module) {
           moduleFile.jsFilePath = jsFilePath;
           moduleFile.jsText = jsText;
 
         } else {
-          ctx.moduleFiles[tsSourceFile.fileName] = {
+          module = ctx.moduleFiles[tsSourceFile.fileName] = {
             tsFilePath: tsSourceFile.fileName,
             jsFilePath: jsFilePath,
             jsText: jsText
           };
         }
 
-        transpileResults.moduleFiles[tsSourceFile.fileName] = ctx.moduleFiles[tsSourceFile.fileName];
+        transpileResults.moduleFiles[tsSourceFile.fileName] = module;
+
+        moduleStylesToProcess.push(module);
       });
       writeByteOrderMark; onError;
     }
@@ -139,7 +142,7 @@ function processIncludedStyles(sys: StencilSystem, diagnostics: Diagnostic[], mo
 
   const modeNames = Object.keys(moduleFile.cmpMeta.styleMeta);
   modeNames.forEach(modeName => {
-    const modeMeta = Object.assign({}, moduleFile.cmpMeta.styleMeta[modeName]);
+    const modeMeta = moduleFile.cmpMeta.styleMeta[modeName];
 
     if (modeMeta.styleUrls) {
       modeMeta.styleUrls.forEach(styleUrl => {

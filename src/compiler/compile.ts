@@ -49,11 +49,6 @@ function compileDirectory(buildConfig: BuildConfig, ctx: BuildContext, dir: stri
 
     sys.fs.readdir(dir, (err, files) => {
       if (err) {
-        compileResults.diagnostics.push({
-          msg: `Unable to read: ${dir}`,
-          type: 'error',
-          stack: err.stack
-        });
         resolve();
         return;
       }

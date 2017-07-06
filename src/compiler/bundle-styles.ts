@@ -66,7 +66,7 @@ function generateBundleCss(buildConfig: BuildConfig, workerManager: WorkerManage
     if (!foundComponentMeta) {
       stylesResults.diagnostics = stylesResults.diagnostics || [];
       stylesResults.diagnostics.push({
-        msg: `The component tag "${userBundleComponentTag.toLowerCase()}" is defined in a bundle but no component was found with this tag.`,
+        msg: `Component tag "${userBundleComponentTag.toLowerCase()}" is defined in a bundle but no matching component was found with this tag within this project or its collections.`,
         type: 'error'
       });
     }
@@ -251,11 +251,11 @@ interface StyleCollection {
 
 
 function compileScssFile(buildConfig: BuildConfig, styleUrl: string, styleCollection: StyleCollection, stylesResults: StylesResults) {
-  // this is a Sass file that needs to be compiled
   return new Promise(resolve => {
     const sys = buildConfig.sys;
-    const scssFilePath = sys.path.join(buildConfig.src, styleUrl);
+
     const scssFileName = sys.path.basename(styleUrl);
+    const scssFilePath = sys.path.join(buildConfig.src, styleUrl);
 
     const sassConfig = {
       file: scssFilePath,

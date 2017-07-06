@@ -111,12 +111,14 @@ export function generateManifest(buildConfig: BuildConfig, compileResults: Compi
     return 0;
   });
 
-  const manifestFilePath = sys.path.join(buildConfig.collectionDest, MANIFEST_FILE_NAME);
-  const manifestJson = JSON.stringify(manifest, null, 2);
+  if (buildConfig.collection) {
+    const manifestFilePath = sys.path.join(buildConfig.collectionDest, MANIFEST_FILE_NAME);
+    const manifestJson = JSON.stringify(manifest, null, 2);
 
-  logger.debug(`manifest, generateManifest: ${manifestFilePath}`);
+    logger.debug(`manifest, write: ${manifestFilePath}`);
 
-  compileResults.filesToWrite[manifestFilePath] = manifestJson;
+    compileResults.filesToWrite[manifestFilePath] = manifestJson;
+  }
 
   return manifest;
 }
@@ -167,7 +169,7 @@ function updateStyleUrls(buildConfig: BuildConfig, styleMeta: StyleMeta, manifes
     const style = styleMeta[styleMode];
 
     const styleUrls = style.styleUrls
-      .map((styleUrl: string) => sys.path.relative(buildConfig.collectionDest, sys.path.join(manifestDir, styleUrl)));
+      .map(styleUrl => sys.path.relative(buildConfig.collectionDest, sys.path.join(manifestDir, styleUrl)));
 
     styleData[styleMode] = {
       ...style,

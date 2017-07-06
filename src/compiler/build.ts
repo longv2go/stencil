@@ -46,7 +46,7 @@ export function build(buildConfig: BuildConfig) {
       const localManifest = updateManifestUrls(
         buildConfig,
         resultsManifest,
-        buildConfig.dest
+        buildConfig.collectionDest
       );
       return mergeManifests([].concat((localManifest || []), dependentManifests));
     });

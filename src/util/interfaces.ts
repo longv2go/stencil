@@ -1023,7 +1023,13 @@ export interface StencilSystem {
   };
   sass?: {
     render(
-      config: {file: string, outputStyle?: string},
+      config: {
+        data?: string;
+        file?: string;
+        includePaths?: string[];
+        outFile?: string;
+        outputStyle?: string;
+      },
       cb: (err: any, result: {css: string; stats: any}) => void
     ): void;
   };

@@ -4,7 +4,7 @@ import { bundle } from './bundle';
 import { compile } from './compile';
 import { generateDependentManifests, mergeManifests, updateManifestUrls } from './manifest';
 import { generateProjectFiles } from './build-project';
-import { updateDirectories, writeFiles } from './fs-util';
+import { updateDirectories, writeFiles } from './util';
 import { WorkerManager } from './worker-manager';
 
 

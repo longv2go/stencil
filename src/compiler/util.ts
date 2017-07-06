@@ -1,4 +1,4 @@
-import { StencilSystem } from './interfaces';
+import { FilesToWrite, StencilSystem } from './interfaces';
 
 
 export function readFile(sys: StencilSystem, filePath: string) {
@@ -14,128 +14,154 @@ export function readFile(sys: StencilSystem, filePath: string) {
 }
 
 
-export function ensureDir(sys: StencilSystem, filePath: string) {
-  return ensureDirs(sys, [filePath]);
+export function writeFiles(sys: StencilSystem, rootDir: string, filesToWrite: FilesToWrite, ensureDir: string): Promise<any> {
+  // copy this object incase somehow it changes during the async writes
+  // shouldn't be possible, but who knows
+  filesToWrite = Object.assign({}, filesToWrite);
+
+  const filePaths = Object.keys(filesToWrite);
+  if (!filePaths.length) {
+    return Promise.resolve();
+  }
+
+  const directories = getDirectoriesFromFiles(sys, filesToWrite);
+  if (directories.indexOf(ensureDir) === -1) {
+    directories.push(ensureDir);
+  }
+
+  return ensureDirectoriesExist(sys, directories, [rootDir]).then(() => {
+    return writeToDisk(sys, filesToWrite);
+  });
 }
 
 
-export function ensureDirs(sys: StencilSystem, filePaths: string[]) {
-  const path = sys.path;
-  const fs = sys.fs;
+export function updateDirectories(sys: StencilSystem, rootDir: string, filesToWrite: FilesToWrite, ensureDir: string): Promise<any> {
+  return writeFiles(sys, rootDir, filesToWrite, ensureDir);
+}
 
-  let checkDirs: string[] = [];
 
-  filePaths.forEach(p => {
-    const dir = path.dirname(p);
-    if (checkDirs.indexOf(dir) === -1) {
-      checkDirs.push(dir);
-    }
-  });
-
-  checkDirs = checkDirs.sort((a, b) => {
-    if (a.split(path.sep).length < b.split(path.sep).length) {
-      return -1;
-    }
-    if (a.split(path.sep).length > b.split(path.sep).length) {
-      return 1;
-    }
-    if (a.length < b.length) {
-      return -1;
-    }
-    if (a.length > b.length) {
-      return 1;
-    }
-    if (a < b) {
-      return -1;
-    }
-    if (a > b) {
-      return 1;
-    }
-    return 0;
-  });
-
-  const dirExists = new Set();
-
+function writeToDisk(sys: StencilSystem, filesToWrite: FilesToWrite): Promise<any> {
+  // assumes directories to be saved in already exit
   return new Promise((resolve, reject) => {
+    const filePathsToWrite = Object.keys(filesToWrite);
+    let doneWriting = 0;
+    let rejected = false;
 
-    function checkDir(resolve: Function) {
-      const dir = checkDirs.shift();
-      if (!dir) {
-        resolve();
-        return;
-      }
-
-      var chunks = dir.split(path.sep);
-
-      checkChunk(chunks, 0, resolve);
+    if (!filePathsToWrite.length) {
+      // shouldn't be possible, but ya never know
+      resolve();
+      return;
     }
 
-    function checkChunk(chunks: string[], appendIndex: number, resolve: Function) {
-      if (appendIndex >= chunks.length - 1) {
-        checkDir(resolve);
-        return;
-      }
-
-      const dir = chunks.slice(0, appendIndex + 2).join(path.sep);
-
-      if (dirExists.has(dir)) {
-        checkChunk(chunks, ++appendIndex, resolve);
-        return;
-      }
-
-      fs.access(dir, err => {
+    filePathsToWrite.forEach(filePathToWrite => {
+      sys.fs.writeFile(filePathToWrite, filesToWrite[filePathToWrite], (err) => {
         if (err) {
-          // no access
-          fs.mkdir(dir, err => {
-            if (err) {
-              reject(err);
-
-            } else {
-              checkChunk(chunks, ++appendIndex, resolve);
-            }
-          });
+          rejected = true;
+          reject(err);
 
         } else {
-          // has access
-          dirExists.add(dir);
-          checkChunk(chunks, ++appendIndex, resolve);
+          doneWriting++;
+          if (doneWriting >= filePathsToWrite.length && !rejected) {
+            resolve();
+          }
         }
       });
-    }
-
-    checkDir(resolve);
+    });
   });
 }
 
 
-export function remove(sys: StencilSystem, fsPath: string) {
+function ensureDirectoriesExist(sys: StencilSystem, directories: string[], existingDirectories: string[]) {
   return new Promise(resolve => {
-    sys.fs.stat(fsPath, (err, stats) => {
-      if (err) {
+
+    const knowExistingDirPaths = existingDirectories.map(existingDirectory => {
+      return existingDirectory.split(sys.path.sep);
+    });
+
+    const checkDirectories = sortDirectories(sys, directories).slice();
+
+    function ensureDir() {
+      if (checkDirectories.length === 0) {
         resolve();
+        return;
+      }
 
-      } else if (stats.isFile()) {
-        sys.fs.unlink(fsPath, () => {
-          resolve();
-        });
+      const checkDirectory = checkDirectories.shift();
 
-      } else {
-        // read all directory files
-        sys.fs.readdir(fsPath, (err, files) => {
-          if (err) {
-            resolve();
+      const dirPaths = checkDirectory.split(sys.path.sep);
+      let pathSections = 1;
 
-          } else {
-            Promise.all(files.map(file => remove(sys, sys.path.join(fsPath, file)))).then(() => {
-              // delete all sub files/directories
-              sys.fs.rmdir(fsPath, () => {
-                resolve();
-              });
-            });
+      function ensureSection() {
+        if (pathSections > dirPaths.length) {
+          ensureDir();
+          return;
+        }
+
+        const checkDirPaths = dirPaths.slice(0, pathSections);
+        const dirPath = checkDirPaths.join(sys.path.sep);
+
+        for (var i = 0; i < knowExistingDirPaths.length; i++) {
+          var existingDirPaths = knowExistingDirPaths[i];
+          var alreadyExists = true;
+
+          for (var j = 0; j < checkDirPaths.length; j++) {
+            if (checkDirPaths[j] !== existingDirPaths[j]) {
+              alreadyExists = false;
+              break;
+            }
           }
+
+          if (alreadyExists) {
+            pathSections++;
+            ensureSection();
+            return;
+          }
+        }
+
+        sys.fs.mkdir(dirPath, () => {
+          // not worrying about the error here
+          // if there's an error, it's probably because this directory already exists
+          // which is what we want, no need to check access AND mkdir
+          knowExistingDirPaths.push(dirPath.split(sys.path.sep));
+          pathSections++;
+          ensureSection();
         });
       }
-    });
+
+      ensureSection();
+    }
+
+    ensureDir();
+  });
+}
+
+
+function getDirectoriesFromFiles(sys: StencilSystem, filesToWrite: FilesToWrite) {
+  const directories: string[] = [];
+
+  Object.keys(filesToWrite).forEach(filePath => {
+    const dir = sys.path.dirname(filePath);
+    if (directories.indexOf(dir) === -1) {
+      directories.push(dir);
+    }
+  });
+
+  return directories;
+}
+
+
+function sortDirectories(sys: StencilSystem, directories: string[]) {
+  return directories.sort((a, b) => {
+    const aPaths = a.split(sys.path.sep).length;
+    const bPaths = b.split(sys.path.sep).length;
+
+    if (aPaths < bPaths) return -1;
+    if (aPaths > bPaths) return 1;
+
+    if (a < b) return -1;
+    if (a > b) return 1;
+
+    return 0;
   });
 }
 

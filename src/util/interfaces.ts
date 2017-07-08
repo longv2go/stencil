@@ -610,9 +610,11 @@ export interface StyleMeta {
 
 
 export interface ModeStyleMeta {
+  styleId?: string;
+  parsedStyleUrls?: string[];
   styleUrls?: string[];
   styleStr?: string;
-  styleId?: string;
+
 }
 
 
@@ -1049,6 +1051,13 @@ export interface StencilSystem {
     createContext(sandbox?: any): any;
     runInContext(code: string, contextifiedSandbox: any, options?: any): any;
   };
+  watch?(paths: string | string[], opts?: any): FSWatcher;
+}
+
+
+export interface FSWatcher {
+  add(paths: string | string[]): void;
+  on(event: string, listener: Function): this;
 }
 
 

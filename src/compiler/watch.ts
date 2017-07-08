@@ -1,99 +1,139 @@
 import { BuildConfig } from '../util/interfaces';
-import { BuildContext, BuildResults, Manifest } from './interfaces';
-import { build, catchAll, finalizePhase, manifestPhase, optimizeHtmlPhase, writePhase } from './build';
-import { compileFiles } from './compile';
-import { isTsSourceFile } from './util';
-import { mergeManifests, updateManifestUrls } from './manifest';
+import { BuildContext } from './interfaces';
+import { build } from './build';
+import { isCssSourceFile, isDevFile, isSassSourceFile, isTsSourceFile } from './util';
 
 
-export function rebuild(buildConfig: BuildConfig, ctx: BuildContext, changedFiles: string[]) {
+export function setupWatcher(buildConfig: BuildConfig, ctx: BuildContext) {
+  // only create the watcher if this is a watch build
+  // and we haven't created a watcher yet
+  if (!buildConfig.watch || ctx.watcher) return;
+
   const logger = buildConfig.logger;
+  let queueChange = false;
+  let queueRebuild = false;
 
-  // create the build results which will be the returned object
-  const buildResults: BuildResults = {
-    diagnostics: [],
-    manifest: {},
-    componentRegistry: []
-  };
-
-  if (!changedFiles) {
-    return Promise.resolve(buildResults);
-  }
-
-  changedFiles = changedFiles.filter(f => typeof f === 'string');
-
-  if (!changedFiles.length) {
-    return Promise.resolve(buildResults);
-  }
-
-  if (changedFiles.length > 10) {
-    return build(buildConfig);
-  }
-
-  // create the build context
-  const changedFilesStr = changedFiles.map(changedFile => {
-    return buildConfig.sys.path.basename(changedFile);
-  }).join(', ');
-
-  logger.info(`changed file${changedFiles.length > 1 ? 's' : ''}: ${changedFilesStr}`);
-
-  const timeSpan = logger.createTimeSpan(`rebuild, ${buildConfig.devMode ? 'dev' : 'prod'} mode, started`);
-
-  // begin the rebuild
-  return Promise.resolve().then(() => {
-    // generate manifest phase
-    return manifestPhase(buildConfig);
-
-  }).then(dependentManifests => {
-    // compile phase
-    return compileFilesPhase(buildConfig, ctx, dependentManifests, changedFiles, buildResults);
-
-  }).then(manifest => {
-    // bundle phase
-    manifest;
-    // return bundleFilesPhase(buildConfig, ctx, manifest, changedFiles, buildResults);
-
-  }).then(() => {
-    // optimize index.html
-    return optimizeHtmlPhase(buildConfig, ctx, buildResults);
-
-  }).then(() => {
-    // write all the files in one go
-    return writePhase(buildConfig, ctx);
-
-  }).catch(err => {
-    // catch all phase
-    return catchAll(buildResults, err);
-
-  }).then(() => {
-    // finalize phase
-    timeSpan.finish(`rebuild ready, watching files...`);
-
-    return finalizePhase(buildConfig, buildResults);
+  ctx.watcher = buildConfig.sys.watch(buildConfig.src, {
+    ignored: /(^|[\/\\])\../,
+    ignoreInitial: true
   });
-}
+
+  ctx.watcher
+    .on('change', (path: string) => {
+      logger.debug(`watcher, change: ${path}, ${Date.now()}`);
+
+      if (isDevFile(path)) {
+        queueChange = true;
+        queue(path);
+      }
+    })
+    .on('add', (path: string) => {
+      logger.debug(`watcher, add: ${path}, ${Date.now()}`);
+
+      if (isDevFile(path)) {
+        queueRebuild = true;
+        queue(path);
+      }
+    })
+    .on('unlink', (path: string) => {
+      logger.debug(`watcher, unlink: ${path}, ${Date.now()}`);
+
+      if (isDevFile(path)) {
+        queueChange = true;
+        queue(path);
+      }
+    })
+    .on('addDir', (path: string) => {
+      logger.debug(`watcher, addDir: ${path}, ${Date.now()}`);
+
+      queueRebuild = true;
+      queue(null);
+    })
+    .on('unlinkDir', (path: string) => {
+      logger.debug(`watcher, unlinkDir: ${path}, ${Date.now()}`);
+
+      queueRebuild = true;
+      queue(null);
+    })
+    .on('error', (err: any) => {
+      logger.error(err);
+    });
 
 
-export function compileFilesPhase(buildConfig: BuildConfig, ctx: BuildContext, dependentManifests: Manifest[], changedFiles: string[], buildResults: BuildResults) {
-  const tsFilePaths = changedFiles.filter(isTsSourceFile);
+  let timer: any;
+  const changedFiles: string[] = [];
 
-  return compileFiles(buildConfig, ctx, tsFilePaths).then(compileResults => {
-    if (compileResults.diagnostics) {
-      buildResults.diagnostics = buildResults.diagnostics.concat(compileResults.diagnostics);
+  function queue(path: string) {
+    // debounce builds
+    clearTimeout(timer);
+
+    if (path !== null && changedFiles.indexOf(path) === -1) {
+      changedFiles.push(path);
     }
 
-    const resultsManifest: Manifest = compileResults.manifest || {};
+    timer = setTimeout(() => {
+      try {
+        const changedFileCopies = changedFiles.slice();
+        changedFiles.length = 0;
 
-    const localManifest = updateManifestUrls(
-      buildConfig,
-      resultsManifest,
-      buildConfig.collectionDest
-    );
-    return mergeManifests([].concat((localManifest || []), dependentManifests));
-  });
+        if (queueRebuild) {
+          watchBuild(buildConfig, ctx, true, changedFileCopies);
+
+        } else if (queueChange) {
+          watchBuild(buildConfig, ctx, false, changedFileCopies);
+        }
+
+        // reset
+        queueRebuild = queueChange = false;
+
+      } catch (e) {
+        logger.error(e.toString());
+      }
+
+    }, 50);
+  }
 }
 
 
-// export function bundleFilesPhase(buildConfig: BuildConfig, ctx: BuildContext, manifest: Manifest, changedFiles: string[], buildResults: BuildResults) {
-//   const tsFilePaths = changedFiles.filter(isTsSourceFile);
-// }
+function watchBuild(buildConfig: BuildConfig, ctx: BuildContext, clearAllCache: boolean, changedFiles: string[]) {
+  // always reset
+  ctx.skipModuleBundles = false;
+  ctx.skipStyleBundles = false;
+
+  if (clearAllCache) {
+    // empty out the cache entirely
+    ctx.moduleFiles = {};
+
+  } else if (changedFiles.length) {
+    // empty out specific files
+
+    ctx.skipModuleBundles = !changedFiles.some(isTsSourceFile);
+    ctx.skipStyleBundles = !changedFiles.some(f => {
+      return isSassSourceFile(f) || isCssSourceFile(f);
+    });
+
+    const moduleFileNames = Object.keys(ctx.moduleFiles);
+
+    changedFiles.forEach(changedFile => {
+      moduleFileNames.forEach(moduleFileName => {
+        const moduleFile = ctx.moduleFiles[moduleFileName];
+
+        if (changedFile === moduleFileName) {
+          buildConfig.logger.debug(`removing moduleFileName cache: ${moduleFileName}`);
+          delete ctx.moduleFiles[moduleFileName];
+
+        } else if (moduleFile.relatedModuleFiles) {
+          moduleFile.relatedModuleFiles.forEach(moduleSourceFile => {
+            if (changedFile === moduleSourceFile) {
+              buildConfig.logger.debug(`removing moduleSourceFile cache: ${moduleFileName}`);
+              delete ctx.moduleFiles[moduleFileName];
+            }
+          });
+        }
+      });
+    });
+  }
+
+  build(buildConfig, ctx);
+}
+

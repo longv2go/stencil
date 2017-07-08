@@ -5,13 +5,17 @@ import { generateBanner, readFile } from './util';
 
 
 export function bundleStyles(buildConfig: BuildConfig, ctx: BuildContext, userManifest: Manifest) {
-  const timeSpan = buildConfig.logger.createTimeSpan(`bundle styles started`);
-
   // create main style results object
   const stylesResults: StylesResults = {
     bundles: {},
     diagnostics: []
   };
+
+  if (ctx.skipStyleBundles) {
+    return Promise.resolve(stylesResults);
+  }
+
+  const timeSpan = buildConfig.logger.createTimeSpan(`bundle styles started`);
 
   // go through each bundle the user wants created
   // and create css files for each mode for each bundle
@@ -165,7 +169,6 @@ function generateComponentModeStyles(
   modeName: string,
   stylesResults: StylesResults
 ) {
-  // within WORKER thread
   const modeStyleMeta = cmpMeta.styleMeta[modeName];
   const sys = buildConfig.sys;
 

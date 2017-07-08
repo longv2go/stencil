@@ -38,32 +38,6 @@ export function compileSrcDir(buildConfig: BuildConfig, ctx: BuildContext) {
 }
 
 
-export function compileFiles(buildConfig: BuildConfig, ctx: BuildContext, filePaths: string[]) {
-  buildConfig.logger.debug(`compileFiles: ${filePaths}`);
-
-  const compileResults: CompileResults = {
-    moduleFiles: {},
-    diagnostics: [],
-    manifest: {},
-    includedSassFiles: []
-  };
-
-  return Promise.all(filePaths.map(filePath => {
-    return compileFile(buildConfig, ctx, filePath, compileResults);
-
-  })).catch(err => {
-    compileResults.diagnostics.push({
-      msg: err.toString(),
-      type: 'error',
-      stack: err.stack
-    });
-
-  }).then(() => {
-    return compileResults;
-  });
-}
-
-
 function compileDir(buildConfig: BuildConfig, ctx: BuildContext, dir: string, compileResults: CompileResults): Promise<any> {
   return new Promise(resolve => {
     // loop through this directory and sub directories looking for
@@ -139,7 +113,7 @@ function compileDir(buildConfig: BuildConfig, ctx: BuildContext, dir: string, co
 
 function compileFile(buildConfig: BuildConfig, ctx: BuildContext, filePath: string, compileResults: CompileResults) {
   return Promise.resolve().then(() => {
-    
+
     const normalizedFilePath = normalizeUrl(filePath);
     return transpile(buildConfig, ctx, normalizedFilePath).then(transpileResults => {
       if (transpileResults.diagnostics) {

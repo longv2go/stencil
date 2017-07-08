@@ -8,10 +8,11 @@ import { generateProjectFiles } from './build-project-files';
 import { optimizeHtml } from './optimize-html';
 import { readFile } from './util';
 import { resolveFrom } from './resolve-from';
+import { setupWatcher } from './watch';
 import { validateBuildConfig } from './validation';
 
 
-export function build(buildConfig: BuildConfig) {
+export function build(buildConfig: BuildConfig, ctx?: BuildContext) {
   // validate the build config
   validateBuildConfig(buildConfig);
 
@@ -28,10 +29,9 @@ export function build(buildConfig: BuildConfig) {
   };
 
   // create the build context
-  const ctx: BuildContext = {
-    moduleFiles: {},
-    filesToWrite: {}
-  };
+  ctx = ctx || {};
+  ctx.filesToWrite = ctx.filesToWrite || {};
+  ctx.moduleFiles = ctx.moduleFiles || {};
 
   // begin the build
   return Promise.resolve().then(() => {
@@ -54,6 +54,10 @@ export function build(buildConfig: BuildConfig) {
     // write all the files in one go
     return writePhase(buildConfig, ctx);
 
+  }).then(() => {
+    // setup watcher if need be
+    return setupWatcher(buildConfig, ctx);
+
   }).catch(err => {
     // catch all phase
     return catchAll(buildResults, err);
@@ -61,7 +65,7 @@ export function build(buildConfig: BuildConfig) {
   }).then(() => {
     // finalize phase
     if (buildConfig.watch) {
-      timeSpan.finish(`rebuild ready, watching files...`);
+      timeSpan.finish(`build finished, watching files...`);
 
     } else {
       timeSpan.finish(`build finished`);

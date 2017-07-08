@@ -175,13 +175,36 @@ export function isTsSourceFile(filePath: string) {
   return false;
 }
 
-export function isScssSourceFile(filePath: string) {
+
+export function isSassSourceFile(filePath: string) {
   const parts = filePath.toLowerCase().split('.');
   if (parts.length > 1) {
-    return (parts[parts.length - 1] === 'scss');
+    return (parts[parts.length - 1] === 'scss' || parts[parts.length - 1] === 'sass');
   }
   return false;
 }
+
+
+export function isCssSourceFile(filePath: string) {
+  const parts = filePath.toLowerCase().split('.');
+  if (parts.length > 1) {
+    return (parts[parts.length - 1] === 'css');
+  }
+  return false;
+}
+
+
+export function isDevFile(path: string) {
+  path = path.toLowerCase();
+  for (var i = 0; i < DEV_EXT.length; i++) {
+    if (path.indexOf(DEV_EXT[i]) > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const DEV_EXT = ['.js', '.jsx', '.ts', '.tsx', '.css', '.scss', '.sass', '.html'];
 
 
 export function hasCmpClass(sourceText: string, filePath: string) {

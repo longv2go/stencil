@@ -5,13 +5,17 @@ import { generateBanner } from './util';
 
 
 export function bundleModules(buildConfig: BuildConfig, ctx: BuildContext, userManifest: Manifest) {
-  const timeSpan = buildConfig.logger.createTimeSpan(`bundle modules started`);
-
   // create main module results object
   const moduleResults: ModuleResults = {
     bundles: {},
     diagnostics: []
   };
+
+  if (ctx.skipModuleBundles) {
+    return Promise.resolve(moduleResults);
+  }
+
+  const timeSpan = buildConfig.logger.createTimeSpan(`bundle modules started`);
 
   return Promise.all(userManifest.bundles.map(userBundle => {
     return generateDefineComponents(buildConfig, ctx, userManifest, userBundle, moduleResults);

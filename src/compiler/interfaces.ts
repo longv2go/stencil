@@ -1,5 +1,5 @@
 export * from '../util/interfaces';
-import { ComponentMeta, Diagnostic, Manifest, LoadComponentRegistry } from '../util/interfaces';
+import { ComponentMeta, Diagnostic, FSWatcher, Manifest, LoadComponentRegistry } from '../util/interfaces';
 
 
 export interface BundlerConfig {
@@ -17,12 +17,17 @@ export interface ModuleFileMeta {
   cmpMeta?: ComponentMeta;
   cmpClassName?: string;
   includedSassFiles?: string[];
+  isWatching?: boolean;
+  relatedModuleFiles?: string[];
 }
 
 
 export interface BuildContext {
-  moduleFiles: ModuleFiles;
-  filesToWrite: FilesToWrite;
+  moduleFiles?: ModuleFiles;
+  filesToWrite?: FilesToWrite;
+  watcher?: FSWatcher;
+  skipModuleBundles?: boolean;
+  skipStyleBundles?: boolean;
 }
 
 

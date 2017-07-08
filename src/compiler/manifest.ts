@@ -44,9 +44,9 @@ export function generateManifest(buildConfig: BuildConfig, ctx: BuildContext, co
 
       modeNames.forEach(modeName => {
         const cmpMode = cmpMeta.styleMeta[modeName];
-        if (cmpMode.styleUrls) {
-          cmpMode.styleUrls = cmpMode.styleUrls.map(styleUrl => {
-            return sys.path.join(componentDir, styleUrl);
+        if (cmpMode.parsedStyleUrls) {
+          cmpMode.styleUrls = cmpMode.parsedStyleUrls.map(parsedStyleUrl => {
+            return sys.path.join(componentDir, parsedStyleUrl);
           });
         }
       });

@@ -26,9 +26,9 @@ function normalizeStyleUrl(userOpts: ComponentOptions, cmpMeta: ComponentMeta) {
 
     cmpMeta.styleMeta = cmpMeta.styleMeta || {};
     cmpMeta.styleMeta.$ = cmpMeta.styleMeta.$ || {};
-    cmpMeta.styleMeta.$.styleUrls = cmpMeta.styleMeta.$.styleUrls || [];
+    cmpMeta.styleMeta.$.parsedStyleUrls = cmpMeta.styleMeta.$.parsedStyleUrls || [];
 
-    cmpMeta.styleMeta.$.styleUrls.push(userOpts.styleUrl.trim());
+    cmpMeta.styleMeta.$.parsedStyleUrls.push(userOpts.styleUrl.trim());
   }
 }
 
@@ -49,9 +49,9 @@ function normalizeStyleUrls(userOpts: ComponentOptions, cmpMeta: ComponentMeta) 
 
         cmpMeta.styleMeta = cmpMeta.styleMeta || {};
         cmpMeta.styleMeta.$ = cmpMeta.styleMeta.$ || {};
-        cmpMeta.styleMeta.$.styleUrls = cmpMeta.styleMeta.$.styleUrls || [];
+        cmpMeta.styleMeta.$.parsedStyleUrls = cmpMeta.styleMeta.$.parsedStyleUrls || [];
 
-        cmpMeta.styleMeta.$.styleUrls.push(styleUrl.trim());
+        cmpMeta.styleMeta.$.parsedStyleUrls.push(styleUrl.trim());
       }
     });
 
@@ -73,9 +73,9 @@ function normalizeStyleUrls(userOpts: ComponentOptions, cmpMeta: ComponentMeta) 
 
         cmpMeta.styleMeta = cmpMeta.styleMeta || {};
         cmpMeta.styleMeta[modeName] = cmpMeta.styleMeta[modeName] || {};
-        cmpMeta.styleMeta[modeName].styleUrls = cmpMeta.styleMeta[modeName].styleUrls || [];
+        cmpMeta.styleMeta[modeName].parsedStyleUrls = cmpMeta.styleMeta[modeName].parsedStyleUrls || [];
 
-        cmpMeta.styleMeta[modeName].styleUrls.push(styleUrl);
+        cmpMeta.styleMeta[modeName].parsedStyleUrls.push(styleUrl);
 
       } else if (Array.isArray(styleModes[styleModeName])) {
         const styleUrls: string[] = (<any>userOpts).styleUrls;
@@ -84,9 +84,9 @@ function normalizeStyleUrls(userOpts: ComponentOptions, cmpMeta: ComponentMeta) 
           if (styleUrl && typeof styleUrl === 'string' && styleUrl.trim().length) {
             cmpMeta.styleMeta = cmpMeta.styleMeta || {};
             cmpMeta.styleMeta[modeName] = cmpMeta.styleMeta[modeName] || {};
-            cmpMeta.styleMeta[modeName].styleUrls = cmpMeta.styleMeta[modeName].styleUrls || [];
+            cmpMeta.styleMeta[modeName].parsedStyleUrls = cmpMeta.styleMeta[modeName].parsedStyleUrls || [];
 
-            cmpMeta.styleMeta[modeName].styleUrls.push(styleUrl.trim());
+            cmpMeta.styleMeta[modeName].parsedStyleUrls.push(styleUrl.trim());
           }
         });
       }

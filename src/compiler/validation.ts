@@ -55,7 +55,14 @@ export function validateBuildConfig(buildConfig: BuildConfig) {
     buildConfig.indexDest = buildConfig.sys.path.join(buildConfig.rootDir, buildConfig.indexDest);
   }
 
+  if (typeof buildConfig.devMode !== 'boolean') {
+    buildConfig.devMode = true;
+  }
   buildConfig.devMode = !!buildConfig.devMode;
+
+  if (typeof buildConfig.watch !== 'boolean') {
+    buildConfig.watch = false;
+  }
   buildConfig.watch = !!buildConfig.watch;
 
   if (typeof buildConfig.minifyCss !== 'boolean') {
@@ -82,13 +89,14 @@ export function validateBuildConfig(buildConfig: BuildConfig) {
     }
   }
 
+  if (typeof buildConfig.hashedFileNameLength !== 'number') {
+    buildConfig.hashedFileNameLength = DEFAULT_HASHED_FILENAME_LENTH;
+  }
+
   buildConfig.generateCollection = !!buildConfig.generateCollection;
   buildConfig.collections = buildConfig.collections || [];
   buildConfig.bundles = buildConfig.bundles || [];
-  buildConfig.exclude = buildConfig.exclude || [
-    'node_modules',
-    'bower_components'
-  ];
+  buildConfig.exclude = buildConfig.exclude || DEFAULT_EXCLUDES;
 
   return buildConfig;
 }
@@ -221,3 +229,5 @@ const DEFAULT_INDEX_SRC = 'src/index.html';
 const DEFAULT_INDEX_DEST = 'www/index.html';
 const DEFAULT_COLLECTION_DEST = 'dist/collection';
 const DEFAULT_NAMESPACE = 'App';
+const DEFAULT_HASHED_FILENAME_LENTH = 12;
+const DEFAULT_EXCLUDES = ['node_modules', 'bower_components'];

@@ -1,6 +1,6 @@
 import { BuildConfig, BuildContext, CompileResults } from './interfaces';
 import { generateManifest } from './manifest';
-import { isTsSourceFile, readFile, normalizeUrl } from './util';
+import { isTsSourceFile, readFile, normalizePath } from './util';
 import { transpile } from './transpile';
 
 
@@ -114,14 +114,14 @@ function compileDir(buildConfig: BuildConfig, ctx: BuildContext, dir: string, co
 function compileFile(buildConfig: BuildConfig, ctx: BuildContext, filePath: string, compileResults: CompileResults) {
   return Promise.resolve().then(() => {
 
-    const normalizedFilePath = normalizeUrl(filePath);
+    const normalizedFilePath = normalizePath(filePath);
     return transpile(buildConfig, ctx, normalizedFilePath).then(transpileResults => {
       if (transpileResults.diagnostics) {
         compileResults.diagnostics = compileResults.diagnostics.concat(transpileResults.diagnostics);
       }
       if (transpileResults.moduleFiles) {
         Object.keys(transpileResults.moduleFiles).forEach(path => {
-          const normalizedTsFilePath = normalizeUrl(path);
+          const normalizedTsFilePath = normalizePath(path);
           const moduleFile = transpileResults.moduleFiles[normalizedTsFilePath];
 
           compileResults.moduleFiles[normalizedTsFilePath] = moduleFile;

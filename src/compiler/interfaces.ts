@@ -17,22 +17,47 @@ export interface ModuleFileMeta {
   cmpMeta?: ComponentMeta;
   cmpClassName?: string;
   includedSassFiles?: string[];
-  isWatching?: boolean;
-  relatedModuleFiles?: string[];
 }
 
 
 export interface BuildContext {
   moduleFiles?: ModuleFiles;
+  moduleBundleOutputs?: ModuleBundles;
+  styleSassOutputs?: ModuleBundles;
   filesToWrite?: FilesToWrite;
   watcher?: FSWatcher;
-  skipModuleBundles?: boolean;
-  skipStyleBundles?: boolean;
+  onFinish?: Function;
+
+  isRebuild?: boolean;
+  isChangeBuild?: boolean;
+  changeHasNonComponentModules?: boolean;
+  changeHasComponentModules?: boolean;
+  changeHasSass?: boolean;
+  changeHasCss?: boolean;
+  changedFiles?: string[];
+
+  sassBuildCount?: number;
+  transpileBuildCount?: number;
+
+  moduleBundleCount?: number;
+  styleBundleCount?: number;
 }
 
 
 export interface ModuleFiles {
   [filePath: string]: ModuleFileMeta;
+}
+
+
+export interface ModuleBundles {
+  [bundleId: string]: string;
+}
+
+
+export interface BuildResults {
+  diagnostics: Diagnostic[];
+  files: string[];
+  componentRegistry: LoadComponentRegistry[];
 }
 
 
@@ -80,12 +105,5 @@ export interface StylesResults {
 
 export interface BundleResults {
   diagnostics: Diagnostic[];
-  componentRegistry: LoadComponentRegistry[];
-}
-
-
-export interface BuildResults {
-  diagnostics: Diagnostic[];
-  manifest: Manifest;
   componentRegistry: LoadComponentRegistry[];
 }

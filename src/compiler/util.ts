@@ -16,11 +16,6 @@ export function readFile(sys: StencilSystem, filePath: string) {
 
 
 export function writeFiles(sys: StencilSystem, rootDir: string, filesToWrite: FilesToWrite): Promise<any> {
-  const filePaths = Object.keys(filesToWrite);
-  if (!filePaths.length) {
-    return Promise.resolve();
-  }
-
   const directories = getDirectoriesFromFiles(sys, filesToWrite);
 
   return ensureDirectoriesExist(sys, directories, [rootDir]).then(() => {
@@ -177,34 +172,19 @@ export function isTsSourceFile(filePath: string) {
 
 
 export function isSassSourceFile(filePath: string) {
-  const parts = filePath.toLowerCase().split('.');
-  if (parts.length > 1) {
-    return (parts[parts.length - 1] === 'scss' || parts[parts.length - 1] === 'sass');
-  }
-  return false;
+  const ext = filePath.split('.').pop().toLowerCase();
+  return ext === 'scss' || ext === 'sass';
 }
 
 
 export function isCssSourceFile(filePath: string) {
-  const parts = filePath.toLowerCase().split('.');
-  if (parts.length > 1) {
-    return (parts[parts.length - 1] === 'css');
-  }
-  return false;
+  return filePath.split('.').pop().toLowerCase() === 'css';
 }
 
 
-export function isDevFile(path: string) {
-  path = path.toLowerCase();
-  for (var i = 0; i < DEV_EXT.length; i++) {
-    if (path.indexOf(DEV_EXT[i]) > 0) {
-      return true;
-    }
-  }
-  return false;
+export function isDevFile(filePath: string) {
+  return isTsSourceFile(filePath) || isSassSourceFile(filePath) || isCssSourceFile(filePath);
 }
-
-const DEV_EXT = ['.js', '.jsx', '.ts', '.tsx', '.css', '.scss', '.sass', '.html'];
 
 
 export function hasCmpClass(sourceText: string, filePath: string) {
@@ -242,13 +222,21 @@ export function generateBanner(buildConfig: BuildConfig) {
 
 }
 
-export function normalizeUrl(str: string) {
-  const isExtendedLengthPath = /^\\\\\?\\/.test(str);
-  const hasNonAscii = /[^\x00-\x80]+/.test(str);
+
+export function normalizePath(str: string) {
+  // Convert Windows backslash paths to slash paths: foo\\bar ➔ foo/bar
+  // https://github.com/sindresorhus/slash MIT
+  // By Sindre Sorhus
+  const isExtendedLengthPath = EXTENDED_PATH_REGEX.test(str);
+  const hasNonAscii = NON_ASCII_REGEX.test(str);
 
   if (isExtendedLengthPath || hasNonAscii) {
     return str;
   }
 
-  return str.replace(/\\/g, '/');
+  return str.replace(SLASH_REGEX, '/');
 }
+
+const EXTENDED_PATH_REGEX = /^\\\\\?\\/;
+const NON_ASCII_REGEX = /[^\x00-\x80]+/;
+const SLASH_REGEX = /\\/g;

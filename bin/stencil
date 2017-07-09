@@ -66,8 +66,8 @@ try {
 }
 
 
-if (cmdArgs.indexOf('--prod') === -1 && cmdArgs.indexOf('-p') === -1) {
-  buildConfig.devMode = true;
+if (cmdArgs.indexOf('--prod') > -1 || cmdArgs.indexOf('-p') > -1) {
+  buildConfig.devMode = false;
 }
 
 if (cmdArgs.indexOf('--watch') > -1 || cmdArgs.indexOf('-w') > -1) {
@@ -118,13 +118,13 @@ buildConfig.sys = Object.defineProperties({
     });
   },
 
-  generateContentHash: function generateContentHash(content) {
+  generateContentHash: function generateContentHash(content, length) {
     var crypto = require('crypto');
     return crypto.createHash('sha1')
                 .update(content)
                 .digest('base64')
                 .replace(/\W/g, '')
-                .substr(0, 12)
+                .substr(0, length)
                 .toLowerCase();
   },
 

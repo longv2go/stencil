@@ -33,8 +33,8 @@ export function setupWatcher(buildConfig: BuildConfig, ctx: BuildContext) {
 
       if (isDevFile(path)) {
         // queue change since we already knew about this file
-        queueChangeBuild = true;
-        queue(path);
+        queueFullBuild = true;
+        queue();
       }
     })
     .on('add', (path: string) => {

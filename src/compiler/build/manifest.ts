@@ -1,9 +1,8 @@
-import { BuildConfig, BuildContext, Bundle, Collection, CompileResults,
-  Manifest, ModuleFileMeta } from '../interfaces';
+import { BuildConfig, BuildContext, Bundle, Collection, CompileResults, Manifest } from '../interfaces';
 import { COLLECTION_MANIFEST_FILE_NAME } from '../../util/constants';
 import { normalizePath, readFile } from '../util';
 import { validateDependentCollection, validateUserBundles } from './validation';
-import { parseManifest, serializeManifest } from './manifest-data';
+import { parseDependentManifest, serializeProjectManifest } from './manifest-data';
 
 
 export function loadDependentManifests(config: BuildConfig) {
@@ -21,7 +20,7 @@ function loadDependentManifest(config: BuildConfig, dependentCollection: Collect
   const dependentManifestDir = sys.path.dirname(dependentManifestFilePath);
 
   return readFile(sys, dependentManifestFilePath).then(dependentManifestJson => {
-    const dependentManifest = parseManifest(config, dependentManifestDir, dependentManifestJson);
+    const dependentManifest = parseDependentManifest(config, dependentManifestDir, dependentManifestJson);
 
     return processDependentManifest(config.bundles, dependentCollection, dependentManifest);
   });
@@ -48,6 +47,8 @@ export function mergeManifests(manifestPriorityList: Manifest[]): Manifest {
   const removedComponents: string[] = [];
 
   const m = manifestPriorityList.reduce((allData, collectionManifest) => {
+    allData.collectionGlobals = allData.collectionGlobals || [];
+
     const bundles = (collectionManifest.bundles || []).map(bundle => {
         const components = (bundle.components || []).filter(tag => removedComponents.indexOf(tag) === -1);
 
@@ -62,7 +63,8 @@ export function mergeManifests(manifestPriorityList: Manifest[]): Manifest {
 
     return {
       components: allData.components.concat(collectionManifest.components),
-      bundles: allData.bundles.concat(bundles)
+      bundles: allData.bundles.concat(bundles),
+      collectionGlobals: allData.collectionGlobals.concat(collectionManifest.collectionGlobals || [])
     };
   }, <Manifest>{ components: [], bundles: []});
 
@@ -70,28 +72,19 @@ export function mergeManifests(manifestPriorityList: Manifest[]): Manifest {
 }
 
 
-export function generateManifest(config: BuildConfig, ctx: BuildContext, compileResults: CompileResults) {
-  const sys = config.sys;
-  const logger = config.logger;
-
+export function generateManifest(config: BuildConfig, compileResults: CompileResults) {
   // validate we're good to go
   validateUserBundles(config.bundles);
-
-  // get the absolute path to the directory where the manifest will be saved
-  const manifestDir = normalizePath(config.collectionDir);
-
-  // create an absolute path to the actual manifest json file
-  const manifestFilePath = normalizePath(sys.path.join(manifestDir, COLLECTION_MANIFEST_FILE_NAME));
 
   // create the single manifest we're going to fill up with data
   const manifest: Manifest = {
     components: [],
+    componentModulesFiles: [],
     bundles: []
   };
 
   // get all of the filenames of the compiled files
   const fileNames = Object.keys(compileResults.moduleFiles);
-  const manifestModulesFiles: ModuleFileMeta[] = [];
 
   // loop through the compiled files and fill up the manifest w/ serialized component data
   fileNames.forEach(fileName => {
@@ -114,17 +107,26 @@ export function generateManifest(config: BuildConfig, ctx: BuildContext, compile
 
     // awesome, good to go, let's add it to the manifest's components
     manifest.components.push(moduleFile.cmpMeta);
-
-    manifestModulesFiles.push(moduleFile);
+    manifest.componentModulesFiles.push(moduleFile);
   });
 
-  if (config.generateCollection) {
-    // if we're also generating the collection, then we want to
-    // save this manifest as a json file to disk
-    logger.debug(`manifest, serializeManifest: ${manifestFilePath}`);
-
-    ctx.filesToWrite[manifestFilePath] = serializeManifest(config, manifestDir, manifestModulesFiles);
-  }
-
   return manifest;
+}
+
+
+export function writeManifest(config: BuildConfig, ctx: BuildContext, manifest: Manifest) {
+  // if we're also generating the collection, then we want to
+  if (!config.generateCollection) return;
+
+  // get the absolute path to the directory where the manifest will be saved
+  const manifestDir = normalizePath(config.collectionDir);
+
+  // create an absolute path to the actual manifest json file
+  const manifestFilePath = normalizePath(config.sys.path.join(manifestDir, COLLECTION_MANIFEST_FILE_NAME));
+
+  config.logger.debug(`manifest, serializeProjectManifest: ${manifestFilePath}`);
+
+  // serialize the manifest into a json string and
+  // add it to the list of files we need to write when we're ready
+  ctx.filesToWrite[manifestFilePath] = serializeProjectManifest(config, manifestDir, manifest);
 }

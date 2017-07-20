@@ -11,7 +11,7 @@ import { normalizePath } from '../util';
 // couple core component meta data between specific versions of the compiler
 
 
-export function serializeManifest(config: BuildConfig, manifestDir: string, manifestModulesFiles: ModuleFileMeta[]) {
+export function serializeProjectManifest(config: BuildConfig, manifestDir: string, manifest: Manifest) {
   // create the single manifest we're going to fill up with data
   const manifestData: ManifestData = {
     components: [],
@@ -19,8 +19,8 @@ export function serializeManifest(config: BuildConfig, manifestDir: string, mani
   };
 
   // add component data for each of the manifest files
-  manifestModulesFiles.forEach(manifestModulesFile => {
-    const cmpData = serializeComponent(config, manifestDir, manifestModulesFile);
+  manifest.componentModulesFiles.forEach(componentModulesFile => {
+    const cmpData = serializeComponent(config, manifestDir, componentModulesFile);
     if (cmpData) {
       manifestData.components.push(cmpData);
     }
@@ -36,17 +36,21 @@ export function serializeManifest(config: BuildConfig, manifestDir: string, mani
   // add to the manifest what the bundles should be
   serializeBundles(config, manifestData);
 
+  // set the global path if it exists
+  serializeProjectGlobal(config, manifestDir, manifestData, manifest);
+
   // success!
   return JSON.stringify(manifestData, null, 2);
 }
 
 
-export function parseManifest(config: BuildConfig, manifestDir: string, manifestJson: string) {
+export function parseDependentManifest(config: BuildConfig, manifestDir: string, manifestJson: string) {
   const manifestData: ManifestData = JSON.parse(manifestJson);
   const manifest: Manifest = {};
 
   parseComponents(config, manifestDir, manifestData, manifest);
   parseBundles(manifestData, manifest);
+  parseDependentGlobal(config, manifestDir, manifestData, manifest);
 
   return manifest;
 }
@@ -581,6 +585,26 @@ export function parseBundles(manifestData: ManifestData, manifest: Manifest) {
 }
 
 
+export function serializeProjectGlobal(config: BuildConfig, manifestDir: string, manifestData: ManifestData, manifest: Manifest) {
+  if (!manifest.projectGlobal) {
+    return;
+  }
+
+  manifestData.global = normalizePath(config.sys.path.relative(manifestDir, manifest.projectGlobal.jsFilePath));
+}
+
+
+export function parseDependentGlobal(config: BuildConfig, manifestDir: string, manifestData: ManifestData, manifest: Manifest) {
+  if (typeof manifestData.global !== 'string') return;
+
+  manifest.collectionGlobals = manifest.collectionGlobals || [];
+
+  manifest.collectionGlobals.push({
+    jsFilePath: normalizePath(config.sys.path.join(manifestDir, manifestData.global))
+  });
+}
+
+
 function invalidArrayData(arr: any[]) {
   return (!arr || !Array.isArray(arr) || arr.length === 0);
 }
@@ -598,6 +622,7 @@ function invalidArrayData(arr: any[]) {
 export interface ManifestData {
   bundles?: BundleData[];
   components?: ComponentData[];
+  global?: string;
 }
 
 export interface BundleData {

@@ -3,7 +3,7 @@ import { catchError, normalizePath } from '../util';
 import { getProjectBuildDir } from '../build/build-project-files';
 
 
-export function parseComponentMetadata(config: BuildConfig, userOpts: ComponentOptions, moduleFile: ModuleFileMeta, cmpMeta: ComponentMeta)  {
+export function normalizeAssetsDir(config: BuildConfig, userOpts: ComponentOptions, moduleFile: ModuleFileMeta, cmpMeta: ComponentMeta)  {
   if (userOpts.assetsDir) {
     normalizeAssetDir(config, moduleFile, cmpMeta, userOpts.assetsDir);
   }

@@ -1,15 +1,5 @@
 export * from '../util/interfaces';
-import { ComponentMeta, Diagnostic, FilesMap, FSWatcher, Manifest, LoadComponentRegistry } from '../util/interfaces';
-
-
-export interface ModuleFileMeta {
-  tsFilePath?: string;
-  tsText?: string;
-  jsFilePath?: string;
-  hasCmpClass?: boolean;
-  cmpMeta?: ComponentMeta;
-  includedSassFiles?: string[];
-}
+import { Diagnostic, FilesMap, FSWatcher, LoadComponentRegistry, Manifest, ModuleFileMeta } from '../util/interfaces';
 
 
 export interface BuildContext {

@@ -46,7 +46,7 @@ export function compileSrcDir(config: BuildConfig, ctx: BuildContext) {
     }
 
   }).then(() => {
-    compileResults.manifest = generateManifest(config, ctx, compileResults);
+    compileResults.manifest = generateManifest(config, compileResults);
 
   }).then(() => {
     return copySourceSassFilesToDest(config, ctx, compileResults);

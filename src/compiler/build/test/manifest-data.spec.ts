@@ -1,11 +1,33 @@
 import { BuildConfig, ComponentMeta, Manifest } from '../../../util/interfaces';
 import { ModuleFileMeta } from '../../interfaces';
 import { mockStencilSystem } from '../../../test';
-import { parseBundles, parseComponent, serializeBundles, serializeComponent, ManifestData } from '../manifest-data';
+import { parseBundles, parseComponent, parseDependentGlobal, serializeBundles, serializeComponent, serializeProjectGlobal, ManifestData } from '../manifest-data';
 import { HAS_NAMED_SLOTS, HAS_SLOTS, PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../../util/constants';
 
 
 describe('manifest-data serialize/parse', () => {
+
+  it('parseDependentGlobal', () => {
+    const manifestData: ManifestData = {
+      global: 'global/my-global.js'
+    };
+    const manifest: Manifest = {};
+    parseDependentGlobal(config, manifestDir, manifestData, manifest);
+    expect(manifest.collectionGlobals.length).toBe(1);
+    expect(manifest.collectionGlobals[0].jsFilePath).toBe('/User/me/myapp/dist/collection/global/my-global.js');
+  });
+
+  it('serializeProjectGlobal', () => {
+    const manifestData: ManifestData = {};
+    const manifest: Manifest = {
+      projectGlobal: {
+        jsFilePath: '/User/me/myapp/dist/collection/global/my-global.js'
+      }
+    };
+
+    serializeProjectGlobal(config, manifestDir, manifestData, manifest);
+    expect(manifestData.global).toBe('global/my-global.js');
+  });
 
   it('parseBundles', () => {
     const manifestData: ManifestData = {

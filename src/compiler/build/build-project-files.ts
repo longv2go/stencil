@@ -1,11 +1,11 @@
-import { BuildConfig, BuildContext, Diagnostic } from '../interfaces';
+import { BuildConfig, BuildContext, Diagnostic, Manifest } from '../interfaces';
 import { CORE_NAME, LOADER_NAME, PROJECT_NAMESPACE_REGEX } from '../../util/constants';
 import { createOnWarnFn, transpiledInMemoryPlugin } from '../bundle/bundle-modules';
 import { generatePreamble, normalizePath } from '../util';
 import { LoadComponentRegistry, ProjectRegistry } from '../../util/interfaces';
 
 
-export function generateProjectFiles(config: BuildConfig, ctx: BuildContext, componentRegistry: LoadComponentRegistry[], diagnostics: Diagnostic[]) {
+export function generateProjectFiles(config: BuildConfig, ctx: BuildContext, componentRegistry: LoadComponentRegistry[], manifest: Manifest, diagnostics: Diagnostic[]) {
   const sys = config.sys;
 
   config.logger.debug(`build, generateProjectFiles: ${config.namespace}`);
@@ -22,11 +22,19 @@ export function generateProjectFiles(config: BuildConfig, ctx: BuildContext, com
   let projectCoreEs5FileName: string;
 
   // bundle the project's entry file (if one was provided)
-  return generateProjectEntry(config, ctx, diagnostics).then(entryContent => {
+  return Promise.resolve().then(() => {
+    return loadDependentCollectionGlobals(config, manifest);
 
+  }).then(dependentGlobals => {
+    return generateProjectGlobal(config, ctx, manifest, diagnostics).then(projectGlobal => {
+      dependentGlobals.push(projectGlobal);
+      return dependentGlobals;
+    });
+
+  }).then(globalJsContent => {
     return Promise.all([
-      generateCore(config, entryContent),
-      generateCoreEs5(config, entryContent)
+      generateCore(config, globalJsContent),
+      generateCoreEs5(config, globalJsContent)
     ]);
 
   }).then(results => {
@@ -155,7 +163,7 @@ export function injectProjectIntoLoader(config: BuildConfig, projectCoreFileName
 }
 
 
-function generateCore(config: BuildConfig, entryContent: string) {
+function generateCore(config: BuildConfig, globalJsContent: string[]) {
   const sys = config.sys;
 
   let staticName = CORE_NAME;
@@ -168,7 +176,7 @@ function generateCore(config: BuildConfig, entryContent: string) {
     // concat the projects core code
     const projectCode: string[] = [
       generatePreamble(config),
-      entryContent,
+      globalJsContent.join('\n'),
       injectProjectIntoCore(config, coreContent)
     ];
 
@@ -186,7 +194,7 @@ export function injectProjectIntoCore(config: BuildConfig, coreContent: string) 
 }
 
 
-function generateCoreEs5(config: BuildConfig, entryContent: string) {
+function generateCoreEs5(config: BuildConfig, globalJsContent: string[]) {
   const sys = config.sys;
 
   let staticName = CORE_NAME + '.es5';
@@ -210,7 +218,7 @@ function generateCoreEs5(config: BuildConfig, entryContent: string) {
     const projectCode: string[] = [
       docRegistryPolyfillContent + '\n\n',
       generatePreamble(config),
-      entryContent,
+      globalJsContent.join('\n'),
       injectProjectIntoCore(config, coreContent)
     ];
 
@@ -219,14 +227,38 @@ function generateCoreEs5(config: BuildConfig, entryContent: string) {
 }
 
 
-function generateProjectEntry(config: BuildConfig, ctx: BuildContext, diagnostics: Diagnostic[]) {
+function loadDependentCollectionGlobals(config: BuildConfig, manifest: Manifest): Promise<string[]> {
+  if (manifest.collectionGlobals) {
+    return Promise.resolve([]);
+  }
+
+  return Promise.all(manifest.collectionGlobals.map(dependentGlobal => {
+
+    return new Promise((resolve, reject) => {
+
+      config.sys.fs.readFile(dependentGlobal.jsFilePath, 'utf-8', (err, dependentGlobalJs) => {
+        if (err) {
+          reject(err);
+
+        } else {
+          resolve(dependentGlobalJs);
+        }
+      });
+
+    });
+
+  }));
+}
+
+
+function generateProjectGlobal(config: BuildConfig, ctx: BuildContext, manifest: Manifest, diagnostics: Diagnostic[]) {
   // stencil by itself does not have an entry file
   // however, projects like Ionic can provide an entry file
   // which will bundle whatever is in the entry, and then
   // prepend the output content on top of stencil's core js
   // this way projects like Ionic can provide a shared global at runtime
 
-  if (!config.entry) {
+  if (!config.global) {
     // looks like they never provided an entry file, which is fine, so let's skip this
     return Promise.resolve('');
   }
@@ -235,7 +267,7 @@ function generateProjectEntry(config: BuildConfig, ctx: BuildContext, diagnostic
   // the output from this can be tacked onto the top of the project's core file
   // start the bundler on our temporary file
   return config.sys.rollup.rollup({
-    entry: config.entry,
+    entry: config.global,
     plugins: [
       config.sys.rollup.plugins.nodeResolve({
         jsnext: true,
@@ -274,6 +306,8 @@ function generateProjectEntry(config: BuildConfig, ctx: BuildContext, diagnostic
         output = minifyJsResults.output;
       }
     }
+
+    manifest.projectGlobal = ctx.moduleFiles[config.global];
 
     return output;
   });

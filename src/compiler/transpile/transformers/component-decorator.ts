@@ -1,7 +1,7 @@
 import { BuildConfig, ComponentMeta, ComponentOptions, Diagnostic, ModuleFileMeta } from '../../interfaces';
 import { buildError, catchError } from '../../util';
+import { normalizeAssetsDir } from '../../component-plugins/assets-plugin';
 import { normalizeStyles } from './normalize-styles';
-import { parseComponentMetadata as normalizeAssetsDir } from '../../component-plugins/assets-plugin';
 import { validateTag } from '../../build/validation';
 import * as ts from 'typescript';
 

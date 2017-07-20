@@ -7,7 +7,7 @@ import { compileSrcDir } from './compile';
 import { copyAssets } from '../component-plugins/assets-plugin';
 import { generateProjectFiles } from './build-project-files';
 import { generateHtmlDiagnostics } from '../../util/logger/generate-html-diagnostics';
-import { loadDependentManifests, mergeManifests } from './manifest';
+import { loadDependentManifests, mergeManifests, writeManifest } from './manifest';
 import { optimizeIndexHtml } from './optimize-index-html';
 import { setupWatcher } from './watch';
 import { validateBuildConfig } from './validation';
@@ -122,7 +122,11 @@ function compileSrcPhase(config: BuildConfig, ctx: BuildContext, dependentManife
     const allManifests = [projectManifest].concat(dependentManifests || []);
 
     // merge their data together
-    return mergeManifests(allManifests);
+    const finalManifest = mergeManifests(allManifests);
+
+    finalManifest.componentModulesFiles = projectManifest.componentModulesFiles;
+
+    return finalManifest;
   });
 }
 
@@ -141,7 +145,7 @@ function bundlePhase(config: BuildConfig, ctx: BuildContext, manifest: Manifest,
     buildResults.componentRegistry = bundleResults.componentRegistry;
 
     // generate the loader and core files for this project
-    return generateProjectFiles(config, ctx, bundleResults.componentRegistry, bundleResults.diagnostics);
+    return generateProjectFiles(config, ctx, bundleResults.componentRegistry, manifest, bundleResults.diagnostics);
   });
 }
 
@@ -167,6 +171,9 @@ function writePhase(config: BuildConfig, ctx: BuildContext, manifest: Manifest, 
     ctx.filesToWrite = {};
     return Promise.resolve();
   }
+
+  // serialize and write the manifest file if need be
+  writeManifest(config, ctx, manifest);
 
   buildResults.files = Object.keys(ctx.filesToWrite).sort();
   const totalFilesToWrite = buildResults.files.length;

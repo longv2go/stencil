@@ -276,7 +276,20 @@ export interface PropChangeMeta {
 
 export interface Manifest {
   components?: ComponentMeta[];
+  componentModulesFiles?: ModuleFileMeta[];
   bundles?: Bundle[];
+  projectGlobal?: ModuleFileMeta;
+  collectionGlobals?: ModuleFileMeta[];
+}
+
+
+export interface ModuleFileMeta {
+  tsFilePath?: string;
+  tsText?: string;
+  jsFilePath?: string;
+  hasCmpClass?: boolean;
+  cmpMeta?: ComponentMeta;
+  includedSassFiles?: string[];
 }
 
 

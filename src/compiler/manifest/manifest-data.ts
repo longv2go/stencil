@@ -67,13 +67,15 @@ export function serializeProjectManifest(config: BuildConfig, manifestDir: strin
 }
 
 
-export function parseDependentManifest(config: BuildConfig, manifestDir: string, manifestJson: string) {
+export function parseDependentManifest(config: BuildConfig, collectionName: string, manifestDir: string, manifestJson: string) {
   const manifestData: ManifestData = JSON.parse(manifestJson);
-  const manifest: Manifest = {};
+  const manifest: Manifest = {
+    manifestName: collectionName
+  };
 
   parseComponents(config, manifestDir, manifestData, manifest);
   parseBundles(manifestData, manifest);
-  parseDependentGlobal(config, manifestDir, manifestData, manifest);
+  parseGlobal(config, manifestDir, manifestData, manifest);
 
   return manifest;
 }
@@ -621,18 +623,12 @@ export function serializeProjectGlobal(config: BuildConfig, manifestDir: string,
 }
 
 
-export function parseDependentGlobal(config: BuildConfig, manifestDir: string, manifestData: ManifestData, manifest: Manifest) {
+export function parseGlobal(config: BuildConfig, manifestDir: string, manifestData: ManifestData, manifest: Manifest) {
   if (typeof manifestData.global !== 'string') return;
 
-  manifest.dependentManifests = manifest.dependentManifests || [];
-
-  const dependentManifest: Manifest = {
-    global: {
-      jsFilePath: normalizePath(config.sys.path.join(manifestDir, manifestData.global))
-    }
+  manifest.global = {
+    jsFilePath: normalizePath(config.sys.path.join(manifestDir, manifestData.global))
   };
-
-  manifest.dependentManifests.push(dependentManifest);
 }
 
 

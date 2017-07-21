@@ -1,6 +1,6 @@
 import { AssetsMeta, BuildConfig, BuildContext, ComponentOptions, ComponentMeta, ModuleFile } from '../../util/interfaces';
 import { catchError, normalizePath } from '../util';
-import { getProjectBuildDir } from '../build/build-project-files';
+import { getProjectBuildDir } from '../project/generate-project-files';
 
 
 export function normalizeAssetsDir(config: BuildConfig, userOpts: ComponentOptions, moduleFile: ModuleFile, cmpMeta: ComponentMeta)  {

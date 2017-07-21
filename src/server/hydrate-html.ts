@@ -2,7 +2,7 @@ import { BuildConfig, BuildContext, ComponentRegistry, HostElement, PlatformApi,
   HostContentNodes, HydrateOptions, HydrateResults, VNode } from '../util/interfaces';
 import { createDomApi } from '../core/renderer/dom-api';
 import { createPlatformServer } from './platform-server';
-import { getProjectBuildDir } from '../compiler/build/build-project-files';
+import { getProjectBuildDir } from '../compiler/project/generate-project-files';
 import { initHostConstructor } from '../core/instance/init';
 import { initProjectGlobal } from './global-server';
 import { optimizeHtml } from '../compiler/html/optimize-html';

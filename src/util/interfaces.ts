@@ -275,6 +275,7 @@ export interface PropChangeMeta {
 
 
 export interface Manifest {
+  manifestName?: string;
   modulesFiles?: ModuleFile[];
   bundles?: Bundle[];
   global?: ModuleFile;

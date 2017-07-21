@@ -29,7 +29,7 @@ function loadDependentManifest(config: BuildConfig, ctx: BuildContext, dependent
     const dependentManifestDir = normalizePath(config.sys.path.dirname(dependentManifestFilePath));
 
     // parse the json string into our Manifest data
-    const dependentManifest = parseDependentManifest(config, dependentManifestDir, dependentManifestJson);
+    const dependentManifest = parseDependentManifest(config, dependentCollection.name, dependentManifestDir, dependentManifestJson);
 
     // go through and filter out components if need be
     filterDependentComponents(config.bundles, dependentCollection, dependentManifest);

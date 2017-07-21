@@ -1,11 +1,11 @@
-import { BuildConfig, BuildContext, Diagnostic, Manifest } from '../interfaces';
+import { BuildConfig, BuildContext, Manifest, LoadComponentRegistry, ProjectRegistry } from '../../util/interfaces';
 import { CORE_NAME, LOADER_NAME, PROJECT_NAMESPACE_REGEX } from '../../util/constants';
 import { createOnWarnFn, transpiledInMemoryPlugin } from '../bundle/bundle-modules';
+import { formatComponentRegistry } from '../../util/data-serialize';
 import { generatePreamble, normalizePath } from '../util';
-import { LoadComponentRegistry, ProjectRegistry } from '../../util/interfaces';
 
 
-export function generateProjectFiles(config: BuildConfig, ctx: BuildContext, componentRegistry: LoadComponentRegistry[], manifest: Manifest, diagnostics: Diagnostic[]) {
+export function generateProjectFiles(config: BuildConfig, ctx: BuildContext) {
   const sys = config.sys;
 
   config.logger.debug(`build, generateProjectFiles: ${config.namespace}`);
@@ -14,7 +14,7 @@ export function generateProjectFiles(config: BuildConfig, ctx: BuildContext, com
 
   const projectRegistry: ProjectRegistry = {
     namespace: config.namespace,
-    components: componentRegistry,
+    components: formatComponentRegistry(ctx.registry, config.attrCase),
     loader: `${projectFileName}.js`,
   };
 
@@ -23,12 +23,12 @@ export function generateProjectFiles(config: BuildConfig, ctx: BuildContext, com
 
   // bundle the project's entry file (if one was provided)
   return Promise.resolve().then(() => {
-    return loadDependentCollectionGlobals(config, manifest);
+    return loadDependentGlobalJsContents(config, ctx.manifest);
 
-  }).then(dependentGlobals => {
-    return generateProjectGlobal(config, ctx, manifest, diagnostics).then(projectGlobal => {
-      dependentGlobals.push(projectGlobal);
-      return dependentGlobals;
+  }).then(dependentGlobalJsContents => {
+    return generateProjectGlobal(config, ctx).then(projectGlobal => {
+      dependentGlobalJsContents.push(projectGlobal);
+      return dependentGlobalJsContents;
     });
 
   }).then(globalJsContent => {
@@ -80,7 +80,7 @@ export function generateProjectFiles(config: BuildConfig, ctx: BuildContext, com
 
   }).then(() => {
     // create the loader after creating the loader file name
-    return generateLoader(config, projectCoreFileName, projectCoreEs5FileName, componentRegistry).then(loaderContent => {
+    return generateLoader(config, projectCoreFileName, projectCoreEs5FileName, projectRegistry.components).then(loaderContent => {
       // write the project loader file
       const projectLoaderFileName = `${projectRegistry.loader}`;
       const projectLoaderFilePath = sys.path.join(config.buildDir, projectLoaderFileName);
@@ -227,16 +227,20 @@ function generateCoreEs5(config: BuildConfig, globalJsContent: string[]) {
 }
 
 
-function loadDependentCollectionGlobals(config: BuildConfig, manifest: Manifest): Promise<string[]> {
-  if (manifest.collectionGlobals) {
+function loadDependentGlobalJsContents(config: BuildConfig, manifest: Manifest): Promise<string[]> {
+  if (manifest.dependentManifests) {
     return Promise.resolve([]);
   }
 
-  return Promise.all(manifest.collectionGlobals.map(dependentGlobal => {
+  return Promise.all(manifest.dependentManifests.map(dependentManifest => {
+    if (!dependentManifest.global) {
+      return Promise.resolve('');
+    }
 
     return new Promise((resolve, reject) => {
+      const dependentGlobalFilePath = dependentManifest.global.jsFilePath;
 
-      config.sys.fs.readFile(dependentGlobal.jsFilePath, 'utf-8', (err, dependentGlobalJs) => {
+      config.sys.fs.readFile(dependentGlobalFilePath, 'utf-8', (err, dependentGlobalJs) => {
         if (err) {
           reject(err);
 
@@ -244,14 +248,12 @@ function loadDependentCollectionGlobals(config: BuildConfig, manifest: Manifest)
           resolve(dependentGlobalJs);
         }
       });
-
     });
-
   }));
 }
 
 
-function generateProjectGlobal(config: BuildConfig, ctx: BuildContext, manifest: Manifest, diagnostics: Diagnostic[]) {
+function generateProjectGlobal(config: BuildConfig, ctx: BuildContext) {
   // stencil by itself does not have an entry file
   // however, projects like Ionic can provide an entry file
   // which will bundle whatever is in the entry, and then
@@ -279,7 +281,7 @@ function generateProjectGlobal(config: BuildConfig, ctx: BuildContext, manifest:
       }),
       transpiledInMemoryPlugin(config, ctx)
     ],
-    onwarn: createOnWarnFn(diagnostics)
+    onwarn: createOnWarnFn(ctx.diagnostics)
 
   }).catch(err => {
     throw err;
@@ -299,7 +301,7 @@ function generateProjectGlobal(config: BuildConfig, ctx: BuildContext, manifest:
       // minify js
       const minifyJsResults = config.sys.minifyJs(output);
       minifyJsResults.diagnostics.forEach(d => {
-        diagnostics.push(d);
+        ctx.diagnostics.push(d);
       });
 
       if (minifyJsResults.output) {
@@ -307,7 +309,7 @@ function generateProjectGlobal(config: BuildConfig, ctx: BuildContext, manifest:
       }
     }
 
-    manifest.projectGlobal = ctx.moduleFiles[config.global];
+    ctx.manifest.global = ctx.moduleFiles[config.global];
 
     return output;
   });

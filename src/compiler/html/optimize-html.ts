@@ -1,5 +1,4 @@
-import { BuildConfig, FilesMap, HydrateOptions, HydrateResults } from '../../util/interfaces';
-import { BuildContext } from '../interfaces';
+import { BuildConfig, BuildContext, FilesMap, HydrateOptions, HydrateResults } from '../../util/interfaces';
 import { HtmlUsedSelectors } from './html-used-selectors';
 import { inlineLoaderScript } from './inline-loader-script';
 import { reduceHtmlWhitepace } from './reduce-html-whitespace';

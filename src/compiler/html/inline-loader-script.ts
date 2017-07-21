@@ -1,5 +1,4 @@
-import { BuildConfig } from '../../util/interfaces';
-import { BuildContext } from '../interfaces';
+import { BuildConfig, BuildContext } from '../../util/interfaces';
 
 
 export function inlineLoaderScript(config: BuildConfig, ctx: BuildContext, doc: Document) {

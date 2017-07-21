@@ -1,9 +1,9 @@
-import { AssetsMeta, BuildConfig, ComponentOptions, ComponentMeta, Diagnostic, Manifest, ModuleFileMeta } from '../interfaces';
+import { AssetsMeta, BuildConfig, BuildContext, ComponentOptions, ComponentMeta, ModuleFile } from '../../util/interfaces';
 import { catchError, normalizePath } from '../util';
 import { getProjectBuildDir } from '../build/build-project-files';
 
 
-export function normalizeAssetsDir(config: BuildConfig, userOpts: ComponentOptions, moduleFile: ModuleFileMeta, cmpMeta: ComponentMeta)  {
+export function normalizeAssetsDir(config: BuildConfig, userOpts: ComponentOptions, moduleFile: ModuleFile, cmpMeta: ComponentMeta)  {
   if (userOpts.assetsDir) {
     normalizeAssetDir(config, moduleFile, cmpMeta, userOpts.assetsDir);
   }
@@ -16,7 +16,7 @@ export function normalizeAssetsDir(config: BuildConfig, userOpts: ComponentOptio
 }
 
 
-function normalizeAssetDir(config: BuildConfig, moduleFile: ModuleFileMeta, cmpMeta: ComponentMeta, assetsDir: string) {
+function normalizeAssetDir(config: BuildConfig, moduleFile: ModuleFile, cmpMeta: ComponentMeta, assetsDir: string) {
   if (typeof assetsDir !== 'string' || assetsDir.trim() === '') return;
 
   const assetsMeta: AssetsMeta = {};
@@ -47,15 +47,15 @@ function normalizeAssetDir(config: BuildConfig, moduleFile: ModuleFileMeta, cmpM
 }
 
 
-export function copyAssets(config: BuildConfig, userManifest: Manifest, diagnostics: Diagnostic[]) {
+export function copyAssets(config: BuildConfig, ctx: BuildContext) {
   const timeSpan = config.logger.createTimeSpan(`copy assets started`, true);
 
   // get a list of all the directories to copy
   // these paths should be absolute
-  const assetDirsToCopy = userManifest.components
-    .filter(c => c.assetsDirsMeta && c.assetsDirsMeta.length)
-    .reduce((dirList, component) => {
-      const qualifiedPathDirs = component.assetsDirsMeta.map(assetDirAbsolutePath => {
+  const assetDirsToCopy = ctx.manifest.modulesFiles
+    .filter(modulesFile => modulesFile.cmpMeta.assetsDirsMeta && modulesFile.cmpMeta.assetsDirsMeta.length)
+    .reduce((dirList, modulesFile) => {
+      const qualifiedPathDirs = modulesFile.cmpMeta.assetsDirsMeta.map(assetDirAbsolutePath => {
         return assetDirAbsolutePath;
       });
     return dirList.concat(qualifiedPathDirs);
@@ -109,7 +109,7 @@ export function copyAssets(config: BuildConfig, userManifest: Manifest, diagnost
   }
 
   return Promise.all(dirCopyPromises).catch(err => {
-    catchError(diagnostics, err);
+    catchError(ctx.diagnostics, err);
 
   }).then(function() {
     timeSpan.finish('copy assets finished');

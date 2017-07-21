@@ -1,5 +1,4 @@
-import { BuildConfig, ComponentRegistry, HydrateOptions, HydrateResults } from '../../util/interfaces';
-import { BuildContext } from '../../compiler/interfaces';
+import { BuildConfig, BuildContext, ComponentRegistry, HydrateOptions, HydrateResults } from '../../util/interfaces';
 import { hydrateHtml } from '../hydrate-html';
 import { mockBuildConfig, compareHtml } from '../../test';
 import { h } from '../../core/renderer/h';

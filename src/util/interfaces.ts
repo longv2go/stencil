@@ -275,15 +275,14 @@ export interface PropChangeMeta {
 
 
 export interface Manifest {
-  components?: ComponentMeta[];
-  componentModulesFiles?: ModuleFileMeta[];
+  modulesFiles?: ModuleFile[];
   bundles?: Bundle[];
-  projectGlobal?: ModuleFileMeta;
-  collectionGlobals?: ModuleFileMeta[];
+  global?: ModuleFile;
+  dependentManifests?: Manifest[];
 }
 
 
-export interface ModuleFileMeta {
+export interface ModuleFile {
   tsFilePath?: string;
   tsText?: string;
   jsFilePath?: string;
@@ -325,7 +324,7 @@ export interface BuildConfig {
   publicPath?: string;
   generateCollection?: boolean;
   bundles?: Bundle[];
-  collections?: Collection[];
+  collections?: DependentCollection[];
   devMode?: boolean;
   watch?: boolean;
   hashFileNames?: boolean;
@@ -340,7 +339,95 @@ export interface BuildConfig {
 }
 
 
-export interface Collection {
+export interface BuildResults {
+  files: string[];
+  diagnostics: Diagnostic[];
+  manifest: ManifestData;
+  changedFiles: string[];
+}
+
+
+export interface BuildContext {
+  moduleFiles?: ModuleFiles;
+  jsFiles?: FilesMap;
+  cssFiles?: FilesMap;
+  moduleBundleOutputs?: ModuleBundles;
+  styleSassOutputs?: ModuleBundles;
+  filesToWrite?: FilesMap;
+  dependentManifests?: {[collectionName: string]: Manifest};
+  projectFiles?: {
+    loader?: string;
+    core?: string;
+    coreEs5?: string;
+    registryJson?: string;
+    indexHtml?: string;
+  };
+  watcher?: FSWatcher;
+  tsConfig?: any;
+
+  isRebuild?: boolean;
+  isChangeBuild?: boolean;
+  lastBuildHadError?: boolean;
+  changeHasNonComponentModules?: boolean;
+  changeHasComponentModules?: boolean;
+  changeHasSass?: boolean;
+  changeHasCss?: boolean;
+  changeHasHtml?: boolean;
+  changedFiles?: string[];
+
+  sassBuildCount?: number;
+  transpileBuildCount?: number;
+  indexBuildCount?: number;
+  projectFileBuildCount?: number;
+
+  moduleBundleCount?: number;
+  styleBundleCount?: number;
+
+  diagnostics?: Diagnostic[];
+  registry?: ComponentRegistry;
+  manifest?: Manifest;
+  onFinish?: (buildResults: BuildResults) => void;
+}
+
+
+export interface ModuleFiles {
+  [filePath: string]: ModuleFile;
+}
+
+
+export interface ModuleBundles {
+  [bundleId: string]: string;
+}
+
+
+export interface CompileResults {
+  moduleFiles: ModuleFiles;
+  includedSassFiles?: string[];
+}
+
+
+export interface TranspileResults {
+  moduleFiles: ModuleFiles;
+}
+
+
+export interface ModuleResults {
+  bundles: {
+    [bundleId: string]: string;
+  };
+}
+
+
+export interface StylesResults {
+  bundles: {
+    [bundleId: string]: {
+      [modeName: string]: string;
+    };
+  };
+}
+
+
+export interface DependentCollection {
   name: string;
   includeBundledOnly?: boolean;
 }
@@ -479,7 +566,6 @@ export interface ComponentMeta {
   loadPriority?: number;
   componentModuleMeta?: any;
   componentClass?: string;
-  componentPath?: string;
 }
 
 
@@ -570,7 +656,8 @@ export interface ComponentModule {
 
 
 export interface ComponentRegistry {
-  [tag: string]: ComponentMeta;
+  // registry tag must always be UPPER-CASE
+  [registryTag: string]: ComponentMeta;
 }
 
 
@@ -1044,3 +1131,70 @@ declare global {
   }
 }
 
+
+
+// this maps the json data to our internal data structure
+// so that the internal data structure "could" change,
+// but the external user data will always use the same api
+// consider these property values to be locked in as is
+// there should be a VERY good reason to have to rename them
+// DO NOT UPDATE PROPERTY KEYS COMING FROM THE EXTERNAL DATA!!
+// DO NOT UPDATE PROPERTY KEYS COMING FROM THE EXTERNAL DATA!!
+// DO NOT UPDATE PROPERTY KEYS COMING FROM THE EXTERNAL DATA!!
+
+export interface ManifestData {
+  bundles?: BundleData[];
+  components?: ComponentData[];
+  global?: string;
+}
+
+export interface BundleData {
+  components?: string[];
+  priority?: 'low';
+}
+
+export interface ComponentData {
+  tag?: string;
+  componentPath?: string;
+  componentClass?: string;
+  styles?: StylesData;
+  props?: PropData[];
+  propsWillChange?: PropChangeData[];
+  propsDidChange?: PropChangeData[];
+  states?: string[];
+  listeners?: ListenerData[];
+  methods?: string[];
+  host?: any;
+  assetPaths?: string[];
+  slot?: 'hasSlots'|'hasNamedSlots';
+  shadow?: boolean;
+  priority?: 'low';
+}
+
+export interface StylesData {
+  [modeName: string]: StyleData;
+}
+
+export interface StyleData {
+  stylePaths?: string[];
+  style?: string;
+}
+
+export interface PropData {
+  name?: string;
+  type?: 'boolean'|'number';
+  stateful?: boolean;
+}
+
+export interface PropChangeData {
+  name: string;
+  method: string;
+}
+
+export interface ListenerData {
+  event: string;
+  method: string;
+  capture?: boolean;
+  passive?: boolean;
+  enabled?: boolean;
+}

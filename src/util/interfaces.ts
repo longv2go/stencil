@@ -1,35 +1,17 @@
 import * as jsxInterface from './jsx-interfaces';
-import { CssClassObject } from './jsx-interfaces';
-export { CssClassObject } from './jsx-interfaces';
+import { CssClassMap } from './jsx-interfaces';
+export { CssClassMap } from './jsx-interfaces';
 
 
-export interface Ionic {
-  listener: {
-    enable: EventListenerEnable;
-    add: AddEventListenerApi;
-  };
-  controller?: any;
-  dom: DomControllerApi;
-  isServer: boolean;
-  isClient: boolean;
-}
-
-
-export interface IonicControllerApi {
-  load?: (opts?: any) => Promise<any>;
+export interface CoreGlobal {
+  eventNameFn?: (eventName: string) => string;
+  mode?: string;
 }
 
 
 export interface ProjectGlobal {
-  mode?: string;
   components?: LoadComponentRegistry[];
   defineComponents?: (moduleId: string, modulesImporterFn: ModulesImporterFn, cmp0?: LoadComponentMeta, cmp1?: LoadComponentMeta, cmp2?: LoadComponentMeta) => void;
-  eventNameFn?: (eventName: string) => string;
-  loadController?: (ctrlName: string, ctrl: any) => any;
-  controllers?: {[ctrlName: string]: any};
-  DomCtrl?: DomControllerApi;
-  QueueCtrl?: QueueApi;
-  Animation?: any;
 }
 
 
@@ -45,70 +27,6 @@ export interface EventListenerEnable {
 
 export interface EventListenerCallback {
   (ev?: any): void;
-}
-
-
-export interface GestureDetail {
-  type?: string;
-  event?: UIEvent;
-  startX?: number;
-  startY?: number;
-  startTimeStamp?: number;
-  currentX?: number;
-  currentY?: number;
-  velocityX?: number;
-  velocityY?: number;
-  deltaX?: number;
-  deltaY?: number;
-  directionX?: 'left'|'right';
-  directionY?: 'up'|'down';
-  velocityDirectionX?: 'left'|'right';
-  velocityDirectionY?: 'up'|'down';
-  timeStamp?: number;
-}
-
-
-export interface GestureCallback {
-  (detail?: GestureDetail): boolean|void;
-}
-
-
-export interface ScrollDetail extends GestureDetail {
-  scrollTop?: number;
-  scrollLeft?: number;
-  scrollHeight?: number;
-  scrollWidth?: number;
-  contentHeight?: number;
-  contentWidth?: number;
-  contentTop?: number;
-  contentBottom?: number;
-  domWrite?: DomControllerCallback;
-  contentElement?: HTMLElement;
-  fixedElement?: HTMLElement;
-  scrollElement?: HTMLElement;
-  headerElement?: HTMLElement;
-  footerElement?: HTMLElement;
-}
-
-
-export interface ScrollCallback {
-  (detail?: ScrollDetail): boolean|void;
-}
-
-
-export interface ContentDimensions {
-  contentHeight: number;
-  contentTop: number;
-  contentBottom: number;
-
-  contentWidth: number;
-  contentLeft: number;
-
-  scrollHeight: number;
-  scrollTop: number;
-
-  scrollWidth: number;
-  scrollLeft: number;
 }
 
 
@@ -452,7 +370,7 @@ export interface LoggerTimeSpan {
 
 
 export interface ModulesImporterFn {
-  (importer: any, h: Function, t: Function, publicPath: string, Ionic: Ionic): void;
+  (importer: any, h: Function, t: Function, publicPath: string): void;
 }
 
 
@@ -566,7 +484,7 @@ export interface ComponentMeta {
   assetsDirsMeta?: AssetsMeta[];
   slotMeta?: number;
   loadPriority?: number;
-  componentModuleMeta?: any;
+  componentModule?: any;
   componentClass?: string;
 }
 
@@ -595,7 +513,7 @@ export interface HostMeta {
 }
 
 
-export interface Component {
+export interface ComponentInstance {
   componentWillLoad?: () => void;
   componentDidLoad?: () => void;
   componentWillUpdate?: () => void;
@@ -610,7 +528,8 @@ export interface Component {
 
   // public properties
   $el?: HostElement;
-  $emit?: EmitEvent;
+  $emit?: (eventName: string, data: any) => void;
+  $enableListener?: (eventName: string, shouldEnable: boolean, attachTo?: string) => void;
 
   // private properties
   __values?: ComponentInternalValues;
@@ -636,7 +555,7 @@ export interface ComponentInternalValues {
 }
 
 
-export interface BaseInputComponent extends Component {
+export interface BaseInputComponent extends ComponentInstance {
   disabled: boolean;
   hasFocus: boolean;
   value: string;
@@ -653,7 +572,7 @@ export interface BooleanInputComponent extends BaseInputComponent {
 
 
 export interface ComponentModule {
-  new (): Component;
+  new (): ComponentInstance;
 }
 
 
@@ -670,7 +589,7 @@ export interface HostElement extends HTMLElement {
   disconnectedCallback?: () => void;
 
   // public properties
-  $instance?: Component;
+  $instance?: ComponentInstance;
   mode?: string;
   color?: string;
 
@@ -740,7 +659,7 @@ export interface VNode {
   vchildren: VNode[];
   vprops: any;
   vattrs: any;
-  vclass: CssClassObject;
+  vclass: CssClassMap;
   vstyle: any;
   vlisteners: any;
   vkey: Key;
@@ -754,7 +673,7 @@ export interface VNode {
 export interface VNodeData {
   props?: any;
   attrs?: any;
-  class?: CssClassObject;
+  class?: CssClassMap;
   style?: any;
   on?: any;
   key?: Key;
@@ -776,7 +695,7 @@ export interface VNodeProdData {
   /**
    * css classes
    */
-  c?: CssClassObject;
+  c?: CssClassMap;
   /**
    * styles
    */
@@ -808,16 +727,10 @@ export interface PlatformApi {
   render?: RendererApi;
   connectHostElement: (elm: HostElement, slotMeta: number) => void;
   queue: QueueApi;
-  isServer?: boolean;
   onAppLoad?: (rootElm: HostElement, stylesMap: FilesMap) => void;
   getEventOptions: (opts?: ListenOptions) => any;
-  emitEvent: EmitEvent;
+  emitEvent: (instance: ComponentInstance, eventName: string, data: any) => void;
   tmpDisconnected?: boolean;
-}
-
-
-export interface EmitEvent {
-  (elm: Element, eventName: string, data: any): void;
 }
 
 
@@ -1004,6 +917,12 @@ export interface Hyperscript {
 
 
 declare global {
+
+  const coreGlobal: CoreGlobal;
+
+  const projectNamespace: string;
+
+  const publicPath: string;
 
   const h: Hyperscript;
 

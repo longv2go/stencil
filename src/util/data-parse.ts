@@ -45,13 +45,13 @@ export function parseComponentRegistry(cmpRegistryData: LoadComponentRegistry, r
 }
 
 
-export function parseComponentMeta(registry: ComponentRegistry, moduleImports: any, cmpMetaData: LoadComponentMeta): ComponentMeta {
+export function parseComponentMeta(registry: ComponentRegistry, moduleImports: any, cmpMetaData: LoadComponentMeta) {
   // tag name will always be upper case
   const cmpMeta = registry[cmpMetaData[0]];
 
   // get the component class which was added to moduleImports
   // using the tag as the key on the export object
-  cmpMeta.componentModuleMeta = moduleImports[cmpMetaData[0]];
+  cmpMeta.componentModule = moduleImports[cmpMetaData[0]];
 
   // host
   cmpMeta.hostMeta = cmpMetaData[1];

@@ -1,16 +1,15 @@
 import { assignHostContentSlots, createVNodesFromSsr } from '../core/renderer/slot';
-import { ComponentMeta, ComponentRegistry, DomControllerApi,
+import { ComponentMeta, ComponentInstance, ComponentRegistry, CoreGlobal,
   DomApi, HostElement, ProjectGlobal, ListenOptions, LoadComponentRegistry,
   ModuleCallbacks, QueueApi, PlatformApi } from '../util/interfaces';
 import { createRenderer } from '../core/renderer/patch';
 import { h, t } from '../core/renderer/h';
-import { initHostConstructor } from '../core/instance/init';
-import { initGlobal } from './global-client';
+import { initComponentPrototype, initHostConstructor } from '../core/instance/init';
 import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
 import { SSR_VNODE_ID } from '../util/constants';
 
 
-export function createPlatformClient(Gbl: ProjectGlobal, win: Window, domApi: DomApi, domCtrl: DomControllerApi, queue: QueueApi, publicPath: string): PlatformApi {
+export function createPlatformClient(coreGlobal: CoreGlobal, projectGlobal: ProjectGlobal, win: Window, domApi: DomApi, queue: QueueApi, publicPath: string): PlatformApi {
   const registry: ComponentRegistry = { 'HTML': {} };
   const moduleImports: {[tag: string]: any} = {};
   const moduleCallbacks: ModuleCallbacks = {};
@@ -31,14 +30,8 @@ export function createPlatformClient(Gbl: ProjectGlobal, win: Window, domApi: Do
     getEventOptions
   };
 
-
   // create the renderer that will be used
   plt.render = createRenderer(plt, domApi);
-
-
-  // create the global which will be injected into the user's instances
-  const injectedGlobal = initGlobal(Gbl, domApi, plt, domCtrl);
-
 
   // setup the root element which is the mighty <html> tag
   // the <html> has the final say of when the app has loaded
@@ -66,8 +59,8 @@ export function createPlatformClient(Gbl: ProjectGlobal, win: Window, domApi: Do
     if (!elm.mode) {
       // looks like mode wasn't set as a property directly yet
       // first check if there's an attribute
-      // next check the project's global, such as Ionic.mode
-      elm.mode = domApi.$getAttribute(elm, 'mode') || Gbl.mode;
+      // next check the project's global
+      elm.mode = domApi.$getAttribute(elm, 'mode') || coreGlobal.mode;
     }
 
     // host element has been connected to the DOM
@@ -98,15 +91,17 @@ export function createPlatformClient(Gbl: ProjectGlobal, win: Window, domApi: Do
   }
 
 
-  Gbl.defineComponents = function defineComponents(moduleId, importFn) {
+  projectGlobal.defineComponents = function defineComponents(moduleId, importFn) {
     const args = arguments;
 
     // import component function
     // inject globals
-    importFn(moduleImports, h, t, publicPath, injectedGlobal);
+    importFn(moduleImports, h, t, publicPath);
 
     for (var i = 2; i < args.length; i++) {
-      parseComponentMeta(registry, moduleImports, args[i]);
+      // parse the external component data into internal component meta data
+      // then add our set of prototype methods to the component module
+      initComponentPrototype(plt, parseComponentMeta(registry, moduleImports, args[i]));
     }
 
     // fire off all the callbacks waiting on this module to load
@@ -206,13 +201,13 @@ export function createPlatformClient(Gbl: ProjectGlobal, win: Window, domApi: Do
     WindowCustomEvent.prototype = (win as any).Event.prototype;
   }
 
-  function emitEvent(elm: Element, eventName: string, data: any) {
+  function emitEvent(instance: ComponentInstance, eventName: string, data: any) {
     data = data || {};
     data.bubbles = data.composed = true;
-    if (Gbl.eventNameFn) {
-      eventName = Gbl.eventNameFn(eventName);
+    if (coreGlobal.eventNameFn) {
+      eventName = coreGlobal.eventNameFn(eventName);
     }
-    elm.dispatchEvent(new WindowCustomEvent(eventName, data));
+    instance.$el.dispatchEvent(new WindowCustomEvent(eventName, data));
   }
 
   // test if this browser supports event options or not

@@ -1,23 +1,23 @@
 import { assignHostContentSlots } from '../core/renderer/slot';
 import { BuildContext, ComponentMeta, ComponentRegistry,
-  DomApi, DomControllerApi, FilesMap, HostElement, ListenOptions, Logger,
+  CoreGlobal, FilesMap, HostElement, ListenOptions, Logger,
   ModuleCallbacks, PlatformApi, ProjectGlobal, StencilSystem } from '../util/interfaces';
+import { createDomApi } from '../core/renderer/dom-api';
+// import { createDomControllerServer } from './dom-controller-server';
+import { createQueueServer } from './queue-server';
 import { createRenderer } from '../core/renderer/patch';
 import { getCssFile, getJsFile, normalizePath } from '../compiler/util';
 import { h, t } from '../core/renderer/h';
-import { initGlobal } from './global-server';
 import { noop } from '../util/helpers';
 import { parseComponentMeta } from '../util/data-parse';
 
 
 export function createPlatformServer(
+  coreGlobal: CoreGlobal,
   sys: StencilSystem,
   logger: Logger,
   projectNamespace: string,
-  Gbl: ProjectGlobal,
   win: any,
-  domApi: DomApi,
-  dom: DomControllerApi,
   projectBuildDir: string,
   ctx?: BuildContext
 ): PlatformApi {
@@ -29,15 +29,23 @@ export function createPlatformServer(
   const pendingStyleFileReads: {[url: string]: boolean} = {};
   const stylesMap: FilesMap = {};
 
+  const queue = createQueueServer();
+
+  // create the DOM api which we'll use during hydrate
+  const domApi = createDomApi(win.document);
+
+  // const domCtrl = createDomControllerServer();
+
+  // update the project global
+  const Gbl: ProjectGlobal = {};
 
   const plt: PlatformApi = {
     defineComponent,
     getComponentMeta,
     loadBundle,
     connectHostElement,
-    queue: Gbl.QueueCtrl,
+    queue: queue,
     tmpDisconnected: false,
-    isServer: true,
     emitEvent: noop,
     getEventOptions
   };
@@ -45,15 +53,12 @@ export function createPlatformServer(
   // create the renderer which will be used to patch the vdom
   plt.render = createRenderer(plt, domApi);
 
-  const injectedGlobal = initGlobal(dom);
-
   // add the project's global to the window context
   win[projectNamespace] = Gbl;
 
   // create the sandboxed context with a new instance of a V8 Context
   // V8 Context provides an isolated global environment
   sys.vm.createContext(win);
-
 
   // setup the root node of all things
   // which is the mighty <html> tag
@@ -73,8 +78,8 @@ export function createPlatformServer(
     if (!elm.mode) {
       // looks like mode wasn't set as a property directly yet
       // first check if there's an attribute
-      // next check the project's global, such as Ionic.mode
-      elm.mode = domApi.$getAttribute(elm, 'mode') || Gbl.mode;
+      // next check the project's global
+      elm.mode = domApi.$getAttribute(elm, 'mode') || coreGlobal.mode;
     }
 
     assignHostContentSlots(domApi, elm, slotMeta);
@@ -91,9 +96,9 @@ export function createPlatformServer(
     const registryTag = cmpMeta.tagNameMeta.toUpperCase();
     registry[registryTag] = cmpMeta;
 
-    if (cmpMeta.componentModuleMeta) {
+    if (cmpMeta.componentModule) {
       // for unit testing
-      moduleImports[registryTag] = cmpMeta.componentModuleMeta;
+      moduleImports[registryTag] = cmpMeta.componentModule;
     }
   }
 
@@ -103,7 +108,7 @@ export function createPlatformServer(
 
     // import component function
     // inject globals
-    importFn(moduleImports, h, t, projectBuildDir, injectedGlobal);
+    importFn(moduleImports, h, t, projectBuildDir);
 
     for (var i = 2; i < args.length; i++) {
       parseComponentMeta(registry, moduleImports, args[i]);
@@ -124,7 +129,7 @@ export function createPlatformServer(
 
 
   function loadBundle(cmpMeta: ComponentMeta, elm: HostElement, cb: Function): void {
-    if (cmpMeta.componentModuleMeta) {
+    if (cmpMeta.componentModule) {
       // we already have the module loaded
       // (this is probably a unit test)
       cb();

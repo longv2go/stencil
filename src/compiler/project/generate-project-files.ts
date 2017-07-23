@@ -25,7 +25,7 @@ export function generateProjectFiles(config: BuildConfig, ctx: BuildContext) {
   let projectCoreEs5FileName: string;
 
   // bundle the project's entry file (if one was provided)
-  return generateProjectGlobal(config, ctx, publicPath).then(globalJsContent => {
+  return generateProjectGlobal(config, ctx).then(globalJsContent => {
     return Promise.all([
       generateCore(config, globalJsContent, publicPath),
       generateCoreEs5(config, globalJsContent, publicPath)

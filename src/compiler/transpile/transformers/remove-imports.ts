@@ -2,10 +2,9 @@ import * as ts from 'typescript';
 
 
 // same as the "declare" variables in the root index.ts file
-const IONIC_GLOBALS = [
+const REMOVE_GLOBALS = [
   'Component',
   'h',
-  'Ionic',
   'Listen',
   'Method',
   'Prop',
@@ -30,7 +29,7 @@ export function removeImports(): ts.TransformerFactory<ts.SourceFile> {
         if (nb.kind === ts.SyntaxKind.ImportSpecifier) {
           const importSpecifier = nb as ts.ImportSpecifier;
 
-          if (IONIC_GLOBALS.indexOf(importSpecifier.name.text) === -1) {
+          if (REMOVE_GLOBALS.indexOf(importSpecifier.name.text) === -1) {
             importSpecifiers.push(importSpecifier);
           }
         }

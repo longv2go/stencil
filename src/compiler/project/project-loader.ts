@@ -51,21 +51,23 @@ export function injectProjectIntoLoader(
 ) {
   let componentRegistryStr = JSON.stringify(componentRegistry);
 
-  if (config.minifyJs) {
-    const minifyResult = config.sys.minifyJs(componentRegistryStr);
-    minifyResult.diagnostics.forEach(d => {
-      config.logger[d.level](d.messageText);
-    });
-    if (minifyResult.output) {
-      componentRegistryStr = minifyResult.output;
-    }
-  }
-
   const projectCoreUrl = publicPath + '/' + projectCoreFileName;
   const projectCoreEs5Url = publicPath + '/' + projectCoreEs5FileName;
 
-  return stencilLoaderContent.replace(
+  stencilLoaderContent = stencilLoaderContent.replace(
     PROJECT_NAMESPACE_REGEX,
     `"${config.namespace}","${projectCoreUrl}","${projectCoreEs5Url}",${componentRegistryStr}`
   );
+
+  if (config.minifyJs) {
+    const minifyJsResults = config.sys.minifyJs(stencilLoaderContent);
+    minifyJsResults.diagnostics.forEach(d => {
+      config.logger[d.level](d.messageText);
+    });
+    if (!minifyJsResults.diagnostics.length) {
+      stencilLoaderContent = minifyJsResults.output;
+    }
+  }
+
+  return stencilLoaderContent;
 }

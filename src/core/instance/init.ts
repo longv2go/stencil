@@ -1,8 +1,9 @@
 import { attachListeners } from './events';
 import { attributeChangedCallback } from './attribute-changed';
-import { Component, HostElement, PlatformApi } from '../../util/interfaces';
+import { ComponentInstance, ComponentMeta, HostElement, PlatformApi } from '../../util/interfaces';
 import { connectedCallback } from './connected';
 import { disconnectedCallback } from './disconnected';
+import { enableListener } from './events';
 import { HYDRATED_CSS } from '../../util/constants';
 import { initProxy } from './proxy';
 import { queueUpdate } from './update';
@@ -10,49 +11,54 @@ import { render } from './render';
 
 
 export function initHostConstructor(plt: PlatformApi, HostElementConstructor: HostElement) {
-  Object.defineProperties(HostElementConstructor, {
-    'connectedCallback': {
-      value: function() {
-        connectedCallback(plt, (<HostElement>this));
-      }
-    },
-    'attributeChangedCallback': {
-      value: function(attribName: string, oldVal: string, newVal: string) {
-        attributeChangedCallback(plt, (<HostElement>this), attribName, oldVal, newVal);
-      }
-    },
-    'disconnectedCallback': {
-      value: function() {
-        disconnectedCallback(plt, (<HostElement>this));
-      }
-    },
-    _queueUpdate: {
-      value: function() {
-        queueUpdate(plt, (<HostElement>this));
-      }
-    },
-    _initLoad: {
-      value: function() {
-        initLoad(plt, (<HostElement>this));
-      }
-    },
-    _render: {
-      value: function(isInitialRender: boolean) {
-        render(plt, (<HostElement>this), isInitialRender);
-      }
-    }
-  });
+
+  HostElementConstructor.connectedCallback = function() {
+    connectedCallback(plt, (this as HostElement));
+  };
+
+  HostElementConstructor.attributeChangedCallback = function(attribName: string, oldVal: string, newVal: string) {
+    attributeChangedCallback(plt, (this as HostElement), attribName, oldVal, newVal);
+  };
+
+  HostElementConstructor.disconnectedCallback = function() {
+    disconnectedCallback(plt, (this as HostElement));
+  };
+
+  HostElementConstructor._queueUpdate = function() {
+    queueUpdate(plt, (this as HostElement));
+  };
+
+  HostElementConstructor._initLoad = function() {
+    initLoad(plt, (this as HostElement));
+  };
+
+  HostElementConstructor._render = function(isInitialRender: boolean) {
+    render(plt, (this as HostElement), isInitialRender);
+  };
 }
 
 
-export function initInstance(plt: PlatformApi, elm: HostElement) {
+export function initComponentPrototype(plt: PlatformApi, cmpMeta: ComponentMeta) {
+  // always add these methods to each component module's prototype
+  const c: ComponentInstance = cmpMeta.componentModule.prototype;
+
+  c.$emit = function $emit(eventName: string, data: any) {
+    plt.emitEvent(this, eventName, data);
+  };
+
+  c.$enableListener = function $enableListener(eventName: string, shouldEnable: boolean, attachTo?: string) {
+    enableListener(plt, cmpMeta, this, eventName, shouldEnable, attachTo);
+  };
+}
+
+
+export function initComponentInstance(plt: PlatformApi, elm: HostElement) {
   // using the component's class, let's create a new instance
   const cmpMeta = plt.getComponentMeta(elm);
-  const instance: Component = elm.$instance = new cmpMeta.componentModuleMeta();
+  const instance: ComponentInstance = elm.$instance = new cmpMeta.componentModule();
 
   // let's automatically add a reference to the host element on the instance
   instance.$el = elm;
-  instance.$emit = plt.emitEvent.bind(plt, elm);
 
   // so we've got an host element now, and a actual instance
   // let's wire them up together with getter/settings

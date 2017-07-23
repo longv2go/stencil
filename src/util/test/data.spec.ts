@@ -154,7 +154,7 @@ describe('data serialize/parse', () => {
       const format = formatComponentMeta(cmpMeta);
       parseComponentMeta(registry, moduleImports, evalStr(format));
 
-      expect(cmpMeta.componentModuleMeta).toEqual(moduleImports.TAG);
+      expect(cmpMeta.componentModule).toEqual(moduleImports.TAG);
     });
 
   });

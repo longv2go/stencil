@@ -1,4 +1,4 @@
-import { BuildConfig, BuildContext, BuildResults, LoggerTimeSpan } from '../../util/interfaces';
+import { BuildConfig, BuildResults, LoggerTimeSpan } from '../../util/interfaces';
 import { bundle } from '../bundle/bundle';
 import { catchError, getBuildContext, resetBuildContext } from '../util';
 import { cleanDiagnostics } from '../../util/logger/logger-util';
@@ -12,14 +12,14 @@ import { validateBuildConfig } from './validation';
 import { writeBuildFiles } from './write-build';
 
 
-export function build(config: BuildConfig, ctx?: BuildContext) {
+export function build(config: BuildConfig, context?: any) {
   // create a timespan of the build process
   let timeSpan: LoggerTimeSpan;
 
   // create the build context if it doesn't exist
   // the buid context is the same object used for all builds and rebuilds
   // ctx is where stuff is cached for fast in-memory lookups later
-  ctx = getBuildContext(ctx);
+  const ctx = getBuildContext(context);
 
   // reset the build context, this is important for rebuilds
   resetBuildContext(ctx);

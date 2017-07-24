@@ -1,5 +1,5 @@
 import { assignHostContentSlots, createVNodesFromSsr } from '../core/renderer/slot';
-import { ComponentMeta, ComponentRegistry, CoreGlobal, EventData, EventMeta,
+import { ComponentMeta, ComponentRegistry, CoreGlobal, EventEmitterData, EventMeta,
   DomApi, HostElement, AppGlobal, ListenOptions, LoadComponentRegistry,
   ModuleCallbacks, QueueApi, PlatformApi } from '../util/interfaces';
 import { createRenderer } from '../core/renderer/patch';
@@ -202,7 +202,7 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
   let WindowCustomEvent = (win as any).CustomEvent;
   if (typeof WindowCustomEvent !== 'function') {
     // CustomEvent polyfill
-    WindowCustomEvent = function CustomEvent(event: any, data: EventData) {
+    WindowCustomEvent = function CustomEvent(event: any, data: EventEmitterData) {
       var evt = domApi.$createEvent();
       evt.initCustomEvent(event, data.bubbles, data.cancelable, data.detail);
       return evt;
@@ -210,8 +210,8 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
     WindowCustomEvent.prototype = (win as any).Event.prototype;
   }
 
-  function emitEvent(eventMeta: EventMeta, elm: Element, data: EventData) {
-    const eventData: EventData = {
+  function emitEvent(eventMeta: EventMeta, elm: Element, data: EventEmitterData) {
+    const eventData: EventEmitterData = {
       bubbles: eventMeta.eventBubbles,
       composed: eventMeta.eventComposed,
       cancelable: eventMeta.eventCancelable,

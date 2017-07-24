@@ -1,5 +1,5 @@
 import { AssetsMeta, BuildConfig, BuildContext, BuildResults, Bundle, BundleData,
-  ComponentMeta, ComponentData, Manifest, ManifestData, ModuleFile, ListenerData,
+  ComponentMeta, ComponentData, EventData, EventMeta, Manifest, ManifestData, ModuleFile, ListenerData,
   ListenMeta, PropChangeData, PropChangeMeta, PropData, PropMeta, StyleData, StyleMeta } from '../../util/interfaces';
 import { COLLECTION_MANIFEST_FILE_NAME, HAS_NAMED_SLOTS, HAS_SLOTS,
   PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../util/constants';
@@ -126,6 +126,8 @@ export function serializeComponent(config: BuildConfig, manifestDir: string, mod
   serializeStates(cmpData, cmpMeta);
   serializeListeners(cmpData, cmpMeta);
   serializeMethods(cmpData, cmpMeta);
+  serializeEvents(cmpData, cmpMeta);
+  serializeHostElementMember(cmpData, cmpMeta);
   serializeHost(cmpData, cmpMeta);
   serializeSlots(cmpData, cmpMeta);
   serializeIsShadow(cmpData, cmpMeta);
@@ -152,6 +154,8 @@ export function parseComponent(config: BuildConfig, manifestDir: string, cmpData
   parseStates(cmpData, cmpMeta);
   parseListeners(cmpData, cmpMeta);
   parseMethods(cmpData, cmpMeta);
+  parseEvents(cmpData, cmpMeta);
+  parseHostElementMember(cmpData, cmpMeta);
   parseHost(cmpData, cmpMeta);
   parseIsShadow(cmpData, cmpMeta);
   parseSlots(cmpData, cmpMeta);
@@ -459,6 +463,11 @@ function serializeListeners(cmpData: ComponentData, cmpMeta: ComponentMeta) {
       listenerData.capture = true;
     }
     return listenerData;
+
+  }).sort((a, b) => {
+    if (a.event.toLowerCase() < b.event.toLowerCase()) return -1;
+    if (a.event.toLowerCase() > b.event.toLowerCase()) return 1;
+    return 0;
   });
 }
 
@@ -496,6 +505,79 @@ function parseMethods(cmpData: ComponentData, cmpMeta: ComponentMeta) {
     return;
   }
   cmpMeta.methodsMeta = cmpData.methods;
+}
+
+
+function serializeEvents(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (invalidArrayData(cmpMeta.eventsMeta)) {
+    return;
+  }
+
+  cmpData.events = cmpMeta.eventsMeta.map(eventMeta => {
+    const eventData: EventData = {
+      event: eventMeta.eventName
+    };
+    if (eventMeta.eventMethodName !== eventMeta.eventName) {
+      eventData.method = eventMeta.eventMethodName;
+    }
+    if (eventMeta.eventBubbles === false) {
+      eventData.bubbles = false;
+    }
+    if (eventMeta.eventCancelable === false) {
+      eventData.cancelable = false;
+    }
+    if (eventMeta.eventComposed === false) {
+      eventData.composed = false;
+    }
+    return eventData;
+
+  }).sort((a, b) => {
+    if (a.event.toLowerCase() < b.event.toLowerCase()) return -1;
+    if (a.event.toLowerCase() > b.event.toLowerCase()) return 1;
+    return 0;
+  });
+}
+
+
+function parseEvents(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  const eventsData = cmpData.events;
+
+  if (invalidArrayData(eventsData)) {
+    return;
+  }
+
+  cmpMeta.eventsMeta = eventsData.map(eventData => {
+    const eventMeta: EventMeta = {
+      eventName: eventData.event,
+      eventMethodName: eventData.event
+    };
+
+    if (eventData.method) {
+      eventMeta.eventMethodName = eventData.method;
+    }
+
+    eventMeta.eventBubbles = (eventData.bubbles !== false);
+    eventMeta.eventCancelable = (eventData.cancelable !== false);
+    eventMeta.eventComposed = (eventData.composed !== false);
+
+    return eventMeta;
+  });
+}
+
+
+function serializeHostElementMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (typeof cmpMeta.hostElementMember !== 'string') {
+    return;
+  }
+  cmpData.hostElement = cmpMeta.hostElementMember;
+}
+
+
+function parseHostElementMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (typeof cmpData.hostElement !== 'string') {
+    return;
+  }
+  cmpMeta.hostElementMember = cmpData.hostElement;
 }
 
 

@@ -136,7 +136,7 @@ export function initComponentEvents(plt: PlatformApi, componentEvents: EventMeta
   if (componentEvents) {
     componentEvents.forEach(eventMeta => {
 
-      instance[eventMeta.instanceMethodName] = {
+      instance[eventMeta.eventMethodName] = {
         emit: function eventEmitter(data: any) {
           plt.emitEvent(eventMeta, instance.__el, data);
         }

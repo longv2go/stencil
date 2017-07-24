@@ -88,6 +88,37 @@ describe('manifest-data serialize/parse', () => {
     expect(b.cmpMeta.slotMeta).toBe(HAS_SLOTS);
   });
 
+  it('eventsMeta', () => {
+    a.eventsMeta = [
+      { eventName: 'zzEvent' },
+      { eventName: 'aa-event', eventMethodName: 'methodName', eventBubbles: false, eventCancelable: false, eventComposed: false }
+    ];
+    const cmpData = serializeComponent(config, manifestDir, moduleFile);
+    expect(cmpData.events.length).toBe(2);
+    b = parseComponent(config, manifestDir, cmpData);
+    expect(b.cmpMeta.eventsMeta.length).toBe(2);
+
+    expect(b.cmpMeta.eventsMeta[0].eventName).toBe('aa-event');
+    expect(b.cmpMeta.eventsMeta[0].eventMethodName).toBe('methodName');
+    expect(b.cmpMeta.eventsMeta[0].eventBubbles).toBe(false);
+    expect(b.cmpMeta.eventsMeta[0].eventCancelable).toBe(false);
+    expect(b.cmpMeta.eventsMeta[0].eventComposed).toBe(false);
+
+    expect(b.cmpMeta.eventsMeta[1].eventName).toBe('zzEvent');
+    expect(b.cmpMeta.eventsMeta[1].eventMethodName).toBe('zzEvent');
+    expect(b.cmpMeta.eventsMeta[1].eventBubbles).toBe(true);
+    expect(b.cmpMeta.eventsMeta[1].eventCancelable).toBe(true);
+    expect(b.cmpMeta.eventsMeta[1].eventComposed).toBe(true);
+  });
+
+  it('hostElementMember', () => {
+    a.hostElementMember = 'myElement';
+    const cmpData = serializeComponent(config, manifestDir, moduleFile);
+    expect(cmpData.hostElement).toBe('myElement');
+    b = parseComponent(config, manifestDir, cmpData);
+    expect(b.cmpMeta.hostElementMember).toBe('myElement');
+  });
+
   it('hostMeta', () => {
     a.hostMeta = { theme: { 'some-class': true } };
     const cmpData = serializeComponent(config, manifestDir, moduleFile);

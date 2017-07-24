@@ -36,7 +36,7 @@ export interface EventListenerCallback {
 
 
 export interface EventEmitter {
-  emit: (data?: any) => void;
+  emit: (data?: EventData) => void;
 }
 
 
@@ -154,14 +154,24 @@ export interface LoadComponentMeta {
   [5]: PropChangeMeta[];
 
   /**
+   * component instance events
+   */
+  [6]: EventMeta[];
+
+  /**
    * methods
    */
-  [6]: MethodMeta[];
+  [7]: MethodMeta[];
+
+  /**
+   * host element member name
+   */
+  [8]: string;
 
   /**
    * shadow
    */
-  [7]: boolean;
+  [9]: boolean;
 }
 
 
@@ -188,6 +198,34 @@ export interface ComponentListenersData {
 
   /**
    * enabled
+   */
+  [4]: number;
+}
+
+
+export interface ComponentEventData {
+  /**
+   * eventName
+   */
+  [0]: string;
+
+  /**
+   * instanceMethodName
+   */
+  [1]: string;
+
+  /**
+   * eventBubbles
+   */
+  [2]: number;
+
+  /**
+   * eventCancelable
+   */
+  [3]: number;
+
+  /**
+   * eventComposed
    */
   [4]: number;
 }
@@ -441,7 +479,9 @@ export interface MethodDecorator {
 export interface MethodOptions {}
 
 
-export interface ElementDecorator {}
+export interface ElementDecorator {
+  (): any;
+}
 
 
 export interface EventDecorator {
@@ -459,7 +499,7 @@ export interface EventOptions {
 
 export interface EventMeta {
   eventName?: string;
-  instanceMethodName?: string;
+  eventMethodName?: string;
   eventBubbles?: boolean;
   eventCancelable?: boolean;
   eventComposed?: boolean;
@@ -766,12 +806,12 @@ export interface PlatformApi {
   queue: QueueApi;
   onAppLoad?: (rootElm: HostElement, stylesMap: FilesMap) => void;
   getEventOptions: (opts?: ListenOptions) => any;
-  emitEvent: (eventMeta: EventMeta, elm: Element, data: EventData) => void;
+  emitEvent: (eventMeta: EventMeta, elm: Element, data: EventEmitterData) => void;
   tmpDisconnected?: boolean;
 }
 
 
-export interface EventData {
+export interface EventEmitterData {
   detail?: any;
   bubbles?: boolean;
   cancelable?: boolean;
@@ -1130,6 +1170,8 @@ export interface ComponentData {
   states?: string[];
   listeners?: ListenerData[];
   methods?: string[];
+  events?: EventData[];
+  hostElement?: string;
   host?: any;
   assetPaths?: string[];
   slot?: 'hasSlots'|'hasNamedSlots';
@@ -1163,4 +1205,12 @@ export interface ListenerData {
   capture?: boolean;
   passive?: boolean;
   enabled?: boolean;
+}
+
+export interface EventData {
+  event: string;
+  method?: string;
+  bubbles?: boolean;
+  cancelable?: boolean;
+  composed?: boolean;
 }

@@ -137,22 +137,38 @@ describe('manifest-data serialize/parse', () => {
     expect(b.cmpMeta.methodsMeta[1]).toBe('methodB');
   });
 
-  it('listeners', () => {
+  it('listenersMeta', () => {
     a.listenersMeta = [
+      { eventName: 'eventB', eventMethodName: 'methodB', eventPassive: false, eventCapture: false, eventEnabled: false },
       { eventName: 'eventA', eventMethodName: 'methodA', eventPassive: true, eventCapture: true, eventEnabled: true }
     ];
     const cmpData = serializeComponent(config, manifestDir, moduleFile);
+    expect(cmpData.listeners.length).toBe(2);
+
     expect(cmpData.listeners[0].event).toBe('eventA');
     expect(cmpData.listeners[0].method).toBe('methodA');
-    expect(cmpData.listeners[0].passive).toBe(true);
-    expect(cmpData.listeners[0].capture).toBe(true);
-    expect(cmpData.listeners[0].enabled).toBe(true);
+    expect(cmpData.listeners[0].passive).toBeUndefined();
+    expect(cmpData.listeners[0].capture).toBeUndefined();
+    expect(cmpData.listeners[0].enabled).toBeUndefined();
+
+    expect(cmpData.listeners[1].event).toBe('eventB');
+    expect(cmpData.listeners[1].method).toBe('methodB');
+    expect(cmpData.listeners[1].passive).toBe(false);
+    expect(cmpData.listeners[1].capture).toBe(false);
+    expect(cmpData.listeners[1].enabled).toBe(false);
+
     b = parseComponent(config, manifestDir, cmpData);
     expect(b.cmpMeta.listenersMeta[0].eventName).toBe('eventA');
     expect(b.cmpMeta.listenersMeta[0].eventMethodName).toBe('methodA');
     expect(b.cmpMeta.listenersMeta[0].eventPassive).toBe(true);
     expect(b.cmpMeta.listenersMeta[0].eventCapture).toBe(true);
     expect(b.cmpMeta.listenersMeta[0].eventEnabled).toBe(true);
+
+    expect(b.cmpMeta.listenersMeta[1].eventName).toBe('eventB');
+    expect(b.cmpMeta.listenersMeta[1].eventMethodName).toBe('methodB');
+    expect(b.cmpMeta.listenersMeta[1].eventPassive).toBe(false);
+    expect(b.cmpMeta.listenersMeta[1].eventCapture).toBe(false);
+    expect(b.cmpMeta.listenersMeta[1].eventEnabled).toBe(false);
   });
 
   it('statesMeta', () => {

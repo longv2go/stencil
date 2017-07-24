@@ -453,14 +453,14 @@ function serializeListeners(cmpData: ComponentData, cmpMeta: ComponentMeta) {
       event: listenerMeta.eventName,
       method: listenerMeta.eventMethodName
     };
-    if (listenerMeta.eventPassive) {
-      listenerData.passive = true;
+    if (listenerMeta.eventPassive === false) {
+      listenerData.passive = false;
     }
-    if (listenerMeta.eventEnabled) {
-      listenerData.enabled = true;
+    if (listenerMeta.eventEnabled === false) {
+      listenerData.enabled = false;
     }
-    if (listenerMeta.eventCapture) {
-      listenerData.capture = true;
+    if (listenerMeta.eventCapture === false) {
+      listenerData.capture = false;
     }
     return listenerData;
 
@@ -483,9 +483,9 @@ function parseListeners(cmpData: ComponentData, cmpMeta: ComponentMeta) {
     const listener: ListenMeta = {
       eventName: listenerData.event,
       eventMethodName: listenerData.method,
-      eventPassive: !!listenerData.passive,
-      eventEnabled: !!listenerData.enabled,
-      eventCapture: !!listenerData.capture
+      eventPassive: (listenerData.passive !== false),
+      eventEnabled: (listenerData.enabled !== false),
+      eventCapture: (listenerData.capture !== false)
     };
     return listener;
   });

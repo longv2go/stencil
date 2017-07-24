@@ -61,7 +61,7 @@ function wrapCoreJs(config: BuildConfig, jsContent: string) {
     `(function(Core,appNamespace,publicPath){`,
     `"use strict";\n`,
     jsContent.trim(),
-    `\n})({},${config.namespace},${publicPath});`
+    `\n})({},"${config.namespace}","${publicPath}");`
   ].join('');
 
   return output;
@@ -69,5 +69,10 @@ function wrapCoreJs(config: BuildConfig, jsContent: string) {
 
 
 export function getAppPublicPath(config: BuildConfig) {
-  return normalizePath(config.sys.path.join(config.publicPath, config.namespace.toLowerCase()));
+  return normalizePath(
+    config.sys.path.join(
+      config.publicPath,
+      config.namespace.toLowerCase()
+    )
+  ) + '/';
 }

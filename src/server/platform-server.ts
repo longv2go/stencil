@@ -3,7 +3,7 @@ import { BuildContext, ComponentMeta, ComponentRegistry,
   CoreGlobal, FilesMap, HostElement, ListenOptions, Logger,
   ModuleCallbacks, PlatformApi, AppGlobal, StencilSystem } from '../util/interfaces';
 import { createDomApi } from '../core/renderer/dom-api';
-// import { createDomControllerServer } from './dom-controller-server';
+import { createDomControllerServer } from './dom-controller-server';
 import { createQueueServer } from './queue-server';
 import { createRenderer } from '../core/renderer/patch';
 import { getCssFile, getJsFile, normalizePath } from '../compiler/util';
@@ -34,11 +34,6 @@ export function createPlatformServer(
   // create the DOM api which we'll use during hydrate
   const domApi = createDomApi(win.document);
 
-  // const domCtrl = createDomControllerServer();
-
-  // update the app global
-  const Gbl: AppGlobal = {};
-
   const plt: PlatformApi = {
     defineComponent,
     getComponentMeta,
@@ -52,6 +47,11 @@ export function createPlatformServer(
 
   // create the renderer which will be used to patch the vdom
   plt.render = createRenderer(plt, domApi);
+
+  // update the app global
+  const Gbl: AppGlobal = {
+    dom: createDomControllerServer()
+  };
 
   // add the app's global to the window context
   win[appNamespace] = Gbl;
@@ -108,7 +108,7 @@ export function createPlatformServer(
 
     // import component function
     // inject globals
-    importFn(moduleImports, h, t, coreGlobal);
+    importFn(moduleImports, h, t, coreGlobal, appBuildDir);
 
     for (var i = 2; i < args.length; i++) {
       parseComponentMeta(registry, moduleImports, args[i]);

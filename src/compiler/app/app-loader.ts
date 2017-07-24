@@ -6,8 +6,8 @@ import { getAppPublicPath } from './app-core';
 
 export function generateLoader(
   config: BuildConfig,
-  projectCoreFileName: string,
-  projectCoreEs5FileName: string,
+  appCoreFileName: string,
+  appCoreEs5FileName: string,
   componentRegistry: LoadComponentRegistry[]
 ) {
   const sys = config.sys;
@@ -23,38 +23,38 @@ export function generateLoader(
   return sys.getClientCoreFile({ staticName: staticName }).then(stencilLoaderContent => {
     // replace the default loader with the project's namespace and components
 
-    stencilLoaderContent = injectProjectIntoLoader(
+    stencilLoaderContent = injectAppIntoLoader(
       config,
-      projectCoreFileName,
-      projectCoreEs5FileName,
+      appCoreFileName,
+      appCoreEs5FileName,
       publicPath,
       componentRegistry,
       stencilLoaderContent
     );
 
-    // concat the projects loader code
-    const projectCode: string[] = [
+    // concat the app's loader code
+    const appCode: string[] = [
       generatePreamble(config),
       stencilLoaderContent
     ];
 
-    return projectCode.join('');
+    return appCode.join('');
   });
 }
 
 
-export function injectProjectIntoLoader(
+export function injectAppIntoLoader(
   config: BuildConfig,
-  projectCoreFileName: string,
-  projectCoreEs5FileName: string,
+  appCoreFileName: string,
+  appCoreEs5FileName: string,
   publicPath: string,
   componentRegistry: LoadComponentRegistry[],
   stencilLoaderContent: string
 ) {
   let componentRegistryStr = JSON.stringify(componentRegistry);
 
-  const projectCoreUrl = publicPath + '/' + projectCoreFileName;
-  const projectCoreEs5Url = publicPath + '/' + projectCoreEs5FileName;
+  const projectCoreUrl = publicPath + appCoreFileName;
+  const projectCoreEs5Url = publicPath + appCoreEs5FileName;
 
   stencilLoaderContent = stencilLoaderContent.replace(
     APP_NAMESPACE_REGEX,

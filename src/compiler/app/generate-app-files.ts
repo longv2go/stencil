@@ -10,20 +10,20 @@ import { normalizePath } from '../util';
 export function generateAppFiles(config: BuildConfig, ctx: BuildContext) {
   const sys = config.sys;
 
-  config.logger.debug(`build, generateProjectFiles: ${config.namespace}`);
+  config.logger.debug(`build, generateAppFiles: ${config.namespace}`);
 
-  const projectFileName = config.namespace.toLowerCase();
+  const appFileName = config.namespace.toLowerCase();
 
-  const projectRegistry: AppRegistry = {
+  const appRegistry: AppRegistry = {
     namespace: config.namespace,
     components: formatComponentRegistry(ctx.registry, config.attrCase),
-    loader: `${projectFileName}.js`,
+    loader: `${appFileName}.js`,
   };
 
-  let projectCoreFileName: string;
-  let projectCoreEs5FileName: string;
+  let appCoreFileName: string;
+  let appCoreEs5FileName: string;
 
-  // bundle the project's entry file (if one was provided)
+  // bundle the app's entry file (if one was provided)
   return generateAppGlobal(config, ctx).then(globalJsContent => {
     return Promise.all([
       generateCore(config, globalJsContent),
@@ -36,68 +36,68 @@ export function generateAppFiles(config: BuildConfig, ctx: BuildContext) {
 
     if (config.devMode) {
       // dev mode core filename just keeps the same name, no content hashing
-      projectRegistry.core = `${projectFileName}/${projectFileName}.${CORE_NAME}.js`;
-      projectCoreFileName = `${projectFileName}.${CORE_NAME}.js`;
+      appRegistry.core = `${appFileName}/${appFileName}.${CORE_NAME}.js`;
+      appCoreFileName = `${appFileName}.${CORE_NAME}.js`;
 
-      projectRegistry.coreEs5 = `${projectFileName}/${projectFileName}.${CORE_NAME}.ce.js`;
-      projectCoreEs5FileName = `${projectFileName}.${CORE_NAME}.ce.js`;
+      appRegistry.coreEs5 = `${appFileName}/${appFileName}.${CORE_NAME}.ce.js`;
+      appCoreEs5FileName = `${appFileName}.${CORE_NAME}.ce.js`;
 
     } else {
       // prod mode renames the core file with its hashed content
       const contentHash = sys.generateContentHash(coreContent, config.hashedFileNameLength);
-      projectRegistry.core = `${projectFileName}/${projectFileName}.${contentHash}.js`;
-      projectCoreFileName = `${projectFileName}.${contentHash}.js`;
+      appRegistry.core = `${appFileName}/${appFileName}.${contentHash}.js`;
+      appCoreFileName = `${appFileName}.${contentHash}.js`;
 
       const contentEs5Hash = sys.generateContentHash(coreEs5Content, config.hashedFileNameLength);
-      projectRegistry.coreEs5 = `${projectFileName}/${projectFileName}.${contentEs5Hash}.ce.js`;
-      projectCoreEs5FileName = `${projectFileName}.${contentEs5Hash}.ce.js`;
+      appRegistry.coreEs5 = `${appFileName}/${appFileName}.${contentEs5Hash}.ce.js`;
+      appCoreEs5FileName = `${appFileName}.${contentEs5Hash}.ce.js`;
     }
 
-    // write the project core file
-    const projectCoreFilePath = sys.path.join(config.buildDir, projectFileName, projectCoreFileName);
+    // write the app core file
+    const appCoreFilePath = sys.path.join(config.buildDir, appFileName, appCoreFileName);
     if (ctx.appFiles.core !== coreContent) {
       // core file is actually different from our last saved version
-      config.logger.debug(`build, write project core: ${projectCoreFilePath}`);
-      ctx.filesToWrite[projectCoreFilePath] = ctx.appFiles.core = coreContent;
+      config.logger.debug(`build, write app core: ${appCoreFilePath}`);
+      ctx.filesToWrite[appCoreFilePath] = ctx.appFiles.core = coreContent;
       ctx.appFileBuildCount++;
     }
 
-    // write the project core ES5 file
-    const projectCoreEs5FilePath = sys.path.join(config.buildDir, projectFileName, projectCoreEs5FileName);
+    // write the app core ES5 file
+    const appCoreEs5FilePath = sys.path.join(config.buildDir, appFileName, appCoreEs5FileName);
     if (ctx.appFiles.coreEs5 !== coreEs5Content) {
       // core es5 file is actually different from our last saved version
-      config.logger.debug(`build, project core es5: ${projectCoreEs5FilePath}`);
-      ctx.filesToWrite[projectCoreEs5FilePath] = ctx.appFiles.coreEs5 = coreEs5Content;
+      config.logger.debug(`build, app core es5: ${appCoreEs5FilePath}`);
+      ctx.filesToWrite[appCoreEs5FilePath] = ctx.appFiles.coreEs5 = coreEs5Content;
       ctx.appFileBuildCount++;
     }
 
   }).then(() => {
     // create the loader after creating the loader file name
-    return generateLoader(config, projectCoreFileName, projectCoreEs5FileName, projectRegistry.components).then(loaderContent => {
-      // write the project loader file
-      const projectLoaderFileName = `${projectRegistry.loader}`;
-      const projectLoaderFilePath = sys.path.join(config.buildDir, projectLoaderFileName);
+    return generateLoader(config, appCoreFileName, appCoreEs5FileName, appRegistry.components).then(loaderContent => {
+      // write the app loader file
+      const appLoaderFileName = `${appRegistry.loader}`;
+      const appLoaderFilePath = sys.path.join(config.buildDir, appLoaderFileName);
       if (ctx.appFiles.loader !== loaderContent) {
-        // project loader file is actually different from our last saved version
-        config.logger.debug(`build, project loader: ${projectLoaderFilePath}`);
-        ctx.filesToWrite[projectLoaderFilePath] = ctx.appFiles.loader = loaderContent;
+        // app loader file is actually different from our last saved version
+        config.logger.debug(`build, app loader: ${appLoaderFilePath}`);
+        ctx.filesToWrite[appLoaderFilePath] = ctx.appFiles.loader = loaderContent;
         ctx.appFileBuildCount++;
       }
     });
 
   }).then(() => {
-    // create a json file for the project registry
-    const registryJson = JSON.stringify(projectRegistry, null, 2);
+    // create a json file for the app registry
+    const registryJson = JSON.stringify(appRegistry, null, 2);
     if (ctx.appFiles.registryJson !== registryJson) {
-      // project registry json file is actually different from our last saved version
+      // app registry json file is actually different from our last saved version
       const registryFilePath = getRegistryJsonFilePath(config);
-      config.logger.debug(`build, project registry: ${registryFilePath}`);
+      config.logger.debug(`build, app registry: ${registryFilePath}`);
       ctx.filesToWrite[registryFilePath] = ctx.appFiles.registryJson = registryJson;
       ctx.appFileBuildCount++;
     }
 
   }).catch(err => {
-    config.logger.error('generateProjectFiles', err);
+    config.logger.error('generateAppFiles', err);
   });
 }
 

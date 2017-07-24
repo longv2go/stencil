@@ -103,7 +103,7 @@ function wrapGlobalJs(config: BuildConfig, ctx: BuildContext, globalJsName: stri
     }).join('\n');
   }
 
-  jsContent = `\n(function(){${jsContent}\n})();\n`;
+  jsContent = `\n(function(publicPath){${jsContent}\n})(publicPath);\n`;
 
   if (config.minifyJs) {
     // minify js

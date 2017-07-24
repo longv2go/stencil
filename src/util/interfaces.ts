@@ -379,7 +379,7 @@ export interface LoggerTimeSpan {
 
 
 export interface ModulesImporterFn {
-  (importer: any, h: Function, t: Function, Core: CoreGlobal): void;
+  (importer: any, h: Function, t: Function, Core: CoreGlobal, pubicPath: string): void;
 }
 
 

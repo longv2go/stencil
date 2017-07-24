@@ -96,7 +96,7 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
 
     // import component function
     // inject globals
-    importFn(moduleImports, h, t, coreGlobal);
+    importFn(moduleImports, h, t, coreGlobal, publicPath);
 
     for (var i = 2; i < args.length; i++) {
       // parse the external component data into internal component meta data

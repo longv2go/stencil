@@ -5,7 +5,7 @@ import {
   HydrateOptions,
   ListenDecorator,
   MethodDecorator,
-  ProjectGlobal,
+  AppGlobal,
   PropDecorator,
   PropChangeDecorator,
   StateDecorator,
@@ -40,7 +40,7 @@ export {
   BuildConfig,
   CssClassMap,
   HydrateOptions,
-  ProjectGlobal,
+  AppGlobal,
   StencilSystem,
   VNodeData
 };

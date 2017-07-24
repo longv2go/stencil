@@ -1,6 +1,6 @@
-import { injectProjectIntoCore } from '../project-core';
-import { injectProjectIntoLoader } from '../project-loader';
-import { getProjectPublicPath } from '../generate-project-files';
+import { injectAppIntoCore } from '../app-core';
+import { injectProjectIntoLoader } from '../app-loader';
+import { getAppPublicPath } from '../generate-app-files';
 import { BuildConfig, LoadComponentRegistry } from '../../../util/interfaces';
 import { mockStencilSystem } from '../../../test';
 
@@ -12,7 +12,7 @@ describe('build-project-files', () => {
     it('should set the loader arguments', () => {
       config.namespace = 'MyApp';
       config.publicPath = 'build/';
-      const publicpath = getProjectPublicPath(config);
+      const publicpath = getAppPublicPath(config);
       const projectCoreFileName = 'myapp.core.js';
       const projectCoreEs5FileName = 'myapp.core.ce.js';
       const componentRegistry: LoadComponentRegistry[] = [];
@@ -32,7 +32,7 @@ describe('build-project-files', () => {
     it('should set the core arguments', () => {
       config.namespace = 'MyApp';
       config.publicPath = 'build/';
-      const publicpath = getProjectPublicPath(config);
+      const publicpath = getAppPublicPath(config);
 
       const projectLoader = injectProjectIntoCore(
         config,

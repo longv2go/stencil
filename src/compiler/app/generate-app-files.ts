@@ -1,21 +1,20 @@
-import { BuildConfig, BuildContext, ProjectRegistry } from '../../util/interfaces';
+import { BuildConfig, BuildContext, AppRegistry } from '../../util/interfaces';
 import { CORE_NAME } from '../../util/constants';
 import { formatComponentRegistry } from '../../util/data-serialize';
-import { generateCore, generateCoreEs5 } from './project-core';
-import { generateLoader } from './project-loader';
-import { generateProjectGlobal } from './project-global';
+import { generateCore, generateCoreEs5 } from './app-core';
+import { generateLoader } from './app-loader';
+import { generateAppGlobal } from './app-global';
 import { normalizePath } from '../util';
 
 
-export function generateProjectFiles(config: BuildConfig, ctx: BuildContext) {
+export function generateAppFiles(config: BuildConfig, ctx: BuildContext) {
   const sys = config.sys;
 
   config.logger.debug(`build, generateProjectFiles: ${config.namespace}`);
 
   const projectFileName = config.namespace.toLowerCase();
-  const publicPath = getProjectPublicPath(config);
 
-  const projectRegistry: ProjectRegistry = {
+  const projectRegistry: AppRegistry = {
     namespace: config.namespace,
     components: formatComponentRegistry(ctx.registry, config.attrCase),
     loader: `${projectFileName}.js`,
@@ -25,10 +24,10 @@ export function generateProjectFiles(config: BuildConfig, ctx: BuildContext) {
   let projectCoreEs5FileName: string;
 
   // bundle the project's entry file (if one was provided)
-  return generateProjectGlobal(config, ctx).then(globalJsContent => {
+  return generateAppGlobal(config, ctx).then(globalJsContent => {
     return Promise.all([
-      generateCore(config, globalJsContent, publicPath),
-      generateCoreEs5(config, globalJsContent, publicPath)
+      generateCore(config, globalJsContent),
+      generateCoreEs5(config, globalJsContent)
     ]);
 
   }).then(results => {
@@ -56,45 +55,45 @@ export function generateProjectFiles(config: BuildConfig, ctx: BuildContext) {
 
     // write the project core file
     const projectCoreFilePath = sys.path.join(config.buildDir, projectFileName, projectCoreFileName);
-    if (ctx.projectFiles.core !== coreContent) {
+    if (ctx.appFiles.core !== coreContent) {
       // core file is actually different from our last saved version
       config.logger.debug(`build, write project core: ${projectCoreFilePath}`);
-      ctx.filesToWrite[projectCoreFilePath] = ctx.projectFiles.core = coreContent;
-      ctx.projectFileBuildCount++;
+      ctx.filesToWrite[projectCoreFilePath] = ctx.appFiles.core = coreContent;
+      ctx.appFileBuildCount++;
     }
 
     // write the project core ES5 file
     const projectCoreEs5FilePath = sys.path.join(config.buildDir, projectFileName, projectCoreEs5FileName);
-    if (ctx.projectFiles.coreEs5 !== coreEs5Content) {
+    if (ctx.appFiles.coreEs5 !== coreEs5Content) {
       // core es5 file is actually different from our last saved version
       config.logger.debug(`build, project core es5: ${projectCoreEs5FilePath}`);
-      ctx.filesToWrite[projectCoreEs5FilePath] = ctx.projectFiles.coreEs5 = coreEs5Content;
-      ctx.projectFileBuildCount++;
+      ctx.filesToWrite[projectCoreEs5FilePath] = ctx.appFiles.coreEs5 = coreEs5Content;
+      ctx.appFileBuildCount++;
     }
 
   }).then(() => {
     // create the loader after creating the loader file name
-    return generateLoader(config, projectCoreFileName, projectCoreEs5FileName, publicPath, projectRegistry.components).then(loaderContent => {
+    return generateLoader(config, projectCoreFileName, projectCoreEs5FileName, projectRegistry.components).then(loaderContent => {
       // write the project loader file
       const projectLoaderFileName = `${projectRegistry.loader}`;
       const projectLoaderFilePath = sys.path.join(config.buildDir, projectLoaderFileName);
-      if (ctx.projectFiles.loader !== loaderContent) {
+      if (ctx.appFiles.loader !== loaderContent) {
         // project loader file is actually different from our last saved version
         config.logger.debug(`build, project loader: ${projectLoaderFilePath}`);
-        ctx.filesToWrite[projectLoaderFilePath] = ctx.projectFiles.loader = loaderContent;
-        ctx.projectFileBuildCount++;
+        ctx.filesToWrite[projectLoaderFilePath] = ctx.appFiles.loader = loaderContent;
+        ctx.appFileBuildCount++;
       }
     });
 
   }).then(() => {
     // create a json file for the project registry
     const registryJson = JSON.stringify(projectRegistry, null, 2);
-    if (ctx.projectFiles.registryJson !== registryJson) {
+    if (ctx.appFiles.registryJson !== registryJson) {
       // project registry json file is actually different from our last saved version
       const registryFilePath = getRegistryJsonFilePath(config);
       config.logger.debug(`build, project registry: ${registryFilePath}`);
-      ctx.filesToWrite[registryFilePath] = ctx.projectFiles.registryJson = registryJson;
-      ctx.projectFileBuildCount++;
+      ctx.filesToWrite[registryFilePath] = ctx.appFiles.registryJson = registryJson;
+      ctx.appFileBuildCount++;
     }
 
   }).catch(err => {
@@ -109,11 +108,6 @@ export function getRegistryJsonFilePath(config: BuildConfig) {
 }
 
 
-export function getProjectBuildDir(config: BuildConfig) {
+export function getAppBuildDir(config: BuildConfig) {
   return normalizePath(config.sys.path.join(config.buildDir, config.namespace.toLowerCase()));
-}
-
-
-export function getProjectPublicPath(config: BuildConfig) {
-  return normalizePath(config.sys.path.join(config.publicPath, config.namespace.toLowerCase()));
 }

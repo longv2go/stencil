@@ -1,7 +1,7 @@
 import { assignHostContentSlots } from '../core/renderer/slot';
 import { BuildContext, ComponentMeta, ComponentRegistry,
   CoreGlobal, FilesMap, HostElement, ListenOptions, Logger,
-  ModuleCallbacks, PlatformApi, ProjectGlobal, StencilSystem } from '../util/interfaces';
+  ModuleCallbacks, PlatformApi, AppGlobal, StencilSystem } from '../util/interfaces';
 import { createDomApi } from '../core/renderer/dom-api';
 // import { createDomControllerServer } from './dom-controller-server';
 import { createQueueServer } from './queue-server';
@@ -16,9 +16,9 @@ export function createPlatformServer(
   coreGlobal: CoreGlobal,
   sys: StencilSystem,
   logger: Logger,
-  projectNamespace: string,
+  appNamespace: string,
   win: any,
-  projectBuildDir: string,
+  appBuildDir: string,
   ctx?: BuildContext
 ): PlatformApi {
   const registry: ComponentRegistry = { 'HTML': {} };
@@ -36,8 +36,8 @@ export function createPlatformServer(
 
   // const domCtrl = createDomControllerServer();
 
-  // update the project global
-  const Gbl: ProjectGlobal = {};
+  // update the app global
+  const Gbl: AppGlobal = {};
 
   const plt: PlatformApi = {
     defineComponent,
@@ -53,8 +53,8 @@ export function createPlatformServer(
   // create the renderer which will be used to patch the vdom
   plt.render = createRenderer(plt, domApi);
 
-  // add the project's global to the window context
-  win[projectNamespace] = Gbl;
+  // add the app's global to the window context
+  win[appNamespace] = Gbl;
 
   // create the sandboxed context with a new instance of a V8 Context
   // V8 Context provides an isolated global environment
@@ -78,7 +78,7 @@ export function createPlatformServer(
     if (!elm.mode) {
       // looks like mode wasn't set as a property directly yet
       // first check if there's an attribute
-      // next check the project's global
+      // next check the app's global
       elm.mode = domApi.$getAttribute(elm, 'mode') || coreGlobal.mode;
     }
 
@@ -108,7 +108,7 @@ export function createPlatformServer(
 
     // import component function
     // inject globals
-    importFn(moduleImports, h, t, projectBuildDir);
+    importFn(moduleImports, h, t, coreGlobal);
 
     for (var i = 2; i < args.length; i++) {
       parseComponentMeta(registry, moduleImports, args[i]);
@@ -152,7 +152,7 @@ export function createPlatformServer(
       }
 
       // create the module filePath we'll be reading
-      const jsFilePath = normalizePath(sys.path.join(projectBuildDir, `${moduleId}.js`));
+      const jsFilePath = normalizePath(sys.path.join(appBuildDir, `${moduleId}.js`));
 
       if (!pendingModuleFileReads[jsFilePath]) {
         // not already actively reading this file
@@ -179,7 +179,7 @@ export function createPlatformServer(
       if (styleId) {
         // we've got a style id to load up
         // create the style filePath we'll be reading
-        const styleFilePath = normalizePath(sys.path.join(projectBuildDir, `${styleId}.css`));
+        const styleFilePath = normalizePath(sys.path.join(appBuildDir, `${styleId}.css`));
 
         if (!stylesMap[styleFilePath]) {
           // this style hasn't been added to our collection yet

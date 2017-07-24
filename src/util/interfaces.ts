@@ -4,14 +4,19 @@ export { CssClassMap } from './jsx-interfaces';
 
 
 export interface CoreGlobal {
+  addListener?: AddEventListenerApi;
+  enableListener?: EventListenerEnable;
   eventNameFn?: (eventName: string) => string;
+  isClient?: boolean;
+  isServer?: boolean;
   mode?: string;
 }
 
 
-export interface ProjectGlobal {
+export interface AppGlobal {
   components?: LoadComponentRegistry[];
   defineComponents?: (moduleId: string, modulesImporterFn: ModulesImporterFn, cmp0?: LoadComponentMeta, cmp1?: LoadComponentMeta, cmp2?: LoadComponentMeta) => void;
+  dom?: DomControllerApi;
 }
 
 
@@ -36,11 +41,15 @@ export interface QueueApi {
 }
 
 
+export interface Now {
+  (): number;
+}
+
+
 export interface DomControllerApi {
   read: DomControllerCallback;
   write: DomControllerCallback;
   raf: DomControllerCallback;
-  now(): number;
 }
 
 export interface RafCallback {
@@ -212,7 +221,7 @@ export interface ModuleFile {
 }
 
 
-export interface ProjectRegistry {
+export interface AppRegistry {
   namespace: string;
   loader: string;
   core?: string;
@@ -275,7 +284,7 @@ export interface BuildContext {
   styleSassOutputs?: ModuleBundles;
   filesToWrite?: FilesMap;
   dependentManifests?: {[collectionName: string]: Manifest};
-  projectFiles?: {
+  appFiles?: {
     loader?: string;
     core?: string;
     coreEs5?: string;
@@ -298,7 +307,7 @@ export interface BuildContext {
   sassBuildCount?: number;
   transpileBuildCount?: number;
   indexBuildCount?: number;
-  projectFileBuildCount?: number;
+  appFileBuildCount?: number;
 
   moduleBundleCount?: number;
   styleBundleCount?: number;
@@ -370,7 +379,7 @@ export interface LoggerTimeSpan {
 
 
 export interface ModulesImporterFn {
-  (importer: any, h: Function, t: Function, publicPath: string): void;
+  (importer: any, h: Function, t: Function, Core: CoreGlobal): void;
 }
 
 
@@ -918,11 +927,11 @@ export interface Hyperscript {
 
 declare global {
 
-  const coreGlobal: CoreGlobal;
-
-  const projectNamespace: string;
+  const Core: CoreGlobal;
 
   const publicPath: string;
+
+  const appNamespace: string;
 
   const h: Hyperscript;
 

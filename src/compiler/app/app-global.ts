@@ -3,7 +3,7 @@ import { createOnWarnFn, transpiledInMemoryPlugin } from '../bundle/bundle-modul
 import { getJsFile } from '../util';
 
 
-export function generateProjectGlobal(config: BuildConfig, ctx: BuildContext) {
+export function generateAppGlobal(config: BuildConfig, ctx: BuildContext) {
   let globalJsContents: string[] = [];
 
   return loadDependentGlobalJsContents(config, ctx).then(dependentGlobalJsContents => {

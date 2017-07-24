@@ -1,6 +1,6 @@
 import { assignHostContentSlots, createVNodesFromSsr } from '../core/renderer/slot';
 import { ComponentMeta, ComponentInstance, ComponentRegistry, CoreGlobal,
-  DomApi, HostElement, ProjectGlobal, ListenOptions, LoadComponentRegistry,
+  DomApi, HostElement, AppGlobal, ListenOptions, LoadComponentRegistry,
   ModuleCallbacks, QueueApi, PlatformApi } from '../util/interfaces';
 import { createRenderer } from '../core/renderer/patch';
 import { h, t } from '../core/renderer/h';
@@ -9,7 +9,7 @@ import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
 import { SSR_VNODE_ID } from '../util/constants';
 
 
-export function createPlatformClient(coreGlobal: CoreGlobal, projectGlobal: ProjectGlobal, win: Window, domApi: DomApi, queue: QueueApi, publicPath: string): PlatformApi {
+export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGlobal, win: Window, domApi: DomApi, queue: QueueApi, publicPath: string): PlatformApi {
   const registry: ComponentRegistry = { 'HTML': {} };
   const moduleImports: {[tag: string]: any} = {};
   const moduleCallbacks: ModuleCallbacks = {};
@@ -59,7 +59,7 @@ export function createPlatformClient(coreGlobal: CoreGlobal, projectGlobal: Proj
     if (!elm.mode) {
       // looks like mode wasn't set as a property directly yet
       // first check if there's an attribute
-      // next check the project's global
+      // next check the app's global
       elm.mode = domApi.$getAttribute(elm, 'mode') || coreGlobal.mode;
     }
 
@@ -91,12 +91,12 @@ export function createPlatformClient(coreGlobal: CoreGlobal, projectGlobal: Proj
   }
 
 
-  projectGlobal.defineComponents = function defineComponents(moduleId, importFn) {
+  appGlobal.defineComponents = function defineComponents(moduleId, importFn) {
     const args = arguments;
 
     // import component function
     // inject globals
-    importFn(moduleImports, h, t, publicPath);
+    importFn(moduleImports, h, t, coreGlobal);
 
     for (var i = 2; i < args.length; i++) {
       // parse the external component data into internal component meta data

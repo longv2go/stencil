@@ -89,8 +89,8 @@ function bundleClientCore(coreEntryFile, outputDevFile, outputProdFile, es6Class
 function generateClientCoreDev(bundle, outputDevFile, outputProdFile, es6ClassHack, es5, isDevMode) {
   var clientCore = bundle.generate({
     format: 'es',
-    intro: '(function(window,document,projectNamespace,publicPath) {\n"use strict";\n',
-    outro: '})(window,document,projectNamespace,publicPath);'
+    intro: '(function(window,document,Core) {\n"use strict";\n',
+    outro: '})(window,document,Core);'
   });
 
   var devCode = clientCore.code;

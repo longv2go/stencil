@@ -1,13 +1,13 @@
 import { BuildConfig, LoadComponentRegistry } from '../../util/interfaces';
-import { LOADER_NAME, PROJECT_NAMESPACE_REGEX } from '../../util/constants';
+import { LOADER_NAME, APP_NAMESPACE_REGEX } from '../../util/constants';
 import { generatePreamble } from '../util';
+import { getAppPublicPath } from './app-core';
 
 
 export function generateLoader(
   config: BuildConfig,
   projectCoreFileName: string,
   projectCoreEs5FileName: string,
-  publicPath: string,
   componentRegistry: LoadComponentRegistry[]
 ) {
   const sys = config.sys;
@@ -17,6 +17,8 @@ export function generateLoader(
     staticName += '.dev';
   }
   staticName += '.js';
+
+  const publicPath = getAppPublicPath(config);
 
   return sys.getClientCoreFile({ staticName: staticName }).then(stencilLoaderContent => {
     // replace the default loader with the project's namespace and components
@@ -55,7 +57,7 @@ export function injectProjectIntoLoader(
   const projectCoreEs5Url = publicPath + '/' + projectCoreEs5FileName;
 
   stencilLoaderContent = stencilLoaderContent.replace(
-    PROJECT_NAMESPACE_REGEX,
+    APP_NAMESPACE_REGEX,
     `"${config.namespace}","${projectCoreUrl}","${projectCoreEs5Url}",${componentRegistryStr}`
   );
 

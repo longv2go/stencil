@@ -8,15 +8,26 @@
  * https://developers.google.com/closure/compiler/docs/api-tutorial3
  */
 
+/**
+ * Core
+ * Internal core singleton injected into component's scope
+ */
+function addListener(){};
+function enableListener(){};
+function eventNameFn(){};
+function isClient(){};
+function isServer(){};
+function ns(){};
+function mode(){};
+function publicPath(){};
+
 
 /**
- * Global window.PROJECT
- * Properties which get added to the project's global
+ * App Global - window.App
+ * Properties which get added to the app's global
  */
 function components(){};
 function defineComponents(){};
-function eventNameFn(){};
-function mode(){};
 
 
 /**
@@ -84,8 +95,10 @@ function define(){};
 function didTimeout(){};
 function disconnectedCallback(){};
 function host(){};
+function now(){};
 function observedAttributes(){};
 function passive(){};
+function performance(){};
 function requestIdleCallback(){};
 function shadowRoot(){};
 function timeRemaining(){};

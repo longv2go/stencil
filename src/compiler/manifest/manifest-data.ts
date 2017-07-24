@@ -13,7 +13,7 @@ import { normalizePath } from '../util';
 // couple core component meta data between specific versions of the compiler
 
 
-export function writeProjectManifest(config: BuildConfig, ctx: BuildContext, buildResults: BuildResults) {
+export function writeAppManifest(config: BuildConfig, ctx: BuildContext, buildResults: BuildResults) {
 
   // get the absolute path to the directory where the manifest will be saved
   const manifestDir = normalizePath(config.collectionDir);
@@ -21,11 +21,11 @@ export function writeProjectManifest(config: BuildConfig, ctx: BuildContext, bui
   // create an absolute file path to the actual manifest json file
   const manifestFilePath = normalizePath(config.sys.path.join(manifestDir, COLLECTION_MANIFEST_FILE_NAME));
 
-  config.logger.debug(`manifest, serializeProjectManifest: ${manifestFilePath}`);
+  config.logger.debug(`manifest, serializeAppManifest: ${manifestFilePath}`);
 
   // serialize the manifest into a json string and
   // add it to the list of files we need to write when we're ready
-  buildResults.manifest = serializeProjectManifest(config, manifestDir, ctx.manifest);
+  buildResults.manifest = serializeAppManifest(config, manifestDir, ctx.manifest);
 
   if (config.generateCollection) {
     // don't bother serializing/writing the manifest if we're not creating a collection
@@ -34,7 +34,7 @@ export function writeProjectManifest(config: BuildConfig, ctx: BuildContext, bui
 }
 
 
-export function serializeProjectManifest(config: BuildConfig, manifestDir: string, manifest: Manifest) {
+export function serializeAppManifest(config: BuildConfig, manifestDir: string, manifest: Manifest) {
   // create the single manifest we're going to fill up with data
   const manifestData: ManifestData = {
     components: [],
@@ -62,7 +62,7 @@ export function serializeProjectManifest(config: BuildConfig, manifestDir: strin
   serializeBundles(config, manifestData);
 
   // set the global path if it exists
-  serializeProjectGlobal(config, manifestDir, manifestData, manifest);
+  serializeAppGlobal(config, manifestDir, manifestData, manifest);
 
   // success!
   return manifestData;
@@ -617,7 +617,7 @@ export function parseBundles(manifestData: ManifestData, manifest: Manifest) {
 }
 
 
-export function serializeProjectGlobal(config: BuildConfig, manifestDir: string, manifestData: ManifestData, manifest: Manifest) {
+export function serializeAppGlobal(config: BuildConfig, manifestDir: string, manifestData: ManifestData, manifest: Manifest) {
   if (!manifest.global) {
     return;
   }

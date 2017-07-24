@@ -29,11 +29,11 @@ export function bundleModules(config: BuildConfig, ctx: BuildContext) {
 }
 
 
-function generateDefineComponents(config: BuildConfig, ctx: BuildContext, projectManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults) {
+function generateDefineComponents(config: BuildConfig, ctx: BuildContext, appManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults) {
   const sys = config.sys;
 
   const bundleModuleFiles = userBundle.components.map(userBundleComponentTag => {
-    const cmpMeta = projectManifest.modulesFiles.find(moduleFile => {
+    const cmpMeta = appManifest.modulesFiles.find(moduleFile => {
       return moduleFile.cmpMeta.tagNameMeta === userBundleComponentTag;
     });
 
@@ -202,7 +202,7 @@ function bundleComponentModules(config: BuildConfig, ctx: BuildContext, bundleMo
     });
 
     // module bundling finished, assign its content to the user's bundle
-    bundleDetails.content = `function importComponent(exports, h, t, publicPath) {\n${results.code.trim()}\n}`;
+    bundleDetails.content = `function importComponent(exports, h, t, Core) {\n${results.code.trim()}\n}`;
 
     // cache for later
     ctx.moduleBundleOutputs[bundleId] = bundleDetails.content;

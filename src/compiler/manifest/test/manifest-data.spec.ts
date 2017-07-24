@@ -1,6 +1,6 @@
 import { BuildConfig, ComponentMeta, Manifest, ManifestData, ModuleFile } from '../../../util/interfaces';
 import { mockStencilSystem } from '../../../test';
-import { parseBundles, parseComponent, parseGlobal, serializeBundles, serializeComponent, serializeProjectGlobal } from '../manifest-data';
+import { parseBundles, parseComponent, parseGlobal, serializeBundles, serializeComponent, serializeAppGlobal } from '../manifest-data';
 import { HAS_NAMED_SLOTS, HAS_SLOTS, PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../../util/constants';
 
 
@@ -15,7 +15,7 @@ describe('manifest-data serialize/parse', () => {
     expect(manifest.global.jsFilePath).toBe('/User/me/myapp/dist/collection/global/my-global.js');
   });
 
-  it('serializeProjectGlobal', () => {
+  it('serializeAppGlobal', () => {
     const manifestData: ManifestData = {};
     const manifest: Manifest = {
       global: {
@@ -23,7 +23,7 @@ describe('manifest-data serialize/parse', () => {
       }
     };
 
-    serializeProjectGlobal(config, manifestDir, manifestData, manifest);
+    serializeAppGlobal(config, manifestDir, manifestData, manifest);
     expect(manifestData.global).toBe('global/my-global.js');
   });
 

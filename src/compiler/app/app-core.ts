@@ -1,9 +1,9 @@
 import { BuildConfig } from '../../util/interfaces';
 import { CORE_NAME } from '../../util/constants';
-import { generatePreamble } from '../util';
+import { generatePreamble, normalizePath } from '../util';
 
 
-export function generateCore(config: BuildConfig, globalJsContent: string[], publicPath: string) {
+export function generateCore(config: BuildConfig, globalJsContent: string[]) {
   let staticName = CORE_NAME;
   if (config.devMode) {
     staticName += '.dev';
@@ -17,12 +17,12 @@ export function generateCore(config: BuildConfig, globalJsContent: string[], pub
       coreContent
     ].join('\n').trim();
 
-    return wrapCoreJs(config, jsContent, publicPath);
+    return wrapCoreJs(config, jsContent);
   });
 }
 
 
-export function generateCoreEs5(config: BuildConfig, globalJsContent: string[], publicPath: string) {
+export function generateCoreEs5(config: BuildConfig, globalJsContent: string[]) {
   let staticName = CORE_NAME + '.es5';
   if (config.devMode) {
     staticName += '.dev';
@@ -48,19 +48,26 @@ export function generateCoreEs5(config: BuildConfig, globalJsContent: string[], 
       coreContent
     ].join('\n').trim();
 
-    return wrapCoreJs(config, jsContent, publicPath);
+    return wrapCoreJs(config, jsContent);
   });
 }
 
 
-function wrapCoreJs(config: BuildConfig, jsContent: string, publicPath: string) {
-  let output = [
+function wrapCoreJs(config: BuildConfig, jsContent: string) {
+  const publicPath = getAppPublicPath(config);
+
+  const output = [
     generatePreamble(config),
-    `(function(coreGlobal,projectNamespace,publicPath){`,
+    `(function(Core,appNamespace,publicPath){`,
     `"use strict";\n`,
     jsContent.trim(),
-    `\n})({},"${config.namespace}","${publicPath}/");`
+    `\n})({},${config.namespace},${publicPath});`
   ].join('');
 
   return output;
+}
+
+
+export function getAppPublicPath(config: BuildConfig) {
+  return normalizePath(config.sys.path.join(config.publicPath, config.namespace.toLowerCase()));
 }

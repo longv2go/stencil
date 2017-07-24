@@ -20,7 +20,7 @@ export function mockPlatform() {
   const win = sys.createDom().parse({html: ''});
   const domApi = createDomApi(win.document);
 
-  const projectBuildDir = `/build/app/`;
+  const appBuildDir = `/build/app/`;
   const coreGlobal: CoreGlobal = {
     mode: 'md'
   };
@@ -31,7 +31,7 @@ export function mockPlatform() {
     logger,
     'App',
     win,
-    projectBuildDir
+    appBuildDir
   );
 
   const $mockedQueue = plt.queue = mockQueue();
@@ -146,7 +146,7 @@ export function mockStencilSystem() {
 
 function mockGetClientCoreFile(opts: {staticName: string}) {
   return Promise.resolve(`
-    (function (window, document, projectNamespace, projectFileName, projectCore, projectCoreEs5, components) {
+    (function (window, document, apptNamespace, appFileName, appCore, appCoreEs5, components) {
         // mock getClientCoreFile, staticName: ${opts.staticName}
     })(window, document, '__STENCIL__APP__');`);
 }

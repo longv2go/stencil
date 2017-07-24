@@ -1,7 +1,7 @@
 import { BuildConfig, BuildContext, ComponentRegistry, CoreGlobal, HostElement, PlatformApi,
   HostContentNodes, HydrateOptions, HydrateResults, VNode } from '../util/interfaces';
 import { createPlatformServer } from './platform-server';
-import { getProjectBuildDir } from '../compiler/project/generate-project-files';
+import { getAppBuildDir } from '../compiler/app/generate-app-files';
 import { initHostConstructor } from '../core/instance/init';
 import { optimizeHtml } from '../compiler/html/optimize-html';
 
@@ -35,8 +35,8 @@ export function hydrateHtml(config: BuildConfig, ctx: BuildContext, registry: Co
   normalizeDirection(doc, opts);
   normalizeLanguage(doc, opts);
 
-  // get the path to the project's build directory
-  const projectBuildDir = getProjectBuildDir(config);
+  // get the path to the app's build directory
+  const appBuildDir = getAppBuildDir(config);
 
   // create the platform
   const plt = createPlatformServer(
@@ -45,7 +45,7 @@ export function hydrateHtml(config: BuildConfig, ctx: BuildContext, registry: Co
     config.logger,
     config.namespace,
     win,
-    projectBuildDir,
+    appBuildDir,
     ctx
   );
 

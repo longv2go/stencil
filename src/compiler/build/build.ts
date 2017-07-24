@@ -4,8 +4,8 @@ import { catchError, getBuildContext, resetBuildContext } from '../util';
 import { cleanDiagnostics } from '../../util/logger/logger-util';
 import { compileSrcDir } from './compile';
 import { generateHtmlDiagnostics } from '../../util/logger/generate-html-diagnostics';
-import { generateProjectFiles } from '../project/generate-project-files';
-import { generateProjectManifest } from '../manifest/generate-manifest';
+import { generateAppFiles } from '../app/generate-app-files';
+import { generateAppManifest } from '../manifest/generate-manifest';
 import { optimizeIndexHtml } from './optimize-index-html';
 import { setupWatcher } from './watch';
 import { validateBuildConfig } from './validation';
@@ -46,17 +46,17 @@ export function build(config: BuildConfig, context?: any) {
     return compileSrcDir(config, ctx);
 
   }).then(compileResults => {
-    // generation the project manifest from the compiled results
+    // generation the app manifest from the compiled results
     // and from all the dependent collections
-    return generateProjectManifest(config, ctx, compileResults.moduleFiles);
+    return generateAppManifest(config, ctx, compileResults.moduleFiles);
 
   }).then(() => {
     // bundle modules and styles into separate files phase
     return bundle(config, ctx);
 
   }).then(() => {
-    // generate the project files, such as app.js, app.core.js
-    return generateProjectFiles(config, ctx);
+    // generate the app files, such as app.js, app.core.js
+    return generateAppFiles(config, ctx);
 
   }).then(() => {
     // optimize index.html

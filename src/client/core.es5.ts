@@ -2,27 +2,26 @@ import { createDomApi } from '../core/renderer/dom-api';
 import { createDomControllerClient } from './dom-controller-client';
 import { createPlatformClient } from './platform-client';
 import { createQueueClient } from './queue-client';
-import { CoreGlobal, ProjectGlobal } from '../util/interfaces';
+import { getNowFunction } from './now';
+import { AppGlobal } from '../util/interfaces';
 
 
-declare const coreGlobal: CoreGlobal;
-declare const projectNamespace: string;
-declare const publicPath: string;
+const appGlobal: AppGlobal = (<any>window)[appNamespace] = (<any>window)[appNamespace] || {};
 
-const projectGlobal: ProjectGlobal = (<any>window)[projectNamespace] = (<any>window)[projectNamespace] || {};
+const now = getNowFunction(window);
 
-const domCtrl = createDomControllerClient(window);
+appGlobal.dom = createDomControllerClient(window, now);
 
 const plt = createPlatformClient(
-  coreGlobal,
-  projectGlobal,
+  Core,
+  appGlobal,
   window,
   createDomApi(document),
-  createQueueClient(domCtrl),
+  createQueueClient(appGlobal.dom, now),
   publicPath
 );
 
-plt.registerComponents(projectGlobal.components).forEach(cmpMeta => {
+plt.registerComponents(appGlobal.components).forEach(cmpMeta => {
   function HostElement(self: any) {
     return HTMLElement.call(this, self);
   }

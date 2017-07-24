@@ -2,6 +2,8 @@ import {
   BuildConfig,
   ComponentDecorator,
   CssClassMap,
+  ElementDecorator,
+  EventDecorator,
   HydrateOptions,
   ListenDecorator,
   MethodDecorator,
@@ -15,6 +17,10 @@ import {
 
 
 export declare const Component: ComponentDecorator;
+
+export declare const Element: ElementDecorator;
+
+export declare const Event: EventDecorator;
 
 export declare const Listen: ListenDecorator;
 

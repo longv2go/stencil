@@ -14,7 +14,7 @@ describe('hydrate', () => {
     };
     const registry: ComponentRegistry = {
       'ION-TEST': {
-        componentModuleMeta: class {
+        componentModule: class {
           render() {
             return h('elm-a', 0, [
               h(SLOT_TAG, { a: { name: 'slot-a' }}),
@@ -65,7 +65,7 @@ describe('hydrate', () => {
     };
     const registry: ComponentRegistry = {
       'ION-TEST': {
-        componentModuleMeta: class {
+        componentModule: class {
           render() {
             return h('elm-a', 0, [
               'inner text',
@@ -112,7 +112,7 @@ describe('hydrate', () => {
     };
     const registry: ComponentRegistry = {
       'ION-TEST': {
-        componentModuleMeta: class {
+        componentModule: class {
           render() {
             return h('div', 0);
           }

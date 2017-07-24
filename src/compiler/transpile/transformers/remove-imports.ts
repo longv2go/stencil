@@ -4,6 +4,8 @@ import * as ts from 'typescript';
 // same as the "declare" variables in the root index.ts file
 const REMOVE_GLOBALS = [
   'Component',
+  'Element',
+  'Event',
   'h',
   'Listen',
   'Method',

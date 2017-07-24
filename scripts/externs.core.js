@@ -34,9 +34,6 @@ function defineComponents(){};
  * Proxy Element
  * Properties set on the proxy element
  */
-function $el(){};
-function $emit(){};
-function $enableListener(){};
 function $instance(){};
 function listeners(){};
 function $(){};

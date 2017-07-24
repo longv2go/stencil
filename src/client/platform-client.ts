@@ -1,12 +1,13 @@
 import { assignHostContentSlots, createVNodesFromSsr } from '../core/renderer/slot';
-import { ComponentMeta, ComponentInstance, ComponentRegistry, CoreGlobal,
+import { ComponentMeta, ComponentRegistry, CoreGlobal, EventData, EventMeta,
   DomApi, HostElement, AppGlobal, ListenOptions, LoadComponentRegistry,
   ModuleCallbacks, QueueApi, PlatformApi } from '../util/interfaces';
 import { createRenderer } from '../core/renderer/patch';
 import { h, t } from '../core/renderer/h';
-import { initComponentPrototype, initHostConstructor } from '../core/instance/init';
+import { initHostConstructor } from '../core/instance/init';
 import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
 import { SSR_VNODE_ID } from '../util/constants';
+import { addEventListener, enableEventListener } from '../core/instance/events';
 
 
 export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGlobal, win: Window, domApi: DomApi, queue: QueueApi, publicPath: string): PlatformApi {
@@ -28,6 +29,14 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
     connectHostElement,
     emitEvent,
     getEventOptions
+  };
+
+  coreGlobal.addListener = function addListener(elm, eventName, cb, opts) {
+    return addEventListener(plt, elm, eventName, cb, opts);
+  };
+
+  coreGlobal.enableListener = function enableListener(instance, eventName, enabled, attachTo) {
+    enableEventListener(plt, instance, eventName, enabled, attachTo);
   };
 
   // create the renderer that will be used
@@ -101,7 +110,7 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
     for (var i = 2; i < args.length; i++) {
       // parse the external component data into internal component meta data
       // then add our set of prototype methods to the component module
-      initComponentPrototype(plt, parseComponentMeta(registry, moduleImports, args[i]));
+      parseComponentMeta(registry, moduleImports, args[i]);
     }
 
     // fire off all the callbacks waiting on this module to load
@@ -193,21 +202,26 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
   let WindowCustomEvent = (win as any).CustomEvent;
   if (typeof WindowCustomEvent !== 'function') {
     // CustomEvent polyfill
-    WindowCustomEvent = function CustomEvent(event: any, data: any) {
+    WindowCustomEvent = function CustomEvent(event: any, data: EventData) {
       var evt = domApi.$createEvent();
-      evt.initCustomEvent(event, true, true, data.detail);
+      evt.initCustomEvent(event, data.bubbles, data.cancelable, data.detail);
       return evt;
     };
     WindowCustomEvent.prototype = (win as any).Event.prototype;
   }
 
-  function emitEvent(instance: ComponentInstance, eventName: string, data: any) {
-    data = data || {};
-    data.bubbles = data.composed = true;
-    if (coreGlobal.eventNameFn) {
-      eventName = coreGlobal.eventNameFn(eventName);
-    }
-    instance.$el.dispatchEvent(new WindowCustomEvent(eventName, data));
+  function emitEvent(eventMeta: EventMeta, elm: Element, data: EventData) {
+    const eventData: EventData = {
+      bubbles: eventMeta.eventBubbles,
+      composed: eventMeta.eventComposed,
+      cancelable: eventMeta.eventCancelable,
+      detail: data
+    };
+
+    elm.dispatchEvent(new WindowCustomEvent(
+      coreGlobal.eventNameFn ? coreGlobal.eventNameFn(eventMeta.eventName) : eventMeta.eventName,
+      eventData
+    ));
   }
 
   // test if this browser supports event options or not

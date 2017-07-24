@@ -82,8 +82,6 @@ export function parseComponentMeta(registry: ComponentRegistry, moduleImports: a
 
   // component methods
   cmpMeta.methodsMeta = cmpMetaData[6];
-
-  return cmpMeta;
 }
 
 

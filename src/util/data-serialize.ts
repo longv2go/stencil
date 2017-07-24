@@ -135,12 +135,13 @@ export function formatDefineComponents(
 
 export function formatComponentMeta(cmpMeta: ComponentMeta) {
   const tag = cmpMeta.tagNameMeta.toLowerCase();
+  const host = formatHost(cmpMeta.hostMeta);
   const methods = formatMethods(cmpMeta.methodsMeta);
   const states = formatStates(cmpMeta.statesMeta);
   const listeners = formatListeners(tag, cmpMeta.listenersMeta);
   const propWillChanges = formatPropChanges(tag, 'prop will change', cmpMeta.propsWillChangeMeta);
   const propDidChanges = formatPropChanges(tag, 'prop did change', cmpMeta.propsDidChangeMeta);
-  const host = formatHost(cmpMeta.hostMeta);
+  const hostElementMember = formatHostElementMember(cmpMeta.hostElementMember);
   const shadow = formatShadow(cmpMeta.isShadowMeta);
 
   const d: string[] = [];
@@ -152,19 +153,18 @@ export function formatComponentMeta(cmpMeta: ComponentMeta) {
   d.push(`/** ${tag}: [4] propWillChanges **/\n${propWillChanges}`);
   d.push(`/** ${tag}: [5] propDidChanges **/\n${propDidChanges}`);
   d.push(`/** ${tag}: [6] methods **/\n${methods}`);
-  d.push(`/** ${tag}: [7] shadow **/\n${shadow}`);
+  d.push(`/** ${tag}: [7] hostElementMember **/\n${hostElementMember}`);
+  d.push(`/** ${tag}: [8] shadow **/\n${shadow}`);
 
   return `\n/***************** ${tag} *****************/\n[\n` + trimFalsyDataStr(d).join(',\n\n') + `\n\n]`;
 }
 
 
-export function formatJsBundleFileName(jsBundleId: string) {
-  return `${jsBundleId}.js`;
-}
-
-
-export function formatCssBundleFileName(cssBundleId: string) {
-  return `${cssBundleId}.css`;
+function formatHost(val: any) {
+  if (val === undefined) {
+    return '0 /* no host data */';
+  }
+  return JSON.stringify(val);
 }
 
 
@@ -248,11 +248,12 @@ function formatPropChangeOpts(label: string, propChangeType: string, propChange:
 }
 
 
-function formatHost(val: any) {
-  if (val === undefined) {
-    return '0 /* no host data */';
+function formatHostElementMember(val: any) {
+  if (typeof val !== 'string') {
+    return `0 /* no host element member name */`;
   }
-  return JSON.stringify(val);
+
+  return `'${val.trim()}'`;
 }
 
 
@@ -260,6 +261,16 @@ function formatShadow(val: boolean) {
   return val ?
     '1 /* use shadow dom */' :
     '0 /* do not use shadow dom */';
+}
+
+
+export function formatJsBundleFileName(jsBundleId: string) {
+  return `${jsBundleId}.js`;
+}
+
+
+export function formatCssBundleFileName(cssBundleId: string) {
+  return `${cssBundleId}.css`;
 }
 
 

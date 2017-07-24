@@ -1,10 +1,10 @@
 import { attachListeners } from './events';
 import { attributeChangedCallback } from './attribute-changed';
-import { ComponentInstance, ComponentMeta, HostElement, PlatformApi } from '../../util/interfaces';
+import { ComponentInstance, HostElement, PlatformApi } from '../../util/interfaces';
 import { connectedCallback } from './connected';
 import { disconnectedCallback } from './disconnected';
-import { enableListener } from './events';
 import { HYDRATED_CSS } from '../../util/constants';
+import { initComponentEvents } from './events';
 import { initProxy } from './proxy';
 import { queueUpdate } from './update';
 import { render } from './render';
@@ -38,36 +38,26 @@ export function initHostConstructor(plt: PlatformApi, HostElementConstructor: Ho
 }
 
 
-export function initComponentPrototype(plt: PlatformApi, cmpMeta: ComponentMeta) {
-  // always add these methods to each component module's prototype
-  const c: ComponentInstance = cmpMeta.componentModule.prototype;
-
-  c.$emit = function $emit(eventName: string, data: any) {
-    plt.emitEvent(this, eventName, data);
-  };
-
-  c.$enableListener = function $enableListener(eventName: string, shouldEnable: boolean, attachTo?: string) {
-    enableListener(plt, cmpMeta, this, eventName, shouldEnable, attachTo);
-  };
-}
-
-
 export function initComponentInstance(plt: PlatformApi, elm: HostElement) {
   // using the component's class, let's create a new instance
   const cmpMeta = plt.getComponentMeta(elm);
   const instance: ComponentInstance = elm.$instance = new cmpMeta.componentModule();
 
   // let's automatically add a reference to the host element on the instance
-  instance.$el = elm;
+  instance.__el = elm;
 
   // so we've got an host element now, and a actual instance
   // let's wire them up together with getter/settings
   // the setters are use for change detection and knowing when to re-render
   initProxy(plt, elm, instance, cmpMeta);
 
+  // add each of the event emitters which wire up instance methods
+  // to fire off dom events from the host element
+  initComponentEvents(plt, cmpMeta.eventsMeta, instance);
+
   // fire off the user's componentWillLoad method (if one was provided)
-  // componentWillLoad only runs ONCE, after instance.$el has been assigned
-  // the host element, but BEFORE render() has been called
+  // componentWillLoad only runs ONCE, after instance's element has been
+  // assigned as the host element, but BEFORE render() has been called
   instance.componentWillLoad && instance.componentWillLoad();
 }
 
@@ -92,8 +82,8 @@ export function initLoad(plt: PlatformApi, elm: HostElement): any {
     elm._hasLoaded = true;
 
     // fire off the user's componentDidLoad method (if one was provided)
-    // componentDidLoad only runs ONCE, after instance.$el has been assigned
-    // the host element, and AFTER render() has been called
+    // componentDidLoad only runs ONCE, after the instance's element has been
+    // assigned as the host element, and AFTER render() has been called
     instance.componentDidLoad && instance.componentDidLoad();
 
     // add the css class that this element has officially hydrated

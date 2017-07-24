@@ -1,4 +1,4 @@
-import { ComponentInstance, ComponentMeta, HostElement, ListenMeta, ListenOptions, PlatformApi } from '../../util/interfaces';
+import { ComponentInstance, EventMeta, HostElement, ListenMeta, ListenOptions, PlatformApi } from '../../util/interfaces';
 import { getElementReference, noop } from '../../util/helpers';
 import { KEY_CODE_MAP } from '../../util/constants';
 
@@ -21,9 +21,10 @@ export function attachListeners(plt: PlatformApi, listeners: ListenMeta[], elm: 
 }
 
 
-export function enableListener(plt: PlatformApi, cmpMeta: ComponentMeta, instance: ComponentInstance, eventName: string, shouldEnable: boolean, attachTo?: string) {
+export function enableEventListener(plt: PlatformApi, instance: ComponentInstance, eventName: string, shouldEnable: boolean, attachTo?: string) {
   if (instance) {
-    const elm = instance.$el;
+    const elm = instance.__el;
+    const cmpMeta = plt.getComponentMeta(elm);
     const listenerMeta = cmpMeta.listenersMeta;
 
     if (listenerMeta) {
@@ -127,5 +128,20 @@ export function detachListeners(elm: HostElement) {
     }
 
     elm._listeners = null;
+  }
+}
+
+
+export function initComponentEvents(plt: PlatformApi, componentEvents: EventMeta[], instance: ComponentInstance) {
+  if (componentEvents) {
+    componentEvents.forEach(eventMeta => {
+
+      instance[eventMeta.instanceMethodName] = {
+        emit: function eventEmitter(data: any) {
+          plt.emitEvent(eventMeta, instance.__el, data);
+        }
+      };
+
+    });
   }
 }

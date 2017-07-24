@@ -48,6 +48,9 @@ export function createPlatformServer(
   // create the renderer which will be used to patch the vdom
   plt.render = createRenderer(plt, domApi);
 
+  coreGlobal.addListener = noop;
+  coreGlobal.enableListener = noop;
+
   // update the app global
   const Gbl: AppGlobal = {
     dom: createDomControllerServer()

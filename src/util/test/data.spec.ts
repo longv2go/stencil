@@ -150,7 +150,7 @@ describe('data serialize/parse', () => {
       expect(registry['TAG'].methodsMeta).toBeFalsy();
     });
 
-    it('should set componentModuleMeta', () => {
+    it('should set componentModule', () => {
       const format = formatComponentMeta(cmpMeta);
       parseComponentMeta(registry, moduleImports, evalStr(format));
 

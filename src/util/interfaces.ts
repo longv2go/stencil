@@ -21,7 +21,7 @@ export interface AppGlobal {
 
 
 export interface AddEventListenerApi {
-  (elm: HTMLElement|HTMLDocument|Window, eventName: string, cb: (ev?: any) => void, opts?: ListenOptions): Function;
+  (elm: HTMLElement|HTMLDocument|Window, eventName: string, cb: EventListenerCallback, opts?: ListenOptions): Function;
 }
 
 
@@ -32,6 +32,11 @@ export interface EventListenerEnable {
 
 export interface EventListenerCallback {
   (ev?: any): void;
+}
+
+
+export interface EventEmitter {
+  emit: (data?: any) => void;
 }
 
 
@@ -436,6 +441,31 @@ export interface MethodDecorator {
 export interface MethodOptions {}
 
 
+export interface ElementDecorator {}
+
+
+export interface EventDecorator {
+  (opts?: EventOptions): any;
+}
+
+
+export interface EventOptions {
+  eventName?: string;
+  bubbles?: boolean;
+  cancelable?: boolean;
+  composed?: boolean;
+}
+
+
+export interface EventMeta {
+  eventName?: string;
+  instanceMethodName?: string;
+  eventBubbles?: boolean;
+  eventCancelable?: boolean;
+  eventComposed?: boolean;
+}
+
+
 export interface ListenDecorator {
   (eventName: string, opts?: ListenOptions): any;
 }
@@ -484,6 +514,7 @@ export interface ComponentMeta {
   stylesMeta?: StylesMeta;
   methodsMeta?: MethodMeta[];
   propsMeta?: PropMeta[];
+  eventsMeta?: EventMeta[];
   listenersMeta?: ListenMeta[];
   propsWillChangeMeta?: PropChangeMeta[];
   propsDidChangeMeta?: PropChangeMeta[];
@@ -491,6 +522,7 @@ export interface ComponentMeta {
   isShadowMeta?: boolean;
   hostMeta?: HostMeta;
   assetsDirsMeta?: AssetsMeta[];
+  hostElementMember?: string;
   slotMeta?: number;
   loadPriority?: number;
   componentModule?: any;
@@ -535,13 +567,9 @@ export interface ComponentInstance {
   mode?: string;
   color?: string;
 
-  // public properties
-  $el?: HostElement;
-  $emit?: (eventName: string, data: any) => void;
-  $enableListener?: (eventName: string, shouldEnable: boolean, attachTo?: string) => void;
-
   // private properties
   __values?: ComponentInternalValues;
+  __el?: HostElement;
 
   [memberName: string]: any;
 }
@@ -738,8 +766,16 @@ export interface PlatformApi {
   queue: QueueApi;
   onAppLoad?: (rootElm: HostElement, stylesMap: FilesMap) => void;
   getEventOptions: (opts?: ListenOptions) => any;
-  emitEvent: (instance: ComponentInstance, eventName: string, data: any) => void;
+  emitEvent: (eventMeta: EventMeta, elm: Element, data: EventData) => void;
   tmpDisconnected?: boolean;
+}
+
+
+export interface EventData {
+  detail?: any;
+  bubbles?: boolean;
+  cancelable?: boolean;
+  composed?: boolean;
 }
 
 

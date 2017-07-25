@@ -1,5 +1,5 @@
 import { assignHostContentSlots, createVNodesFromSsr } from '../core/renderer/slot';
-import { ComponentMeta, ComponentRegistry, CoreGlobal, EventEmitterData, EventMeta,
+import { ComponentMeta, ComponentRegistry, CoreGlobal, EventEmitterData,
   DomApi, HostElement, AppGlobal, ListenOptions, LoadComponentRegistry,
   ModuleCallbacks, QueueApi, PlatformApi } from '../util/interfaces';
 import { createRenderer } from '../core/renderer/patch';
@@ -29,14 +29,6 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
     connectHostElement,
     emitEvent,
     getEventOptions
-  };
-
-  coreGlobal.addListener = function addListener(elm, eventName, cb, opts) {
-    return addEventListener(plt, elm, eventName, cb, opts);
-  };
-
-  coreGlobal.enableListener = function enableListener(instance, eventName, enabled, attachTo) {
-    enableEventListener(plt, instance, eventName, enabled, attachTo);
   };
 
   // create the renderer that will be used
@@ -210,20 +202,6 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
     WindowCustomEvent.prototype = (win as any).Event.prototype;
   }
 
-  function emitEvent(eventMeta: EventMeta, elm: Element, data: EventEmitterData) {
-    const eventData: EventEmitterData = {
-      bubbles: eventMeta.eventBubbles,
-      composed: eventMeta.eventComposed,
-      cancelable: eventMeta.eventCancelable,
-      detail: data
-    };
-
-    elm.dispatchEvent(new WindowCustomEvent(
-      coreGlobal.eventNameFn ? coreGlobal.eventNameFn(eventMeta.eventName) : eventMeta.eventName,
-      eventData
-    ));
-  }
-
   // test if this browser supports event options or not
   let supportsEventOptions = false;
   try {
@@ -242,6 +220,23 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
         passive: !(opts && opts.passive === false)
       } : !!(opts && opts.capture);
   }
+
+  coreGlobal.addListener = function addListener(elm, eventName, cb, opts) {
+    return addEventListener(plt, elm, eventName, cb, opts);
+  };
+
+  coreGlobal.enableListener = function enableListener(instance, eventName, enabled, attachTo) {
+    enableEventListener(plt, instance, eventName, enabled, attachTo);
+  };
+
+  function emitEvent(elm: Element, eventName: string, data: EventEmitterData) {
+    elm.dispatchEvent(new WindowCustomEvent(
+      coreGlobal.eventNameFn ? coreGlobal.eventNameFn(eventName) : eventName,
+      data
+    ));
+  }
+
+  coreGlobal.emit = emitEvent;
 
   return plt;
 }

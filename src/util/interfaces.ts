@@ -6,6 +6,7 @@ export { CssClassMap } from './jsx-interfaces';
 export interface CoreGlobal {
   addListener?: AddEventListenerApi;
   enableListener?: EventListenerEnable;
+  emit?: (elm: Element, eventName: string, data?: EventEmitterData) => void;
   eventNameFn?: (eventName: string) => string;
   isClient?: boolean;
   isServer?: boolean;
@@ -36,7 +37,7 @@ export interface EventListenerCallback {
 
 
 export interface EventEmitter {
-  emit: (data?: EventData) => void;
+  emit: (data?: any) => void;
 }
 
 
@@ -806,7 +807,7 @@ export interface PlatformApi {
   queue: QueueApi;
   onAppLoad?: (rootElm: HostElement, stylesMap: FilesMap) => void;
   getEventOptions: (opts?: ListenOptions) => any;
-  emitEvent: (eventMeta: EventMeta, elm: Element, data: EventEmitterData) => void;
+  emitEvent: (elm: Element, eventName: string, data: EventEmitterData) => void;
   tmpDisconnected?: boolean;
 }
 

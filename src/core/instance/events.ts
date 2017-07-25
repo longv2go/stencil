@@ -1,4 +1,4 @@
-import { ComponentInstance, EventMeta, HostElement, ListenMeta, ListenOptions, PlatformApi } from '../../util/interfaces';
+import { ComponentInstance, EventEmitterData, EventMeta, HostElement, ListenMeta, ListenOptions, PlatformApi } from '../../util/interfaces';
 import { getElementReference, noop } from '../../util/helpers';
 import { KEY_CODE_MAP } from '../../util/constants';
 
@@ -138,7 +138,13 @@ export function initComponentEvents(plt: PlatformApi, componentEvents: EventMeta
 
       instance[eventMeta.eventMethodName] = {
         emit: function eventEmitter(data: any) {
-          plt.emitEvent(eventMeta, instance.__el, data);
+          const eventData: EventEmitterData = {
+            bubbles: eventMeta.eventBubbles,
+            composed: eventMeta.eventComposed,
+            cancelable: eventMeta.eventCancelable,
+            detail: data
+          };
+          plt.emitEvent(instance.__el, eventMeta.eventName, eventData);
         }
       };
 

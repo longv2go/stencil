@@ -4,6 +4,7 @@ import {
   CssClassMap,
   ElementDecorator,
   EventDecorator,
+  EventEmitter,
   HydrateOptions,
   ListenDecorator,
   MethodDecorator,
@@ -45,6 +46,7 @@ export interface HostElement extends HTMLElement {
 export {
   BuildConfig,
   CssClassMap,
+  EventEmitter,
   HydrateOptions,
   AppGlobal,
   StencilSystem,

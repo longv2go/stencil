@@ -1,5 +1,5 @@
 import { catchError } from '../../util';
-import { Diagnostic, EventMeta, ModuleFile } from '../../../util/interfaces';
+import { Diagnostic, EventMeta, EventOptions, ModuleFile } from '../../../util/interfaces';
 import * as ts from 'typescript';
 
 
@@ -11,7 +11,6 @@ export function getEventDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagn
   decoratedMembers.forEach(memberNode => {
     let isEvent = false;
     let methodName: string = null;
-    let eventName: string = null;
     let rawEventMeta: EventMeta = {};
 
     memberNode.forEachChild(n => {
@@ -43,10 +42,8 @@ export function getEventDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagn
     });
 
 
-    if (isEvent && eventName && methodName) {
-      eventName.split(',').forEach(evName => {
-        validateEvent(moduleFile, evName, rawEventMeta, methodName, memberNode);
-      });
+    if (isEvent && methodName) {
+      validateEvent(moduleFile, rawEventMeta, methodName, memberNode);
     }
   });
 
@@ -60,34 +57,24 @@ export function getEventDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagn
 }
 
 
-function validateEvent(fileMeta: ModuleFile, eventName: string, rawEventMeta: EventMeta, methodName: string, memberNode: ts.ClassElement) {
-  eventName = eventName.trim();
-  if (!eventName) return;
+function validateEvent(fileMeta: ModuleFile, rawEventOpts: EventOptions, methodName: string, memberNode: ts.ClassElement) {
+  methodName = methodName.trim();
+  if (!methodName) return;
 
-  const eventMeta: EventMeta = Object.assign({}, rawEventMeta);
+  const eventMeta: EventMeta = {
+    eventMethodName: methodName,
+    eventName: methodName
+  };
 
-  eventMeta.eventMethodName = methodName;
-  eventMeta.eventName = eventName;
-
-  if (typeof eventMeta.eventName !== 'string') {
-    eventMeta.eventName = eventMeta.eventMethodName;
+  if (typeof rawEventOpts.eventName === 'string') {
+    eventMeta.eventName = rawEventOpts.eventName;
   }
 
-  if (eventMeta.eventBubbles === undefined) {
-    // default to always bubble if not provided
-    eventMeta.eventBubbles = true;
-  }
+  eventMeta.eventBubbles = typeof rawEventOpts.bubbles === 'boolean' ? rawEventOpts.bubbles : true;
 
-  if (eventMeta.eventCancelable === undefined) {
-    // default to always cancelable if not provided
-    eventMeta.eventCancelable = true;
-  }
+  eventMeta.eventCancelable = typeof rawEventOpts.cancelable === 'boolean' ? rawEventOpts.cancelable : true;
 
-  if (eventMeta.eventComposed === undefined) {
-    // default to always composed if not provided
-    // https://developer.mozilla.org/en-US/docs/Web/API/Event/composed
-    eventMeta.eventComposed = true;
-  }
+  eventMeta.eventComposed = typeof rawEventOpts.composed === 'boolean' ? rawEventOpts.composed : true;
 
   fileMeta.cmpMeta.eventsMeta.push(eventMeta);
 

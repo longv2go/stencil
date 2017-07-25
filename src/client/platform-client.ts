@@ -1,16 +1,20 @@
+import { addEventListener, enableEventListener } from '../core/instance/events';
 import { assignHostContentSlots, createVNodesFromSsr } from '../core/renderer/slot';
 import { ComponentMeta, ComponentRegistry, CoreGlobal, EventEmitterData,
-  DomApi, HostElement, AppGlobal, ListenOptions, LoadComponentRegistry,
-  ModuleCallbacks, QueueApi, PlatformApi } from '../util/interfaces';
+  HostElement, AppGlobal, ListenOptions, LoadComponentRegistry,
+  ModuleCallbacks, PlatformApi } from '../util/interfaces';
+import { createDomControllerClient } from './dom-controller-client';
+import { createDomApi } from '../core/renderer/dom-api';
 import { createRenderer } from '../core/renderer/patch';
+import { createQueueClient } from './queue-client';
+import { getNowFunction } from './now';
 import { h, t } from '../core/renderer/h';
 import { initHostConstructor } from '../core/instance/init';
 import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
 import { SSR_VNODE_ID } from '../util/constants';
-import { addEventListener, enableEventListener } from '../core/instance/events';
 
 
-export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGlobal, win: Window, domApi: DomApi, queue: QueueApi, publicPath: string): PlatformApi {
+export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Window, doc: Document, publicPath: string): PlatformApi {
   const registry: ComponentRegistry = { 'HTML': {} };
   const moduleImports: {[tag: string]: any} = {};
   const moduleCallbacks: ModuleCallbacks = {};
@@ -18,21 +22,46 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
   const loadedStyles: {[styleId: string]: boolean} = {};
   const pendingModuleRequests: {[url: string]: boolean} = {};
 
+  const domApi = createDomApi(doc);
+  const now = getNowFunction(win);
 
-  // create the platform api which will be passed around for external use
+  // initialize Core global object
+  Core.dom = createDomControllerClient(win, now);
+
+  Core.addListener = function addListener(elm, eventName, cb, opts) {
+    return addEventListener(plt, elm, eventName, cb, opts);
+  };
+
+  Core.enableListener = function enableListener(instance, eventName, enabled, attachTo) {
+    enableEventListener(plt, instance, eventName, enabled, attachTo);
+  };
+
+  Core.emit = function emitEvent(elm: Element, eventName: string, data: EventEmitterData) {
+    elm.dispatchEvent(new WindowCustomEvent(
+      Core.eventNameFn ? Core.eventNameFn(eventName) : eventName,
+      data
+    ));
+  };
+
+  Core.isClient = true;
+  Core.isServer = false;
+
+
+  // create the platform api which is used throughout common core code
   const plt: PlatformApi = {
     registerComponents,
     defineComponent,
     getComponentMeta,
     loadBundle,
-    queue,
+    queue: createQueueClient(Core.dom, now),
     connectHostElement,
-    emitEvent,
+    emitEvent: Core.emit,
     getEventOptions
   };
 
   // create the renderer that will be used
   plt.render = createRenderer(plt, domApi);
+
 
   // setup the root element which is the mighty <html> tag
   // the <html> has the final say of when the app has loaded
@@ -61,7 +90,7 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
       // looks like mode wasn't set as a property directly yet
       // first check if there's an attribute
       // next check the app's global
-      elm.mode = domApi.$getAttribute(elm, 'mode') || coreGlobal.mode;
+      elm.mode = domApi.$getAttribute(elm, 'mode') || Core.mode;
     }
 
     // host element has been connected to the DOM
@@ -92,12 +121,12 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
   }
 
 
-  appGlobal.defineComponents = function defineComponents(moduleId, importFn) {
+  App.defineComponents = function defineComponents(moduleId, importFn) {
     const args = arguments;
 
     // import component function
     // inject globals
-    importFn(moduleImports, h, t, coreGlobal, publicPath);
+    importFn(moduleImports, h, t, Core, publicPath);
 
     for (var i = 2; i < args.length; i++) {
       // parse the external component data into internal component meta data
@@ -221,22 +250,6 @@ export function createPlatformClient(coreGlobal: CoreGlobal, appGlobal: AppGloba
       } : !!(opts && opts.capture);
   }
 
-  coreGlobal.addListener = function addListener(elm, eventName, cb, opts) {
-    return addEventListener(plt, elm, eventName, cb, opts);
-  };
-
-  coreGlobal.enableListener = function enableListener(instance, eventName, enabled, attachTo) {
-    enableEventListener(plt, instance, eventName, enabled, attachTo);
-  };
-
-  function emitEvent(elm: Element, eventName: string, data: EventEmitterData) {
-    elm.dispatchEvent(new WindowCustomEvent(
-      coreGlobal.eventNameFn ? coreGlobal.eventNameFn(eventName) : eventName,
-      data
-    ));
-  }
-
-  coreGlobal.emit = emitEvent;
 
   return plt;
 }

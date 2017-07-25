@@ -5,8 +5,9 @@ export { CssClassMap } from './jsx-interfaces';
 
 export interface CoreGlobal {
   addListener?: AddEventListenerApi;
-  enableListener?: EventListenerEnable;
+  dom?: DomControllerApi;
   emit?: (elm: Element, eventName: string, data?: EventEmitterData) => void;
+  enableListener?: EventListenerEnable;
   eventNameFn?: (eventName: string) => string;
   isClient?: boolean;
   isServer?: boolean;
@@ -17,7 +18,6 @@ export interface CoreGlobal {
 export interface AppGlobal {
   components?: LoadComponentRegistry[];
   defineComponents?: (moduleId: string, modulesImporterFn: ModulesImporterFn, cmp0?: LoadComponentMeta, cmp1?: LoadComponentMeta, cmp2?: LoadComponentMeta) => void;
-  dom?: DomControllerApi;
 }
 
 

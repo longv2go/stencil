@@ -13,7 +13,7 @@ import { parseComponentMeta } from '../util/data-parse';
 
 
 export function createPlatformServer(
-  coreGlobal: CoreGlobal,
+  Core: CoreGlobal,
   sys: StencilSystem,
   logger: Logger,
   appNamespace: string,
@@ -29,39 +29,45 @@ export function createPlatformServer(
   const pendingStyleFileReads: {[url: string]: boolean} = {};
   const stylesMap: FilesMap = {};
 
-  const queue = createQueueServer();
+
+  // initialize Core global object
+  Core.addListener = noop;
+  Core.enableListener = noop;
+  Core.emit = noop;
+  Core.dom = createDomControllerServer();
+  Core.isClient = false;
+  Core.isServer = true;
+
+
+  // create the app global
+  const App: AppGlobal = {};
+
+  // add the app's global to the window context
+  win[appNamespace] = App;
+
+  // create the sandboxed context with a new instance of a V8 Context
+  // V8 Context provides an isolated global environment
+  sys.vm.createContext(win);
+
 
   // create the DOM api which we'll use during hydrate
   const domApi = createDomApi(win.document);
 
+  // create the platform api which is used throughout common core code
   const plt: PlatformApi = {
     defineComponent,
     getComponentMeta,
     loadBundle,
     connectHostElement,
-    queue: queue,
+    queue: createQueueServer(),
     tmpDisconnected: false,
     emitEvent: noop,
     getEventOptions
   };
 
+
   // create the renderer which will be used to patch the vdom
   plt.render = createRenderer(plt, domApi);
-
-  coreGlobal.addListener = noop;
-  coreGlobal.enableListener = noop;
-
-  // update the app global
-  const Gbl: AppGlobal = {
-    dom: createDomControllerServer()
-  };
-
-  // add the app's global to the window context
-  win[appNamespace] = Gbl;
-
-  // create the sandboxed context with a new instance of a V8 Context
-  // V8 Context provides an isolated global environment
-  sys.vm.createContext(win);
 
   // setup the root node of all things
   // which is the mighty <html> tag
@@ -82,7 +88,7 @@ export function createPlatformServer(
       // looks like mode wasn't set as a property directly yet
       // first check if there's an attribute
       // next check the app's global
-      elm.mode = domApi.$getAttribute(elm, 'mode') || coreGlobal.mode;
+      elm.mode = domApi.$getAttribute(elm, 'mode') || Core.mode;
     }
 
     assignHostContentSlots(domApi, elm, slotMeta);
@@ -106,12 +112,12 @@ export function createPlatformServer(
   }
 
 
-  Gbl.defineComponents = function defineComponents(module, importFn) {
+  App.defineComponents = function defineComponents(module, importFn) {
     const args = arguments;
 
     // import component function
     // inject globals
-    importFn(moduleImports, h, t, coreGlobal, appBuildDir);
+    importFn(moduleImports, h, t, Core, appBuildDir);
 
     for (var i = 2; i < args.length; i++) {
       parseComponentMeta(registry, moduleImports, args[i]);

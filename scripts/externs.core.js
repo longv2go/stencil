@@ -9,17 +9,17 @@
  */
 
 /**
- * Core
- * Internal core singleton injected into component's scope
+ * Core Global
+ * Internal core singleton injected into app and component's scope
  */
 function addListener(){};
+function dom(){};
+function emit(){};
 function enableListener(){};
 function eventNameFn(){};
 function isClient(){};
 function isServer(){};
-function ns(){};
 function mode(){};
-function publicPath(){};
 
 
 /**

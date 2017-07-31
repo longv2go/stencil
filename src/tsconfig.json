@@ -18,7 +18,7 @@
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "outDir": "../dist/transpiled-core",
+    "outDir": "../build/transpiled-core",
     "pretty": true,
     "target": "es2015"
   },

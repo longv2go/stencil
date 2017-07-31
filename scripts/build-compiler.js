@@ -10,10 +10,10 @@ const path = require('path');
 const rollup = require('rollup');
 
 
-const TRANSPILED_DIR = path.join(__dirname, '../dist/transpiled-compiler');
+const TRANSPILED_DIR = path.join(__dirname, '../build/transpiled-compiler');
 const ENTRY_FILE = path.join(TRANSPILED_DIR, 'compiler/index.js');
-const DEST_DIR = path.join(__dirname, '../dist/compiler');
-const DEST_FILE = path.join(DEST_DIR, 'index.js');
+const DIST_DIR = path.join(__dirname, '../build/dist/compiler');
+const DIST_FILE = path.join(DIST_DIR, 'index.js');
 
 
 function bundleCompiler() {
@@ -30,7 +30,7 @@ function bundleCompiler() {
   }).then(bundle => {
 
     // copy over all the .d.ts file too
-    fs.copy(path.dirname(ENTRY_FILE), DEST_DIR, {
+    fs.copy(path.dirname(ENTRY_FILE), DIST_DIR, {
       filter: (src) => {
         return src.indexOf('.js') === -1 && src.indexOf('.spec.') === -1;
       }
@@ -39,10 +39,10 @@ function bundleCompiler() {
     // bundle up the compiler into one js file
     bundle.write({
       format: 'cjs',
-      dest: DEST_FILE
+      dest: DIST_FILE
 
     }).then(() => {
-      console.log(`bundled compiler: ${DEST_FILE}`);
+      console.log(`bundled compiler: ${DIST_FILE}`);
     });
 
   });

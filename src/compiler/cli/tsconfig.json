@@ -9,14 +9,14 @@
       "dom",
       "es2015"
     ],
-    "module": "es2015",
+    "module": "commonjs",
     "moduleResolution": "node",
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "outDir": "../../../../dist/transpiled-logger",
+    "outDir": "../../../build/transpiled-cli",
     "pretty": true,
     "target": "es5"
   },

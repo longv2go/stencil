@@ -13,13 +13,14 @@ const rollup = require('rollup');
 
 
 const ROOT_DIR = path.join(__dirname, '../');
-const DIST_DIR = path.join(ROOT_DIR, 'dist');
+const BUILD_DIR = path.join(ROOT_DIR, 'build');
 const EXTERNS_CORE = path.join(ROOT_DIR, 'scripts', 'externs.core.js');
-const TRANSPILED_DIR = path.join(DIST_DIR, 'transpiled-core');
+const TRANSPILED_DIR = path.join(BUILD_DIR, 'transpiled-core');
 const SRC_CLIENT_DIR = path.join(TRANSPILED_DIR, 'client');
-const DIST_CLIENT_DIR = path.join(DIST_DIR, 'client');
+const BUILD_DIST_DIR = path.join(BUILD_DIR, 'dist');
+const DIST_CLIENT_DIR = path.join(BUILD_DIST_DIR, 'client');
 const POLYFILLS_SRC_DIR = path.join(ROOT_DIR, 'scripts', 'polyfills');
-const POLYFILLS_DIST_DIR = path.join(DIST_DIR, 'client', 'polyfills');
+const POLYFILLS_DIST_DIR = path.join(BUILD_DIST_DIR, 'client', 'polyfills');
 
 const CLIENT_CORE_ENTRY_FILE = path.join(SRC_CLIENT_DIR, 'core.js');
 const CLIENT_CORE_ES5_ENTRY_FILE = path.join(SRC_CLIENT_DIR, 'core.es5.js');
@@ -254,7 +255,7 @@ function copyUtilFiles() {
 
 function copyMainDTs() {
   const readMainDTsPath = path.join(TRANSPILED_DIR, 'index.d.ts');
-  const writeMainDTsPath = path.join(DIST_DIR, 'index.d.ts');
+  const writeMainDTsPath = path.join(BUILD_DIR, 'index.d.ts');
   fs.readFile(readMainDTsPath, function(err, data) {
     if (err) {
       console.log('Failed to read: ', readMainDTsPath);
@@ -294,7 +295,7 @@ Object.defineProperties(module.exports, {
 });
   `
 
-  const mainIndexPath = path.join(DIST_DIR, 'index.js');
+  const mainIndexPath = path.join(BUILD_DIR, 'index.js');
   fs.writeFile(mainIndexPath, mainIndexContent, function(err) {
     if (err) {
       console.log('Failed to write: ', mainIndexPath);
@@ -305,7 +306,7 @@ Object.defineProperties(module.exports, {
 
 function copyUtilDir() {
   const readUtilDirPath = path.join(TRANSPILED_DIR, 'util');
-  const writeUtilDirPath = path.join(DIST_DIR, 'util');
+  const writeUtilDirPath = path.join(BUILD_DIR, 'util');
   fs.ensureDirSync(writeUtilDirPath);
   fs.readdir(readUtilDirPath, function(err, fileNames) {
     if (err) {

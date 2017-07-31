@@ -288,7 +288,7 @@ export interface BuildConfig {
   sys?: StencilSystem;
   logger?: Logger;
   rootDir?: string;
-  logLevel?: 'error'|'warn'|'info'|'debug';
+  logLevel?: string;
   exclude?: string[];
   namespace?: string;
   global?: string;

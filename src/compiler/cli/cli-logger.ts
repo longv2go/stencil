@@ -1,4 +1,4 @@
-import { Diagnostic, Logger, LoggerTimeSpan, PrintLine } from '../../interfaces';
+import { Diagnostic, Logger, LoggerTimeSpan, PrintLine } from '../../util/interfaces';
 
 
 export class CommandLineLogger implements Logger {

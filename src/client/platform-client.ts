@@ -115,7 +115,16 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
     initHostConstructor(plt, HostElementConstructor.prototype);
 
     // add which attributes should be observed
-    HostElementConstructor.observedAttributes = cmpMeta.propsMeta.filter(p => p.attribName).map(p => p.attribName);
+    const observedAttributes: string[] = [];
+
+    for (var propName in cmpMeta.propsMeta) {
+      if (cmpMeta.propsMeta[propName].attribName) {
+        // only observe attributes for the props that have attribute names
+        observedAttributes.push(cmpMeta.propsMeta[propName].attribName);
+      }
+    }
+
+    HostElementConstructor.observedAttributes = observedAttributes;
 
     // define the custom element
     win.customElements.define(cmpMeta.tagNameMeta.toLowerCase(), HostElementConstructor);

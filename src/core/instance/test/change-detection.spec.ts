@@ -89,43 +89,38 @@ describe('instance change detection', () => {
   }
 
   let cmpMeta: ComponentMeta = {
-    propsMeta: [
-      {
-        propName: 'num',
+    propsMeta: {
+      'num': {
         attribName: 'num',
         propType: TYPE_NUMBER,
         attribCase: ATTR_DASH_CASE,
         isStateful: false
       },
-      {
-        propName: 'str',
+      'str': {
         attribName: 'str',
         propType: TYPE_ANY,
         attribCase: ATTR_DASH_CASE,
         isStateful: false
       },
-      {
-        propName: 'bool',
+      'bool': {
         attribName: 'bool',
         propType: TYPE_BOOLEAN,
         attribCase: ATTR_DASH_CASE,
         isStateful: false
       },
-      {
-        propName: 'arr',
+      'arr': {
         attribName: 'arr',
         propType: TYPE_ANY,
         attribCase: ATTR_DASH_CASE,
         isStateful: false
       },
-      {
-        propName: 'obj',
+      'obj': {
         attribName: 'obj',
         propType: TYPE_ANY,
         attribCase: ATTR_DASH_CASE,
         isStateful: false
       }
-    ]
+    }
   };
 
   beforeEach(() => {

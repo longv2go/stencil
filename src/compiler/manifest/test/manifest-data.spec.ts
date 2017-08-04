@@ -216,18 +216,20 @@ describe('manifest-data serialize/parse', () => {
   });
 
   it('propsMeta', () => {
-    a.propsMeta = [
-      { propName: 'nameA', propType: TYPE_BOOLEAN, isStateful: true },
-      { propName: 'nameB', propType: TYPE_NUMBER, isStateful: false }
-    ];
+    a.propsMeta = {
+      'nameA': { propType: TYPE_BOOLEAN, isStateful: true },
+      'nameB': { propType: TYPE_NUMBER, isStateful: false },
+      'nameC': { ctrlTag: 'ion-config' }
+    };
     const cmpData = serializeComponent(config, manifestDir, moduleFile);
     b = parseComponent(config, manifestDir, cmpData);
-    expect(b.cmpMeta.propsMeta[0].propName).toBe('nameA');
-    expect(b.cmpMeta.propsMeta[0].propType).toBe(TYPE_BOOLEAN);
-    expect(b.cmpMeta.propsMeta[0].isStateful).toBe(true);
-    expect(b.cmpMeta.propsMeta[1].propName).toBe('nameB');
-    expect(b.cmpMeta.propsMeta[1].propType).toBe(TYPE_NUMBER);
-    expect(b.cmpMeta.propsMeta[1].isStateful).toBe(false);
+    expect(b.cmpMeta.propsMeta.nameA.propType).toBe(TYPE_BOOLEAN);
+    expect(b.cmpMeta.propsMeta.nameA.isStateful).toBe(true);
+    expect(b.cmpMeta.propsMeta.nameB.propType).toBe(TYPE_NUMBER);
+    expect(b.cmpMeta.propsMeta.nameB.isStateful).toBe(false);
+    expect(b.cmpMeta.propsMeta.nameC.ctrlTag).toBe('ion-config');
+    expect(b.cmpMeta.propsMeta.nameC.isStateful).toBe(false);
+    expect(b.cmpMeta.propsMeta.nameC.propType).toBeUndefined();
   });
 
   it('assetsDirsMeta', () => {

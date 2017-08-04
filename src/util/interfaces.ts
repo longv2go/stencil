@@ -167,14 +167,19 @@ export interface LoadComponentMeta {
   [6]: MethodMeta[];
 
   /**
+   * controllers
+   */
+  [7]: any;
+
+  /**
    * host element member name
    */
-  [7]: string;
+  [8]: string;
 
   /**
    * shadow
    */
-  [8]: boolean;
+  [9]: boolean;
 }
 
 
@@ -261,7 +266,6 @@ export interface ModuleFile {
   tsText?: string;
   dtsFilePath?: string;
   jsFilePath?: string;
-  hasCmpClass?: boolean;
   cmpMeta?: ComponentMeta;
   includedSassFiles?: string[];
   isCollectionDependency?: boolean;
@@ -456,7 +460,7 @@ export interface ModeStyles {
 
 
 export interface PropDecorator {
-  (opts?: PropOptions): any;
+  (opts?: PropOptions|string): any;
 }
 
 
@@ -466,12 +470,17 @@ export interface PropOptions {
 }
 
 
+export interface PropsMeta {
+  [propName: string]: PropMeta;
+}
+
+
 export interface PropMeta {
-  propName?: string;
   propType?: number;
   attribName?: string;
   attribCase?: number;
   isStateful?: boolean;
+  ctrlTag?: string;
 }
 
 
@@ -560,7 +569,7 @@ export interface ComponentMeta {
   styleIds?: {[modeName: string]: string };
   stylesMeta?: StylesMeta;
   methodsMeta?: MethodMeta[];
-  propsMeta?: PropMeta[];
+  propsMeta?: PropsMeta;
   eventsMeta?: EventMeta[];
   listenersMeta?: ListenMeta[];
   propsWillChangeMeta?: PropChangeMeta[];
@@ -1026,7 +1035,6 @@ declare global {
 }
 
 
-
 // this maps the json data to our internal data structure
 // so that the internal data structure "could" change,
 // but the external user data will always use the same api
@@ -1080,6 +1088,7 @@ export interface PropData {
   name?: string;
   type?: 'boolean'|'number';
   stateful?: boolean;
+  controller?: string;
 }
 
 export interface PropChangeData {

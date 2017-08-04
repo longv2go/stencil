@@ -38,14 +38,38 @@ export function initProxy(plt: PlatformApi, elm: HostElement, instance: Componen
     // Unlike @Prop, state properties do not add getters/setters to the proxy element
     // and initial values are not checked against the proxy element or config
     for (i = 0; i < cmpMeta.statesMeta.length; i++) {
-      initProperty(false, true, '', cmpMeta.statesMeta[i], 0, instance, values, plt, elm, cmpMeta.propsWillChangeMeta, cmpMeta.propsDidChangeMeta);
+      initProperty(
+        false,
+        cmpMeta.statesMeta[i],
+        true,
+        '',
+        0,
+        instance,
+        values,
+        plt,
+        elm,
+        cmpMeta.propsWillChangeMeta,
+        cmpMeta.propsDidChangeMeta
+      );
     }
   }
 
   if (cmpMeta.propsMeta) {
-    for (i = 0; i < cmpMeta.propsMeta.length; i++) {
+    for (var propName in cmpMeta.propsMeta) {
       // add getters/setters for @Prop()s
-      initProperty(true, cmpMeta.propsMeta[i].isStateful, cmpMeta.propsMeta[i].attribName, cmpMeta.propsMeta[i].propName, cmpMeta.propsMeta[i].propType, instance, instance.__values, plt, elm, cmpMeta.propsWillChangeMeta, cmpMeta.propsDidChangeMeta);
+      initProperty(
+        true,
+        propName,
+        cmpMeta.propsMeta[propName].isStateful,
+        cmpMeta.propsMeta[propName].attribName,
+        cmpMeta.propsMeta[propName].propType,
+        instance,
+        values,
+        plt,
+        elm,
+        cmpMeta.propsWillChangeMeta,
+        cmpMeta.propsDidChangeMeta
+      );
     }
   }
 }
@@ -63,9 +87,9 @@ function initMethod(methodName: string, elm: HostElement, instance: ComponentIns
 
 function initProperty(
   isProp: boolean,
+  propName: string,
   isStateful: boolean,
   attrName: string,
-  propName: string,
   propType: number,
   instance: ComponentInstance,
   internalValues: ComponentInternalValues,

@@ -211,7 +211,7 @@ export function validateUserBundles(bundles: Bundle[]) {
     }
 
     b.components = b.components.map(tag => {
-      return validateTag(tag, `found in bundle component stencil config`);
+      return validateComponentTag(tag, `found in bundle component stencil config`);
     }).sort();
   });
 
@@ -225,7 +225,7 @@ export function validateUserBundles(bundles: Bundle[]) {
 }
 
 
-export function validateTag(tag: string, suffix: string) {
+export function validateComponentTag(tag: string, suffix: string) {
   if (typeof tag !== 'string') {
     throw new Error(`Tag "${tag}" must be a string type, ${suffix}`);
   }

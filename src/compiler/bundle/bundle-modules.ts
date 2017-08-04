@@ -207,10 +207,7 @@ function bundleComponentModules(config: BuildConfig, ctx: BuildContext, bundleMo
 
     // generate the bundler results
     const results = rollupBundle.generate({
-      format: 'es',
-      globals: function(id: string) {
-        console.log('globals', id);
-      }
+      format: 'es'
     });
 
     // module bundling finished, assign its content to the user's bundle

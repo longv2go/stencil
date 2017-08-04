@@ -1,6 +1,6 @@
 import { AssetsMeta, BuildConfig, BuildContext, BuildResults, Bundle, BundleData,
   ComponentMeta, ComponentData, EventData, EventMeta, Manifest, ManifestData, ModuleFile, ListenerData,
-  ListenMeta, PropChangeData, PropChangeMeta, PropData, PropMeta, StyleData, StyleMeta } from '../../util/interfaces';
+  ListenMeta, PropChangeData, PropChangeMeta, PropData, StyleData, StyleMeta } from '../../util/interfaces';
 import { COLLECTION_MANIFEST_FILE_NAME, HAS_NAMED_SLOTS, HAS_SLOTS,
   PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../util/constants';
 import { normalizePath } from '../util';
@@ -314,13 +314,19 @@ function parseAssetsDir(config: BuildConfig, manifestDir: string, cmpData: Compo
 
 
 function serializeProps(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  if (!cmpMeta.propsMeta || !cmpMeta.propsMeta.length) {
+  if (!cmpMeta.propsMeta) {
     return;
   }
 
-  cmpData.props = cmpMeta.propsMeta.map(propMeta => {
+  const propNames = Object.keys(cmpMeta.propsMeta).sort();
+  if (!propNames.length) {
+    return;
+  }
+
+  cmpData.props = propNames.map(propName => {
+    const propMeta = cmpMeta.propsMeta[propName];
     const propData: PropData = {
-      name: propMeta.propName
+      name: propName
     };
 
     if (propMeta.propType === TYPE_BOOLEAN) {
@@ -334,6 +340,10 @@ function serializeProps(cmpData: ComponentData, cmpMeta: ComponentMeta) {
       propData.stateful = true;
     }
 
+    if (propMeta.ctrlTag) {
+      propData.controller = propMeta.ctrlTag;
+    }
+
     return propData;
   });
 }
@@ -345,20 +355,23 @@ function parseProps(cmpData: ComponentData, cmpMeta: ComponentMeta) {
     return;
   }
 
-  cmpMeta.propsMeta = propsData.map(propData => {
-    const propMeta: PropMeta = {
-      propName: propData.name,
+  cmpMeta.propsMeta = {};
+
+  propsData.forEach(propData => {
+    cmpMeta.propsMeta[propData.name] = {
       isStateful: !!propData.stateful
     };
 
     if (propData.type === 'boolean') {
-      propMeta.propType = TYPE_BOOLEAN;
+      cmpMeta.propsMeta[propData.name].propType = TYPE_BOOLEAN;
 
     } else if (propData.type === 'number') {
-      propMeta.propType = TYPE_NUMBER;
+      cmpMeta.propsMeta[propData.name].propType = TYPE_NUMBER;
     }
 
-    return propMeta;
+    if (propData.controller) {
+      cmpMeta.propsMeta[propData.name].ctrlTag = propData.controller;
+    }
   });
 }
 

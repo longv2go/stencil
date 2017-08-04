@@ -1,6 +1,6 @@
 import { assignHostContentSlots } from '../core/renderer/slot';
 import { BuildContext, ComponentMeta, ComponentRegistry,
-  CoreGlobal, Diagnostic, FilesMap, HostElement, ListenOptions,
+  CoreGlobal, Diagnostic, FilesMap, HostElement,
   ModuleCallbacks, PlatformApi, AppGlobal, StencilSystem } from '../util/interfaces';
 import { createDomApi } from '../core/renderer/dom-api';
 import { createDomControllerServer } from './dom-controller-server';
@@ -224,15 +224,15 @@ export function createPlatformServer(
     }
   }
 
-  function getEventOptions(opts: ListenOptions) {
+  function getEventOptions(useCapture?: boolean, usePassive?: boolean) {
     return {
-      'capture': !!(opts && opts.capture),
-      'passive': !(opts && opts.passive === false)
+      'capture': !!(useCapture),
+      'passive': !!(usePassive)
     };
   }
 
   function runGlobalScripts() {
-    if (!ctx.appFiles.global) {
+    if (!ctx || !ctx.appFiles || ctx.appFiles.global) {
       return;
     }
 

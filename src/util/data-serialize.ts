@@ -1,5 +1,5 @@
 import { Bundle, ComponentMeta, ComponentRegistry, EventMeta, ListenMeta, LoadComponentRegistry,
-  MethodMeta, ModuleFile, PropChangeMeta, PropMeta, StateMeta, StylesMeta } from './interfaces';
+  MethodMeta, ModuleFile, PropChangeMeta, PropsMeta, StateMeta, StylesMeta } from './interfaces';
 import { ATTR_LOWER_CASE, ATTR_DASH_CASE, TYPE_ANY, TYPE_BOOLEAN, HAS_SLOTS, HAS_NAMED_SLOTS, TYPE_NUMBER } from '../util/constants';
 
 
@@ -10,7 +10,7 @@ export function formatLoadComponentRegistry(cmpMeta: ComponentMeta, defaultAttrC
     cmpMeta.moduleId,
     formatStyles(cmpMeta.stylesMeta),
     formatSlot(cmpMeta.slotMeta),
-    formatProps(cmpMeta.propsMeta, defaultAttrCase),
+    formatObserveAttributeProps(cmpMeta.propsMeta, defaultAttrCase),
     formatListeners(cmpMeta.listenersMeta),
     cmpMeta.loadPriority
   ];
@@ -45,14 +45,23 @@ function formatSlot(val: number) {
 }
 
 
-function formatProps(props: PropMeta[], defaultAttrCase: number) {
-  if (!props || !props.length) {
+function formatObserveAttributeProps(props: PropsMeta, defaultAttrCase: number) {
+  if (!props) {
     return 0;
   }
 
-  return props.map(prop => {
+  const observeAttrProps: any[] = [];
+
+  const propNames = Object.keys(props);
+  propNames.forEach(propName => {
+    const prop = props[propName];
+
+    if (!prop.attribName) {
+      return;
+    }
+
     const d: any[] = [
-      prop.propName,
+      propName,
     ];
 
     if (prop.attribCase === undefined) {
@@ -78,13 +87,15 @@ function formatProps(props: PropMeta[], defaultAttrCase: number) {
       d.push(TYPE_ANY);
     }
 
-    if (prop.isStateful) {
-      d.push(1);
-    } else {
-      d.push(0);
-    }
+    observeAttrProps.push(d);
+  });
 
-    return trimFalsyData(d);
+  if (!observeAttrProps.length) {
+    return 0;
+  }
+
+  return observeAttrProps.map(p => {
+    return trimFalsyData(p);
   });
 }
 

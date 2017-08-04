@@ -142,7 +142,7 @@ function watchBuild(config: BuildConfig, ctx: BuildContext, requiresFullBuild: b
       if (isTsFile(changedFile)) {
         // we know there's a module change
         const moduleFile = ctx.moduleFiles[changedFile];
-        if (moduleFile && moduleFile.hasCmpClass) {
+        if (moduleFile && moduleFile.cmpMeta) {
           // we've got a module file already in memory and
           // the changed file we already know is a component file
           changeHasComponentModules = true;

@@ -276,81 +276,64 @@ describe('data serialize/parse', () => {
     });
 
     it('should set attribute lower case from config', () => {
-      cmpMeta.propsMeta = [
-        { propName: 'propName1' },
-        { propName: 'propName2', attribCase: ATTR_DASH_CASE }
-      ];
+      cmpMeta.propsMeta = {
+        'propName1': { attribName: 'propName1' },
+        'propName2': { attribName: 'propName2', attribCase: ATTR_DASH_CASE }
+      };
 
       const format = formatLoadComponentRegistry(cmpMeta, ATTR_LOWER_CASE);
       cmpMeta = parseComponentRegistry(format, {});
 
-      expect(cmpMeta.propsMeta[2].attribName).toEqual('propname1');
-      expect(cmpMeta.propsMeta[3].attribName).toEqual('prop-name2');
+      expect(cmpMeta.propsMeta.propName1.attribName).toEqual('propname1');
+      expect(cmpMeta.propsMeta.propName2.attribName).toEqual('prop-name2');
     });
 
     it('should set attribute dash case', () => {
-      cmpMeta.propsMeta = [
-        { propName: 'propName1' },
-        { propName: 'propName2', attribCase: ATTR_LOWER_CASE }
-      ];
+      cmpMeta.propsMeta = {
+        'propName1': { attribName: 'propName1' },
+        'propName2': { attribName: 'propName2', attribCase: ATTR_LOWER_CASE }
+      };
 
       const format = formatLoadComponentRegistry(cmpMeta, ATTR_DASH_CASE);
       cmpMeta = parseComponentRegistry(format, {});
 
-      expect(cmpMeta.propsMeta[2].attribName).toEqual('prop-name1');
-      expect(cmpMeta.propsMeta[3].attribName).toEqual('propname2');
+      expect(cmpMeta.propsMeta.propName1.attribName).toEqual('prop-name1');
+      expect(cmpMeta.propsMeta.propName2.attribName).toEqual('propname2');
+    });
+
+    it('should not add a non-attribute property to the load registry', () => {
+      cmpMeta.propsMeta = {
+        'notAnAttributPropery': {}
+      };
+
+      const format = formatLoadComponentRegistry(cmpMeta, ATTR_DASH_CASE);
+      cmpMeta = parseComponentRegistry(format, {});
+
+      expect(cmpMeta.propsMeta.notAnAttributPropery).toBeUndefined();
     });
 
     it('should set number prop', () => {
-      cmpMeta.propsMeta = [
-        { propName: 'num', propType: TYPE_NUMBER },
-        { propName: 'str' },
-      ];
+      cmpMeta.propsMeta = {
+        'num': { attribName: 'num', propType: TYPE_NUMBER },
+        'str': { attribName: 'str' },
+      };
 
       const format = formatLoadComponentRegistry(cmpMeta, ATTR_DASH_CASE);
       cmpMeta = parseComponentRegistry(format, {});
 
-      expect(cmpMeta.propsMeta[2].propName).toEqual('num');
-      expect(cmpMeta.propsMeta[2].propType).toEqual(TYPE_NUMBER);
-
-      expect(cmpMeta.propsMeta[3].propName).toEqual('str');
-      expect(cmpMeta.propsMeta[3].propType).toBeUndefined();
+      expect(cmpMeta.propsMeta.num.propType).toEqual(TYPE_NUMBER);
+      expect(cmpMeta.propsMeta.str.propType).toBeUndefined();
     });
 
     it('should set boolean prop', () => {
-      cmpMeta.propsMeta = [
-        { propName: 'boo', propType: TYPE_BOOLEAN }
-      ];
+      cmpMeta.propsMeta = {
+        'boo': { attribName: 'boo', propType: TYPE_BOOLEAN }
+      };
 
       const format = formatLoadComponentRegistry(cmpMeta, ATTR_DASH_CASE);
       cmpMeta = parseComponentRegistry(format, {});
 
-      expect(cmpMeta.propsMeta[2].propName).toEqual('boo');
-      expect(cmpMeta.propsMeta[2].propType).toEqual(TYPE_BOOLEAN);
-    });
-
-    it('should set is stateful prop true', () => {
-      cmpMeta.propsMeta = [
-        { propName: 'prop', isStateful: true }
-      ];
-
-      const format = formatLoadComponentRegistry(cmpMeta, ATTR_DASH_CASE);
-      cmpMeta = parseComponentRegistry(format, {});
-
-      expect(cmpMeta.propsMeta[2].propName).toEqual('prop');
-      expect(cmpMeta.propsMeta[2].isStateful).toEqual(true);
-    });
-
-    it('should default is stateful prop false', () => {
-      cmpMeta.propsMeta = [
-        { propName: 'prop' }
-      ];
-
-      const format = formatLoadComponentRegistry(cmpMeta, ATTR_DASH_CASE);
-      cmpMeta = parseComponentRegistry(format, {});
-
-      expect(cmpMeta.propsMeta[2].propName).toEqual('prop');
-      expect(cmpMeta.propsMeta[2].isStateful).toEqual(false);
+      expect(cmpMeta.propsMeta.boo.propType).toEqual(TYPE_BOOLEAN);
     });
 
     it('should always set color/mode even with no props', () => {
@@ -359,10 +342,8 @@ describe('data serialize/parse', () => {
       const format = formatLoadComponentRegistry(cmpMeta, ATTR_DASH_CASE);
       cmpMeta = parseComponentRegistry(format, {});
 
-      expect(cmpMeta.propsMeta.length).toEqual(2);
-      expect(cmpMeta.propsMeta[0].propName).toEqual('color');
-      expect(cmpMeta.propsMeta[0].attribName).toEqual('color');
-      expect(cmpMeta.propsMeta[1].propName).toEqual('mode');
+      expect(cmpMeta.propsMeta.color.attribName).toEqual('color');
+      expect(cmpMeta.propsMeta.mode).toBeDefined();
     });
 
     it('should set all of the modes', () => {

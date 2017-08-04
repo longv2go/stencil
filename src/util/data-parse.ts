@@ -8,14 +8,14 @@ export function parseComponentRegistry(cmpRegistryData: LoadComponentRegistry, r
   // tag name will always be upper case
   const cmpMeta: ComponentMeta = {
     tagNameMeta: cmpRegistryData[0],
-    propsMeta: [
+    propsMeta: {
       // every component defaults to always have
       // the mode and color properties
       // but only observe the color attribute
       // mode cannot change after the component was created
-      { propName: 'color', attribName: 'color' },
-      { propName: 'mode' },
-    ]
+      'mode': {},
+      'color': { attribName: 'color' }
+    }
   };
 
   cmpMeta.moduleId = cmpRegistryData[1];
@@ -26,38 +26,43 @@ export function parseComponentRegistry(cmpRegistryData: LoadComponentRegistry, r
   // slot
   cmpMeta.slotMeta = cmpRegistryData[3];
 
-  if (cmpRegistryData[4]) {
-    // parse prop meta
-    for (var i = 0; i < cmpRegistryData[4].length; i++) {
-      var d: any = cmpRegistryData[4][i];
-      cmpMeta.propsMeta.push({
-        propName: (d as ComponentPropertyData)[0],
-        attribName: ((d as ComponentPropertyData)[1] === ATTR_LOWER_CASE ? (d as ComponentPropertyData)[0].toLowerCase() : toDashCase((d as ComponentPropertyData)[0])),
-        propType: (d as ComponentPropertyData)[2],
-        isStateful: !!(d as ComponentPropertyData)[3]
-      });
-    }
-  }
+  // parse prop meta
+  parseComponentProp(cmpMeta, cmpRegistryData[4]);
 
   if (cmpRegistryData[5]) {
     // parse listener meta
-    cmpMeta.listenersMeta = [];
-    for (i = 0; i < cmpRegistryData[5].length; i++) {
-      d = cmpRegistryData[5][i];
-      cmpMeta.listenersMeta.push({
-        eventName: (d as ComponentListenersData)[0],
-        eventMethodName: (d as ComponentListenersData)[1],
-        eventDisabled: !!(d as ComponentListenersData)[2],
-        eventPassive: !!(d as ComponentListenersData)[3],
-        eventCapture: !!(d as ComponentListenersData)[4]
-      });
-    }
+    cmpMeta.listenersMeta = cmpRegistryData[5].map(parseListenerData);
   }
 
   // bundle load priority
   cmpMeta.loadPriority = cmpRegistryData[6];
 
   return registry[cmpMeta.tagNameMeta] = cmpMeta;
+}
+
+
+function parseListenerData(listenerData: ComponentListenersData) {
+  return {
+    eventName: listenerData[0],
+    eventMethodName: listenerData[1],
+    eventDisabled: !!listenerData[2],
+    eventPassive: !!listenerData[3],
+    eventCapture: !!listenerData[4]
+  };
+}
+
+
+function parseComponentProp(cmpMeta: ComponentMeta, propData: ComponentPropertyData[]) {
+  if (propData) {
+    for (var i = 0; i < propData.length; i++) {
+      var prop = propData[i];
+      cmpMeta.propsMeta[prop[0]] = {
+        attribName: (prop[1] === ATTR_LOWER_CASE ? prop[0].toLowerCase() : toDashCase(prop[0])),
+        propType: prop[2],
+        isStateful: !!prop[3]
+      };
+    }
+  }
 }
 
 

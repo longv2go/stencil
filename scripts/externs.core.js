@@ -27,7 +27,7 @@ function mode(){};
  * Properties which get added to the app's global
  */
 function components(){};
-function defineComponents(){};
+function loadComponents(){};
 
 
 /**

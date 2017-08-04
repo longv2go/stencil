@@ -129,7 +129,7 @@ export function formatComponentRegistry(registry: ComponentRegistry, defaultAttr
 }
 
 
-export function formatDefineComponents(
+export function formatLoadComponents(
     namespace: string,
     moduleId: string,
     moduleBundleOutput: string,
@@ -148,7 +148,7 @@ export function formatDefineComponents(
   }).join(',\n');
 
   return [
-    `${namespace}.defineComponents(\n`,
+    `${namespace}.loadComponents(\n`,
 
       `/**** module id (dev mode) ****/`,
       `'${moduleId}',\n`,

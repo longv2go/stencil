@@ -2,7 +2,7 @@ import { BuildConfig, BuildContext, Bundle, FilesMap,
   Manifest, ModuleFile, ModuleResults } from '../../util/interfaces';
 import { buildError, catchError, hasError, generatePreamble, normalizePath } from '../util';
 import { createOnWarnFn, loadRollupDiagnostics } from '../../util/logger/logger-rollup';
-import { formatDefineComponents, formatJsBundleFileName, generateBundleId } from '../../util/data-serialize';
+import { formatLoadComponents, formatJsBundleFileName, generateBundleId } from '../../util/data-serialize';
 
 
 export function bundleModules(config: BuildConfig, ctx: BuildContext) {
@@ -22,7 +22,7 @@ export function bundleModules(config: BuildConfig, ctx: BuildContext) {
   const timeSpan = config.logger.createTimeSpan(`bundle modules started`, !doBundling);
 
   return Promise.all(ctx.manifest.bundles.map(userBundle => {
-    return generateDefineComponents(config, ctx, ctx.manifest, userBundle, moduleResults);
+    return generateLoadComponentModules(config, ctx, ctx.manifest, userBundle, moduleResults);
 
   })).catch(err => {
     catchError(ctx.diagnostics, err);
@@ -34,7 +34,7 @@ export function bundleModules(config: BuildConfig, ctx: BuildContext) {
 }
 
 
-function generateDefineComponents(config: BuildConfig, ctx: BuildContext, appManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults) {
+function generateLoadComponentModules(config: BuildConfig, ctx: BuildContext, appManifest: Manifest, userBundle: Bundle, moduleResults: ModuleResults) {
   const sys = config.sys;
 
   const bundleModuleFiles = userBundle.components.map(userBundleComponentTag => {
@@ -57,15 +57,15 @@ function generateDefineComponents(config: BuildConfig, ctx: BuildContext, appMan
 
   const bundleId = generateBundleId(userBundle.components);
 
-  // loop through each bundle the user wants and create the "defineComponents"
+  // loop through each bundle the user wants and create the "loadComponents"
   return bundleComponentModules(config, ctx, bundleModuleFiles, bundleId).then(bundleDetails => {
     if (hasError(ctx.diagnostics)) {
       return;
     }
 
     // format all the JS bundle content
-    // insert the already bundled JS module into the defineComponents function
-    let moduleContent = formatDefineComponents(
+    // insert the already bundled JS module into the loadComponents function
+    let moduleContent = formatLoadComponents(
       config.namespace, STENCIL_BUNDLE_ID,
       bundleDetails.content, bundleModuleFiles
     );

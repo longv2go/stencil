@@ -131,7 +131,7 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
   }
 
 
-  App.defineComponents = function defineComponents(moduleId, importFn) {
+  App.loadComponents = function loadComponents(moduleId, importFn) {
     const args = arguments;
 
     // import component function

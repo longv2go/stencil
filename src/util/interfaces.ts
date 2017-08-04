@@ -16,7 +16,7 @@ export interface CoreGlobal {
 
 export interface AppGlobal {
   components?: LoadComponentRegistry[];
-  defineComponents?: (moduleId: string, modulesImporterFn: ModulesImporterFn, cmp0?: LoadComponentMeta, cmp1?: LoadComponentMeta, cmp2?: LoadComponentMeta) => void;
+  loadComponents?: (moduleId: string, modulesImporterFn: ModulesImporterFn, cmp0?: LoadComponentMeta, cmp1?: LoadComponentMeta, cmp2?: LoadComponentMeta) => void;
 }
 
 

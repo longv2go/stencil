@@ -119,7 +119,7 @@ export function createPlatformServer(
   }
 
 
-  App.defineComponents = function defineComponents(module, importFn) {
+  App.loadComponents = function loadComponents(module, importFn) {
     const args = arguments;
 
     // import component function

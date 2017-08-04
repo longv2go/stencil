@@ -1,11 +1,11 @@
 import { catchError } from '../../util';
-import { ModuleFile, Diagnostic, PropMeta, PropsMeta, PropOptions } from '../../../util/interfaces';
+import { Diagnostic, ModuleFile, PropMeta, PropOptions } from '../../../util/interfaces';
 import { TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
 import * as ts from 'typescript';
 
 
 export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagnostic[], classNode: ts.ClassDeclaration) {
-  const propsMeta: PropsMeta = {};
+  moduleFile.cmpMeta.propsMeta = {};
 
   const decoratedMembers = classNode.members.filter(n => n.decorators && n.decorators.length);
 
@@ -82,6 +82,12 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
     });
 
     if (isProp && propName) {
+      if (EXCLUDE_PROP_NAMES.indexOf(propName) > -1) {
+        // these automatically get added at runtime, so don't bother here
+        memberNode.decorators = undefined;
+        return;
+      }
+
       const propMeta: PropMeta = moduleFile.cmpMeta.propsMeta[propName] = {};
 
       if (propType) {
@@ -94,9 +100,14 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
 
           if (userPropOptions.type === 'boolean') {
             propMeta.propType = TYPE_BOOLEAN;
+            shouldObserveAttribute = true;
 
           } else if (userPropOptions.type === 'number') {
             propMeta.propType = TYPE_NUMBER;
+            shouldObserveAttribute = true;
+
+          } else if (userPropOptions.type === 'string') {
+            shouldObserveAttribute = true;
           }
         }
 
@@ -104,27 +115,19 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
           propMeta.isStateful = !!userPropOptions.state;
         }
 
-        if (shouldObserveAttribute) {
-          propMeta.attribName = propName;
-        }
-
       } else if (ctrlTag) {
         propMeta.ctrlTag = ctrlTag;
+        shouldObserveAttribute = false;
+      }
+
+      if (shouldObserveAttribute) {
+        propMeta.attribName = propName;
       }
 
       memberNode.decorators = undefined;
     }
   });
-
-  moduleFile.cmpMeta.propsMeta = {};
-
-  const propNames = Object.keys(propsMeta).sort((a, b) => {
-    if (a.toLowerCase() < b.toLowerCase()) return -1;
-    if (a.toLowerCase() > b.toLowerCase()) return 1;
-    return 0;
-  });
-
-  propNames.forEach(propName => {
-    moduleFile.cmpMeta.propsMeta[propName] = propsMeta[propName];
-  });
 }
+
+
+const EXCLUDE_PROP_NAMES = ['mode', 'color'];

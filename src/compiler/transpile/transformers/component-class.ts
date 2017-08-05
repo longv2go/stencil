@@ -31,11 +31,15 @@ export function componentClass(config: BuildConfig, moduleFiles: ModuleFiles, di
         moduleFile.cmpMeta = cmpMeta;
         moduleFile.cmpMeta.componentClass = classNode.name.getText().trim();
 
+        // membersMeta is shared with @Prop, @State, @Method, @Element
+        moduleFile.cmpMeta.membersMeta = {};
         getElementDecoratorMeta(moduleFile, classNode);
-        getEventDecoratorMeta(moduleFile, diagnostics, classNode);
         getMethodDecoratorMeta(moduleFile, classNode);
         getStateDecoratorMeta(moduleFile, classNode);
         getPropDecoratorMeta(moduleFile, diagnostics, classNode);
+
+        // others
+        getEventDecoratorMeta(moduleFile, diagnostics, classNode);
         getListenDecoratorMeta(moduleFile, diagnostics, classNode);
         getPropChangeDecoratorMeta(moduleFile, classNode);
 

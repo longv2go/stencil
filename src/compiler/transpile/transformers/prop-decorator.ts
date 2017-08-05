@@ -1,12 +1,10 @@
 import { catchError } from '../../util';
-import { Diagnostic, ModuleFile, PropMeta, PropOptions } from '../../../util/interfaces';
-import { TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
+import { Diagnostic, ModuleFile, MemberMeta, PropOptions } from '../../../util/interfaces';
+import { MEMBER_PROP_INPUT, MEMBER_PROP_STATE, TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
 import * as ts from 'typescript';
 
 
 export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagnostic[], classNode: ts.ClassDeclaration) {
-  moduleFile.cmpMeta.propsMeta = {};
-
   const decoratedMembers = classNode.members.filter(n => n.decorators && n.decorators.length);
 
   decoratedMembers.forEach(memberNode => {
@@ -88,7 +86,9 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
         return;
       }
 
-      const propMeta: PropMeta = moduleFile.cmpMeta.propsMeta[propName] = {};
+      const propMeta: MemberMeta = moduleFile.cmpMeta.membersMeta[propName] = {
+        memberType: MEMBER_PROP_INPUT
+      };
 
       if (propType) {
         propMeta.propType = propType;
@@ -112,7 +112,7 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
         }
 
         if (typeof userPropOptions.state === 'boolean') {
-          propMeta.isStateful = !!userPropOptions.state;
+          propMeta.memberType = MEMBER_PROP_STATE;
         }
 
       } else if (ctrlTag) {

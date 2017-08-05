@@ -9,6 +9,16 @@
 
 
 /**
+ * Member Types
+ */
+export const MEMBER_PROP_INPUT = 1;
+export const MEMBER_PROP_STATE = 2;
+export const MEMBER_STATE = 3;
+export const MEMBER_METHOD = 4;
+export const MEMBER_ELEMENT_REF = 5;
+
+
+/**
  * Prop Change Meta Indexes
  */
 export const PROP_CHANGE_PROP_NAME = 0;

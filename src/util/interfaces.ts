@@ -86,19 +86,19 @@ export interface LoadComponentRegistry {
   };
 
   /**
-   * slot
+   * members
    */
-  [3]: number;
-
-  /**
-   * props
-   */
-  [4]: ComponentPropertyData[];
+  [3]: ComponentMemberData[];
 
   /**
    * listeners
    */
-  [5]: ComponentListenersData[];
+  [4]: ComponentListenersData[];
+
+  /**
+   * slot
+   */
+  [5]: number;
 
   /**
    * load priority
@@ -107,26 +107,31 @@ export interface LoadComponentRegistry {
 }
 
 
-export interface ComponentPropertyData {
+export interface ComponentMemberData {
   /**
-   * prop name
+   * member name
    */
   [0]: string;
 
   /**
-   * attrib case
+   * member type
    */
   [1]: number;
 
   /**
-   * prop type
+   * attrib case
    */
   [2]: number;
 
   /**
-   * is stateful
+   * prop type
    */
   [3]: number;
+
+  /**
+   * controller tag
+   */
+  [4]: string;
 }
 
 
@@ -137,49 +142,34 @@ export interface LoadComponentMeta {
   [0]: string;
 
   /**
+   * members
+   */
+  [1]: ComponentMemberData[];
+
+  /**
    * host
    */
-  [1]: any;
-
-  /**
-   * states
-   */
-  [2]: StateMeta[];
-
-  /**
-   * prop WILL change
-   */
-  [3]: PropChangeMeta[];
-
-  /**
-   * prop DID change
-   */
-  [4]: PropChangeMeta[];
+  [2]: any;
 
   /**
    * component instance events
    */
-  [5]: EventMeta[];
+  [3]: ComponentEventData[];
 
   /**
-   * methods
+   * prop WILL change
    */
-  [6]: MethodMeta[];
+  [4]: PropChangeMeta[];
 
   /**
-   * controllers
+   * prop DID change
    */
-  [7]: any;
-
-  /**
-   * host element member name
-   */
-  [8]: string;
+  [5]: PropChangeMeta[];
 
   /**
    * shadow
    */
-  [9]: boolean;
+  [6]: boolean;
 }
 
 
@@ -470,21 +460,18 @@ export interface PropOptions {
 }
 
 
-export interface PropsMeta {
-  [propName: string]: PropMeta;
+export interface MembersMeta {
+  [memberName: string]: MemberMeta;
 }
 
 
-export interface PropMeta {
+export interface MemberMeta {
+  memberType?: number;
   propType?: number;
   attribName?: string;
   attribCase?: number;
-  isStateful?: boolean;
   ctrlTag?: string;
 }
-
-
-export type MethodMeta = string;
 
 
 export interface MethodDecorator {
@@ -549,9 +536,6 @@ export interface StateDecorator {
 }
 
 
-export type StateMeta = string;
-
-
 export interface PropChangeDecorator {
   (propName: string): any;
 }
@@ -568,17 +552,14 @@ export interface ComponentMeta {
   moduleId?: string;
   styleIds?: {[modeName: string]: string };
   stylesMeta?: StylesMeta;
-  methodsMeta?: MethodMeta[];
-  propsMeta?: PropsMeta;
+  membersMeta?: MembersMeta;
   eventsMeta?: EventMeta[];
   listenersMeta?: ListenMeta[];
   propsWillChangeMeta?: PropChangeMeta[];
   propsDidChangeMeta?: PropChangeMeta[];
-  statesMeta?: StateMeta[];
   isShadowMeta?: boolean;
   hostMeta?: HostMeta;
   assetsDirsMeta?: AssetsMeta[];
-  hostElementMember?: string;
   slotMeta?: number;
   loadPriority?: number;
   componentModule?: any;
@@ -1060,12 +1041,10 @@ export interface ComponentData {
   componentPath?: string;
   componentClass?: string;
   styles?: StylesData;
-  props?: PropData[];
+  members?: MemberData[];
   propsWillChange?: PropChangeData[];
   propsDidChange?: PropChangeData[];
-  states?: string[];
   listeners?: ListenerData[];
-  methods?: string[];
   events?: EventData[];
   hostElement?: string;
   host?: any;
@@ -1084,10 +1063,14 @@ export interface StyleData {
   style?: string;
 }
 
-export interface PropData {
+export interface MemberData {
   name?: string;
   type?: 'boolean'|'number';
-  stateful?: boolean;
+  propInput?: boolean;
+  propState?: boolean;
+  state?: boolean;
+  elementRef?: boolean;
+  method?: boolean;
   controller?: string;
 }
 

@@ -11,7 +11,7 @@ export function attributeChangedCallback(plt: PlatformApi, elm: HostElement, att
 
     // using the known component meta data
     // look up to see if we have a property wired up to this attribute name
-    const propsMeta = plt.getComponentMeta(elm).propsMeta;
+    const propsMeta = plt.getComponentMeta(elm).membersMeta;
     if (propsMeta) {
       for (var propName in propsMeta) {
         if (propsMeta[propName].attribName === attribName) {

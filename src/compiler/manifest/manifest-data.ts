@@ -1,8 +1,8 @@
 import { AssetsMeta, BuildConfig, BuildContext, BuildResults, Bundle, BundleData,
   ComponentMeta, ComponentData, EventData, EventMeta, Manifest, ManifestData, ModuleFile, ListenerData,
-  ListenMeta, PropChangeData, PropChangeMeta, PropData, StyleData, StyleMeta } from '../../util/interfaces';
-import { COLLECTION_MANIFEST_FILE_NAME, HAS_NAMED_SLOTS, HAS_SLOTS,
-  PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../util/constants';
+  ListenMeta, PropChangeData, PropChangeMeta, MemberData, StyleData, StyleMeta } from '../../util/interfaces';
+import { COLLECTION_MANIFEST_FILE_NAME, HAS_NAMED_SLOTS, HAS_SLOTS, MEMBER_ELEMENT_REF, MEMBER_METHOD,
+  MEMBER_PROP_INPUT, MEMBER_PROP_STATE, MEMBER_STATE, PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../util/constants';
 import { normalizePath } from '../util';
 
 
@@ -120,14 +120,11 @@ export function serializeComponent(config: BuildConfig, manifestDir: string, mod
   serializeComponentPath(config, manifestDir, compiledComponentAbsoluteFilePath, cmpData);
   serializeStyles(config, compiledComponentRelativeDirPath, cmpData, cmpMeta);
   serializeAssetsDir(config, compiledComponentRelativeDirPath, cmpData, cmpMeta);
-  serializeProps(cmpData, cmpMeta);
+  serializeMembers(cmpData, cmpMeta);
   serializePropsWillChange(cmpData, cmpMeta);
   serializePropsDidChange(cmpData, cmpMeta);
-  serializeStates(cmpData, cmpMeta);
   serializeListeners(cmpData, cmpMeta);
-  serializeMethods(cmpData, cmpMeta);
   serializeEvents(cmpData, cmpMeta);
-  serializeHostElementMember(cmpData, cmpMeta);
   serializeHost(cmpData, cmpMeta);
   serializeSlots(cmpData, cmpMeta);
   serializeIsShadow(cmpData, cmpMeta);
@@ -148,14 +145,11 @@ export function parseComponent(config: BuildConfig, manifestDir: string, cmpData
   parseModuleJsFilePath(config, manifestDir, cmpData, moduleFile);
   parseStyles(config, manifestDir, cmpData, cmpMeta);
   parseAssetsDir(config, manifestDir, cmpData, cmpMeta);
-  parseProps(cmpData, cmpMeta);
+  parseMembers(cmpData, cmpMeta);
   parsePropsWillChange(cmpData, cmpMeta);
   parsePropsDidChange(cmpData, cmpMeta);
-  parseStates(cmpData, cmpMeta);
   parseListeners(cmpData, cmpMeta);
-  parseMethods(cmpData, cmpMeta);
   parseEvents(cmpData, cmpMeta);
-  parseHostElementMember(cmpData, cmpMeta);
   parseHost(cmpData, cmpMeta);
   parseIsShadow(cmpData, cmpMeta);
   parseSlots(cmpData, cmpMeta);
@@ -313,64 +307,89 @@ function parseAssetsDir(config: BuildConfig, manifestDir: string, cmpData: Compo
 }
 
 
-function serializeProps(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  if (!cmpMeta.propsMeta) {
+function serializeMembers(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (!cmpMeta.membersMeta) {
     return;
   }
 
-  const propNames = Object.keys(cmpMeta.propsMeta).sort();
+  const propNames = Object.keys(cmpMeta.membersMeta).sort();
   if (!propNames.length) {
     return;
   }
 
-  cmpData.props = propNames.map(propName => {
-    const propMeta = cmpMeta.propsMeta[propName];
-    const propData: PropData = {
-      name: propName
+  cmpData.members = propNames.map(memberName => {
+    const memberMeta = cmpMeta.membersMeta[memberName];
+
+    const memberData: MemberData = {
+      name: memberName
     };
 
-    if (propMeta.propType === TYPE_BOOLEAN) {
-      propData.type = 'boolean';
+    if (memberMeta.ctrlTag) {
+      memberData.controller = memberMeta.ctrlTag;
 
-    } else if (propMeta.propType === TYPE_NUMBER) {
-      propData.type = 'number';
+    } else if (memberMeta.memberType === MEMBER_ELEMENT_REF) {
+      memberData.elementRef = true;
+
+    } else if (memberMeta.memberType === MEMBER_METHOD) {
+      memberData.method = true;
+
+    } else if (memberMeta.memberType === MEMBER_PROP_INPUT) {
+      memberData.propInput = true;
+
+    } else if (memberMeta.memberType === MEMBER_PROP_STATE) {
+      memberData.propState = true;
+
+    } else if (memberMeta.memberType === MEMBER_STATE) {
+      memberData.state = true;
     }
 
-    if (propMeta.isStateful) {
-      propData.stateful = true;
+    if (memberMeta.propType === TYPE_BOOLEAN) {
+      memberData.type = 'boolean';
+
+    } else if (memberMeta.propType === TYPE_NUMBER) {
+      memberData.type = 'number';
     }
 
-    if (propMeta.ctrlTag) {
-      propData.controller = propMeta.ctrlTag;
-    }
-
-    return propData;
+    return memberData;
   });
 }
 
-function parseProps(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  const propsData = cmpData.props;
+function parseMembers(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  const membersData = cmpData.members;
 
-  if (invalidArrayData(propsData)) {
+  if (invalidArrayData(membersData)) {
     return;
   }
 
-  cmpMeta.propsMeta = {};
+  cmpMeta.membersMeta = {};
 
-  propsData.forEach(propData => {
-    cmpMeta.propsMeta[propData.name] = {
-      isStateful: !!propData.stateful
-    };
+  membersData.forEach(memberData => {
+    cmpMeta.membersMeta[memberData.name] = {};
 
-    if (propData.type === 'boolean') {
-      cmpMeta.propsMeta[propData.name].propType = TYPE_BOOLEAN;
+    if (memberData.controller) {
+      cmpMeta.membersMeta[memberData.name].ctrlTag = memberData.controller;
 
-    } else if (propData.type === 'number') {
-      cmpMeta.propsMeta[propData.name].propType = TYPE_NUMBER;
+    } else if (memberData.elementRef) {
+      cmpMeta.membersMeta[memberData.name].memberType = MEMBER_ELEMENT_REF;
+
+    } else if (memberData.method) {
+      cmpMeta.membersMeta[memberData.name].memberType = MEMBER_METHOD;
+
+    } else if (memberData.propInput) {
+      cmpMeta.membersMeta[memberData.name].memberType = MEMBER_PROP_INPUT;
+
+    } else if (memberData.propState) {
+      cmpMeta.membersMeta[memberData.name].memberType = MEMBER_PROP_STATE;
+
+    } else if (memberData.state) {
+      cmpMeta.membersMeta[memberData.name].memberType = MEMBER_STATE;
     }
 
-    if (propData.controller) {
-      cmpMeta.propsMeta[propData.name].ctrlTag = propData.controller;
+    if (memberData.type === 'boolean') {
+      cmpMeta.membersMeta[memberData.name].propType = TYPE_BOOLEAN;
+
+    } else if (memberData.type === 'number') {
+      cmpMeta.membersMeta[memberData.name].propType = TYPE_NUMBER;
     }
   });
 }
@@ -438,24 +457,6 @@ function parsePropsDidChange(cmpData: ComponentData, cmpMeta: ComponentMeta) {
 }
 
 
-function serializeStates(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  if (invalidArrayData(cmpMeta.statesMeta)) {
-    return;
-  }
-
-  cmpData.states = cmpMeta.statesMeta;
-}
-
-
-function parseStates(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  if (invalidArrayData(cmpData.states)) {
-    return;
-  }
-
-  cmpMeta.statesMeta = cmpData.states;
-}
-
-
 function serializeListeners(cmpData: ComponentData, cmpMeta: ComponentMeta) {
   if (invalidArrayData(cmpMeta.listenersMeta)) {
     return;
@@ -502,22 +503,6 @@ function parseListeners(cmpData: ComponentData, cmpMeta: ComponentMeta) {
     };
     return listener;
   });
-}
-
-
-function serializeMethods(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  if (invalidArrayData(cmpMeta.methodsMeta)) {
-    return;
-  }
-  cmpData.methods = cmpMeta.methodsMeta;
-}
-
-
-function parseMethods(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  if (invalidArrayData(cmpData.methods)) {
-    return;
-  }
-  cmpMeta.methodsMeta = cmpData.methods;
 }
 
 
@@ -575,22 +560,6 @@ function parseEvents(cmpData: ComponentData, cmpMeta: ComponentMeta) {
 
     return eventMeta;
   });
-}
-
-
-function serializeHostElementMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  if (typeof cmpMeta.hostElementMember !== 'string') {
-    return;
-  }
-  cmpData.hostElement = cmpMeta.hostElementMember;
-}
-
-
-function parseHostElementMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  if (typeof cmpData.hostElement !== 'string') {
-    return;
-  }
-  cmpMeta.hostElementMember = cmpData.hostElement;
 }
 
 

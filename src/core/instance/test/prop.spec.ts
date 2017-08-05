@@ -8,7 +8,7 @@ describe('instance prop', () => {
 
   it('should set both getter/setter prop on element', () => {
     cmpMeta = {
-      propsMeta: {'prop': {
+      membersMeta: {'prop': {
         attribName: 'prop',
         propType: TYPE_ANY,
         attribCase: ATTR_DASH_CASE,
@@ -26,7 +26,7 @@ describe('instance prop', () => {
 
   it('should set both getter/setter prop on instance w/ isStateful option', () => {
     cmpMeta = {
-      propsMeta: {'prop': {
+      membersMeta: {'prop': {
         attribName: 'prop',
         propType: TYPE_ANY,
         attribCase: ATTR_DASH_CASE,
@@ -44,7 +44,7 @@ describe('instance prop', () => {
 
   it('should set only getter prop on instance', () => {
     cmpMeta = {
-      propsMeta: {'prop': {
+      membersMeta: {'prop': {
         attribName: 'prop',
         propType: TYPE_ANY,
         attribCase: ATTR_DASH_CASE,

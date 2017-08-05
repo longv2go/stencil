@@ -322,8 +322,8 @@ export function mockDefine(plt: MockedPlatform, cmpMeta: ComponentMeta) {
   if (!cmpMeta.componentModule) {
     cmpMeta.componentModule = class {};
   }
-  if (!cmpMeta.propsMeta) {
-    cmpMeta.propsMeta = {};
+  if (!cmpMeta.membersMeta) {
+    cmpMeta.membersMeta = {};
   }
   if (!cmpMeta.styleIds) {
     cmpMeta.styleIds = {};

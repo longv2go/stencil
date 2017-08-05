@@ -89,7 +89,7 @@ describe('instance change detection', () => {
   }
 
   let cmpMeta: ComponentMeta = {
-    propsMeta: {
+    membersMeta: {
       'num': {
         attribName: 'num',
         propType: TYPE_NUMBER,

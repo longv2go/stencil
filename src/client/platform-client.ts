@@ -117,10 +117,10 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
     // add which attributes should be observed
     const observedAttributes: string[] = [];
 
-    for (var propName in cmpMeta.propsMeta) {
-      if (cmpMeta.propsMeta[propName].attribName) {
+    for (var propName in cmpMeta.membersMeta) {
+      if (cmpMeta.membersMeta[propName].attribName) {
         // only observe attributes for the props that have attribute names
-        observedAttributes.push(cmpMeta.propsMeta[propName].attribName);
+        observedAttributes.push(cmpMeta.membersMeta[propName].attribName);
       }
     }
 

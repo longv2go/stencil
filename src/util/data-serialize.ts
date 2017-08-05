@@ -1,5 +1,5 @@
 import { Bundle, ComponentMeta, ComponentRegistry, EventMeta, ListenMeta, LoadComponentRegistry,
-  MethodMeta, ModuleFile, PropChangeMeta, PropsMeta, StateMeta, StylesMeta } from './interfaces';
+  MemberMeta, MembersMeta, ModuleFile, PropChangeMeta, StylesMeta } from './interfaces';
 import { ATTR_LOWER_CASE, ATTR_DASH_CASE, TYPE_ANY, TYPE_BOOLEAN, HAS_SLOTS, HAS_NAMED_SLOTS, TYPE_NUMBER } from '../util/constants';
 
 
@@ -10,7 +10,7 @@ export function formatLoadComponentRegistry(cmpMeta: ComponentMeta, defaultAttrC
     cmpMeta.moduleId,
     formatStyles(cmpMeta.stylesMeta),
     formatSlot(cmpMeta.slotMeta),
-    formatObserveAttributeProps(cmpMeta.propsMeta, defaultAttrCase),
+    formatObserveAttributeProps(cmpMeta.membersMeta, defaultAttrCase),
     formatListeners(cmpMeta.listenersMeta),
     cmpMeta.loadPriority
   ];
@@ -45,7 +45,7 @@ function formatSlot(val: number) {
 }
 
 
-function formatObserveAttributeProps(props: PropsMeta, defaultAttrCase: number) {
+function formatObserveAttributeProps(props: MembersMeta, defaultAttrCase: number) {
   if (!props) {
     return 0;
   }
@@ -165,28 +165,64 @@ export function formatLoadComponents(
 
 export function formatComponentMeta(cmpMeta: ComponentMeta) {
   const tag = cmpMeta.tagNameMeta.toLowerCase();
+  const members = formatMembers(cmpMeta.membersMeta);
   const host = formatHost(cmpMeta.hostMeta);
-  const states = formatStates(cmpMeta.statesMeta);
   const propWillChanges = formatPropChanges(tag, 'prop will change', cmpMeta.propsWillChangeMeta);
   const propDidChanges = formatPropChanges(tag, 'prop did change', cmpMeta.propsDidChangeMeta);
   const events = formatEvents(tag, cmpMeta.eventsMeta);
-  const methods = formatMethods(cmpMeta.methodsMeta);
-  const hostElementMember = formatHostElementMember(cmpMeta.hostElementMember);
   const shadow = formatShadow(cmpMeta.isShadowMeta);
 
   const d: string[] = [];
 
   d.push(`/** ${tag}: [0] tag **/\n'${tag.toUpperCase()}'`);
-  d.push(`/** ${tag}: [1] host **/\n${host}`);
-  d.push(`/** ${tag}: [2] states **/\n${states}`);
+  d.push(`/** ${tag}: [1] members **/\n${members}`);
+  d.push(`/** ${tag}: [2] host **/\n${host}`);
   d.push(`/** ${tag}: [3] propWillChanges **/\n${propWillChanges}`);
   d.push(`/** ${tag}: [4] propDidChanges **/\n${propDidChanges}`);
   d.push(`/** ${tag}: [5] events **/\n${events}`);
-  d.push(`/** ${tag}: [6] methods **/\n${methods}`);
-  d.push(`/** ${tag}: [7] hostElementMember **/\n${hostElementMember}`);
-  d.push(`/** ${tag}: [8] shadow **/\n${shadow}`);
+  d.push(`/** ${tag}: [6] shadow **/\n${shadow}`);
 
   return `\n/***************** ${tag} *****************/\n[\n` + trimFalsyDataStr(d).join(',\n\n') + `\n\n]`;
+}
+
+
+function formatMembers(membersMeta: MembersMeta) {
+  if (!membersMeta) {
+    return '0 /* no members */';
+  }
+
+  const memberNames = Object.keys(membersMeta).sort((a, b) => {
+    if (a.toUpperCase() < b.toLowerCase()) return -1;
+    if (a.toUpperCase() > b.toLowerCase()) return 1;
+    return 0;
+  });
+
+  if (!memberNames.length) {
+    return '0 /* no members */';
+  }
+
+  const members = memberNames.map(memberName => {
+    return formatMemberMeta(memberName, membersMeta[memberName]);
+  });
+
+  return `{${members}\n}`;
+}
+
+
+function formatMemberMeta(memberName: string, memberMeta: MemberMeta) {
+  const d: string[] = [`\n`];
+
+  d.push(` [\n`);
+
+  d.push(`    ${memberName} /** member name **/, `);
+  d.push(`    ${memberMeta.memberType} /** member type **/, `);
+  d.push(`    ${memberMeta.attribCase} /** attr case **/, `);
+  d.push(`    ${memberMeta.propType} /** prop type **/, `);
+  d.push(`    ${memberMeta.ctrlTag} /** controller **/ `);
+
+  d.push(`  ]`);
+
+  return trimFalsyDataStr(d).join('');
 }
 
 
@@ -195,15 +231,6 @@ function formatHost(val: any) {
     return '0 /* no host data */';
   }
   return JSON.stringify(val);
-}
-
-
-function formatStates(states: StateMeta[]) {
-  if (!states || !states.length) {
-    return '0 /* no states */';
-  }
-
-  return `['` + states.join(`', '`) + `']`;
 }
 
 
@@ -266,24 +293,6 @@ function formatEventOpts(label: string, eventMeta: EventMeta) {
   ];
 
   return `  [\n` + t.join(',\n') + `\n  ]`;
-}
-
-
-function formatMethods(methods: MethodMeta[]) {
-  if (!methods || !methods.length) {
-    return '0 /* no methods */';
-  }
-
-  return `['` + methods.join(`', '`) + `']`;
-}
-
-
-function formatHostElementMember(val: any) {
-  if (typeof val !== 'string') {
-    return `0 /* no host element member name */`;
-  }
-
-  return `'${val.trim()}'`;
 }
 
 

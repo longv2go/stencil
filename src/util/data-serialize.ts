@@ -103,9 +103,9 @@ function formatListeners(listeners: ListenMeta[]) {
     const d: any[] = [
       listener.eventName,
       listener.eventMethodName,
-      listener.eventDisabled,
-      listener.eventPassive,
-      listener.eventCapture
+      listener.eventDisabled ? 1 : 0,
+      listener.eventPassive ? 1 : 0,
+      listener.eventCapture ? 1 : 0
     ];
     return trimFalsyData(d);
   });

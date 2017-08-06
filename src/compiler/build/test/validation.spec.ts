@@ -75,7 +75,7 @@ describe('validation', () => {
 
     it('should default hashedFileNameLength', () => {
       validateBuildConfig(config);
-      expect(config.hashedFileNameLength).toBe(12);
+      expect(config.hashedFileNameLength).toBe(8);
     });
 
     it('should default hashFileNames to false in watch mode despite prod mode', () => {

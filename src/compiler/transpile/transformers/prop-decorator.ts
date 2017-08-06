@@ -1,6 +1,6 @@
 import { catchError } from '../../util';
 import { Diagnostic, ModuleFile, MemberMeta, PropOptions } from '../../../util/interfaces';
-import { MEMBER_PROP_INPUT, MEMBER_PROP_STATE, TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
+import { MEMBER_PROP, MEMBER_PROP_STATE, TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
 import * as ts from 'typescript';
 
 
@@ -34,7 +34,7 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
         n.getChildAt(1).forEachChild(n => {
           if (n.kind === ts.SyntaxKind.StringLiteral) {
             // @Prop('ion-animation-ctrl') animationCtrl: Animation;
-            ctrlTag = n.getText();
+            ctrlTag = n.getText().replace(/\'|\"|`/g, '').trim();
             shouldObserveAttribute = false;
 
           } else if (n.kind === ts.SyntaxKind.ObjectLiteralExpression) {
@@ -87,7 +87,7 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
       }
 
       const propMeta: MemberMeta = moduleFile.cmpMeta.membersMeta[propName] = {
-        memberType: MEMBER_PROP_INPUT
+        memberType: MEMBER_PROP
       };
 
       if (propType) {

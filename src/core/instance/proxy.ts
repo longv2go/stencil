@@ -1,7 +1,7 @@
 import { ComponentInstance, ComponentMeta, ComponentInternalValues,
   HostElement, PlatformApi, PropChangeMeta } from '../../util/interfaces';
 import { parsePropertyValue } from '../../util/data-parse';
-import { MEMBER_METHOD, MEMBER_PROP_INPUT, MEMBER_PROP_STATE, MEMBER_STATE,
+import { MEMBER_METHOD, MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_STATE,
   MEMBER_ELEMENT_REF, PROP_CHANGE_METHOD_NAME, PROP_CHANGE_PROP_NAME } from '../../util/constants';
 import { queueUpdate } from './update';
 
@@ -55,7 +55,7 @@ function initInstanceMember(
   propDidChangeMeta: PropChangeMeta[]
 ) {
 
-  if (memberType === MEMBER_PROP_INPUT || memberType === MEMBER_PROP_STATE) {
+  if (memberType === MEMBER_PROP || memberType === MEMBER_PROP_STATE) {
     // @Prop() property, so check initial value from the proxy element and instance
     // before we create getters/setters on this same property name
     // we do this for @Prop(state: true) also
@@ -159,7 +159,7 @@ function initInstanceMember(
     }
   }
 
-  if (memberType === MEMBER_PROP_INPUT || memberType === MEMBER_PROP_STATE) {
+  if (memberType === MEMBER_PROP || memberType === MEMBER_PROP_STATE) {
     // dom's element instance
     // only place getters/setters on element for "@Prop"s
     // "@State" getters/setters should not be assigned to the element

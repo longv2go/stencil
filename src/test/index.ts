@@ -80,6 +80,11 @@ export function mockBuildConfig() {
 export function mockStencilSystem() {
   const sys: StencilSystem = {
 
+    compiler: {
+      name: 'test',
+      version: 'test'
+    },
+
     copyDir: function mockCopyDir(src: string, dest: string, cb: Function) {
       src; dest;
       process.nextTick(() => {

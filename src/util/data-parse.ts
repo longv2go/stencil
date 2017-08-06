@@ -54,6 +54,7 @@ function parseListenerData(listenerData: ComponentListenersData) {
 
 function parseMembersData(cmpMeta: ComponentMeta, memberData: ComponentMemberData[]) {
   if (memberData) {
+    cmpMeta.membersMeta = cmpMeta.membersMeta || {};
     for (var i = 0; i < memberData.length; i++) {
       var d = memberData[i];
       cmpMeta.membersMeta[d[0]] = {
@@ -100,10 +101,10 @@ export function parseComponentMeta(registry: ComponentRegistry, moduleImports: a
 function parseEventData(d: ComponentEventData) {
   return {
     eventName: d[0],
-    eventMethodName: d[1],
-    eventBubbles: !!d[2],
-    eventCancelable: !!d[3],
-    eventComposed: !!d[4],
+    eventMethodName: d[1] || d[0],
+    eventBubbles: !d[2],
+    eventCancelable: !d[3],
+    eventComposed: !d[4]
   };
 }
 

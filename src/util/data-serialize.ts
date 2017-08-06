@@ -1,6 +1,7 @@
 import { Bundle, ComponentMeta, ComponentRegistry, EventMeta, ListenMeta, LoadComponentRegistry,
   MemberMeta, MembersMeta, ModuleFile, PropChangeMeta, StylesMeta } from './interfaces';
-import { ATTR_LOWER_CASE, ATTR_DASH_CASE, TYPE_ANY, TYPE_BOOLEAN, HAS_SLOTS, HAS_NAMED_SLOTS, TYPE_NUMBER } from '../util/constants';
+import { ATTR_LOWER_CASE, ATTR_DASH_CASE, HAS_SLOTS, HAS_NAMED_SLOTS, MEMBER_ELEMENT_REF, MEMBER_METHOD,
+  MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_STATE, TYPE_ANY, TYPE_BOOLEAN, TYPE_NUMBER } from '../util/constants';
 
 
 export function formatLoadComponentRegistry(cmpMeta: ComponentMeta, defaultAttrCase: number): LoadComponentRegistry {
@@ -9,9 +10,9 @@ export function formatLoadComponentRegistry(cmpMeta: ComponentMeta, defaultAttrC
     cmpMeta.tagNameMeta.toUpperCase(),
     cmpMeta.moduleId,
     formatStyles(cmpMeta.stylesMeta),
-    formatSlot(cmpMeta.slotMeta),
     formatObserveAttributeProps(cmpMeta.membersMeta, defaultAttrCase),
     formatListeners(cmpMeta.listenersMeta),
+    formatSlot(cmpMeta.slotMeta),
     cmpMeta.loadPriority
   ];
 
@@ -45,56 +46,62 @@ function formatSlot(val: number) {
 }
 
 
-function formatObserveAttributeProps(props: MembersMeta, defaultAttrCase: number) {
-  if (!props) {
+function formatObserveAttributeProps(membersMeta: MembersMeta, defaultAttrCase: number) {
+  if (!membersMeta) {
     return 0;
   }
 
-  const observeAttrProps: any[] = [];
+  const observeAttrs: any[] = [];
 
-  const propNames = Object.keys(props);
-  propNames.forEach(propName => {
-    const prop = props[propName];
+  const memberNames = Object.keys(membersMeta).sort();
 
-    if (!prop.attribName) {
+  memberNames.forEach(memberName => {
+    const memberMeta = membersMeta[memberName];
+
+    if (!memberMeta.attribName) {
       return;
     }
 
     const d: any[] = [
-      propName,
+      memberName,
+      memberMeta.memberType
     ];
 
-    if (prop.attribCase === undefined) {
+    if (memberMeta.attribCase === undefined) {
       // if individual prop wasn't set with an option
       // then use the config's default
-      prop.attribCase = defaultAttrCase;
+      memberMeta.attribCase = defaultAttrCase;
     }
 
-    if (prop.attribCase === ATTR_LOWER_CASE) {
-      d.push(prop.attribCase);
+    if (memberMeta.attribCase === ATTR_LOWER_CASE) {
+      d.push(ATTR_LOWER_CASE);
 
     } else {
       d.push(ATTR_DASH_CASE);
     }
 
-    if (prop.propType === TYPE_BOOLEAN) {
+    if (memberMeta.propType === TYPE_BOOLEAN) {
       d.push(TYPE_BOOLEAN);
 
-    } else if (prop.propType === TYPE_NUMBER) {
+    } else if (memberMeta.propType === TYPE_NUMBER) {
       d.push(TYPE_NUMBER);
 
     } else {
       d.push(TYPE_ANY);
     }
 
-    observeAttrProps.push(d);
+    if (memberMeta.ctrlTag) {
+      d.push(memberMeta.ctrlTag);
+    }
+
+    observeAttrs.push(d);
   });
 
-  if (!observeAttrProps.length) {
+  if (!observeAttrs.length) {
     return 0;
   }
 
-  return observeAttrProps.map(p => {
+  return observeAttrs.map(p => {
     return trimFalsyData(p);
   });
 }
@@ -151,7 +158,7 @@ export function formatLoadComponents(
     `${namespace}.loadComponents(\n`,
 
       `/**** module id (dev mode) ****/`,
-      `'${moduleId}',\n`,
+      `"${moduleId}",\n`,
 
       `/**** component modules ****/`,
       `${moduleBundleOutput},\n`,
@@ -174,13 +181,13 @@ export function formatComponentMeta(cmpMeta: ComponentMeta) {
 
   const d: string[] = [];
 
-  d.push(`/** ${tag}: [0] tag **/\n'${tag.toUpperCase()}'`);
-  d.push(`/** ${tag}: [1] members **/\n${members}`);
-  d.push(`/** ${tag}: [2] host **/\n${host}`);
-  d.push(`/** ${tag}: [3] propWillChanges **/\n${propWillChanges}`);
-  d.push(`/** ${tag}: [4] propDidChanges **/\n${propDidChanges}`);
-  d.push(`/** ${tag}: [5] events **/\n${events}`);
-  d.push(`/** ${tag}: [6] shadow **/\n${shadow}`);
+  d.push(`/** ${tag}: tag **/\n"${tag.toUpperCase()}"`);
+  d.push(`/** ${tag}: members **/\n${members}`);
+  d.push(`/** ${tag}: host **/\n${host}`);
+  d.push(`/** ${tag}: events **/\n${events}`);
+  d.push(`/** ${tag}: propWillChanges **/\n${propWillChanges}`);
+  d.push(`/** ${tag}: propDidChanges **/\n${propDidChanges}`);
+  d.push(`/** ${tag}: shadow **/\n${shadow}`);
 
   return `\n/***************** ${tag} *****************/\n[\n` + trimFalsyDataStr(d).join(',\n\n') + `\n\n]`;
 }
@@ -192,8 +199,8 @@ function formatMembers(membersMeta: MembersMeta) {
   }
 
   const memberNames = Object.keys(membersMeta).sort((a, b) => {
-    if (a.toUpperCase() < b.toLowerCase()) return -1;
-    if (a.toUpperCase() > b.toLowerCase()) return 1;
+    if (a.toLowerCase() < b.toLowerCase()) return -1;
+    if (a.toLowerCase() > b.toLowerCase()) return 1;
     return 0;
   });
 
@@ -205,24 +212,70 @@ function formatMembers(membersMeta: MembersMeta) {
     return formatMemberMeta(memberName, membersMeta[memberName]);
   });
 
-  return `{${members}\n}`;
+  return `[${members}\n]`;
 }
 
 
 function formatMemberMeta(memberName: string, memberMeta: MemberMeta) {
-  const d: string[] = [`\n`];
+  const d: string[] = [];
 
-  d.push(` [\n`);
+  d.push(`"${memberName}"`);
+  d.push(formatMemberType(memberMeta.memberType));
+  d.push(formatAttrCase(memberMeta.attribCase));
+  d.push(formatPropType(memberMeta.propType));
+  d.push(formatController(memberMeta.ctrlTag));
 
-  d.push(`    ${memberName} /** member name **/, `);
-  d.push(`    ${memberMeta.memberType} /** member type **/, `);
-  d.push(`    ${memberMeta.attribCase} /** attr case **/, `);
-  d.push(`    ${memberMeta.propType} /** prop type **/, `);
-  d.push(`    ${memberMeta.ctrlTag} /** controller **/ `);
+  return '\n  [ ' + trimFalsyDataStr(d).join(', ') + ' ]';
+}
 
-  d.push(`  ]`);
 
-  return trimFalsyDataStr(d).join('');
+function formatMemberType(val: number) {
+  if (val === MEMBER_ELEMENT_REF) {
+    return `/** element ref **/ ${MEMBER_ELEMENT_REF}`;
+  }
+  if (val === MEMBER_METHOD) {
+    return `/** method **/ ${MEMBER_METHOD}`;
+  }
+  if (val === MEMBER_PROP) {
+    return `/** prop **/ ${MEMBER_PROP}`;
+  }
+  if (val === MEMBER_PROP_STATE) {
+    return `/** prop state **/ ${MEMBER_PROP_STATE}`;
+  }
+  if (val === MEMBER_STATE) {
+    return `/** state **/ ${MEMBER_STATE}`;
+  }
+  return `/** unknown ****/ 0`;
+}
+
+
+function formatAttrCase(val: number) {
+  if (val === undefined) {
+    return `0`;
+  }
+  if (val === ATTR_LOWER_CASE) {
+    return `/** lower case attr **/ ${ATTR_LOWER_CASE}`;
+  }
+  return `/** dash case attr ** ${ATTR_DASH_CASE}`;
+}
+
+
+function formatPropType(val: number) {
+  if (val === TYPE_BOOLEAN) {
+    return `/** type boolean **/ ${TYPE_BOOLEAN}`;
+  }
+  if (val === TYPE_NUMBER) {
+    return `/** type number **/ ${TYPE_NUMBER}`;
+  }
+  return `/** type any **/ ${TYPE_ANY}`;
+}
+
+
+function formatController(val: string) {
+  if (val === undefined) {
+    return `0`;
+  }
+  return `/** controller ***/ "${val}"`;
 }
 
 
@@ -259,8 +312,8 @@ function formatPropChanges(label: string, propChangeType: string, propChange: Pr
 function formatPropChangeOpts(label: string, propChangeType: string, propChange: PropChangeMeta, index: number) {
   const t = [
     `    /*****  ${label} ${propChangeType} [${index}] ***** /\n` +
-    `    /* [0] prop name **/ '${propChange[0]}'`,
-    `    /* [1] call fn *****/ '${propChange[1]}'`
+    `    /* prop name **/ "${propChange[0]}"`,
+    `    /* call fn *****/ "${propChange[1]}"`
   ];
 
   return `  [\n` + t.join(',\n') + `\n  ]`;
@@ -285,14 +338,14 @@ function formatEvents(label: string, events: EventMeta[]) {
 function formatEventOpts(label: string, eventMeta: EventMeta) {
   const t = [
     `    /*****  ${label} ${eventMeta.eventName} ***** /\n` +
-    `    /* [0] event name ***/ '${eventMeta.eventName}'`,
-    `    /* [1] method name **/ '${eventMeta.eventMethodName}'`,
-    `    /* [2] bubbles ******/ '${formatBoolean(eventMeta.eventBubbles)}'`,
-    `    /* [3] cancelable ***/ '${formatBoolean(eventMeta.eventCancelable)}'`,
-    `    /* [4] composed *****/ '${formatBoolean(eventMeta.eventComposed)}'`
+    `    /* event name ***/ "${eventMeta.eventName}"`,
+    `    /* method name **/ ${eventMeta.eventMethodName !== eventMeta.eventName ? '"' + eventMeta.eventMethodName + '"' : 0}`,
+    `    /* disable bubbles **/ ${formatBoolean(!eventMeta.eventBubbles)}`,
+    `    /* disable cancelable **/ ${formatBoolean(!eventMeta.eventCancelable)}`,
+    `    /* disable composed **/ ${formatBoolean(!eventMeta.eventComposed)}`
   ];
 
-  return `  [\n` + t.join(',\n') + `\n  ]`;
+  return `  [\n` + trimFalsyDataStr(t).join(',\n') + `\n  ]`;
 }
 
 

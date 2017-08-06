@@ -869,6 +869,10 @@ export interface PrintLine {
 
 export interface StencilSystem {
   copyDir?(src: string, dest: string, callback: (err: any) => void): void;
+  compiler?: {
+    name: string;
+    version: string;
+  };
   createDom?(): {
     parse(hydrateOptions: HydrateOptions): Window;
     serialize(): string;
@@ -1029,6 +1033,10 @@ export interface ManifestData {
   bundles?: BundleData[];
   components?: ComponentData[];
   global?: string;
+  compiler?: {
+    name: string;
+    version: string;
+  };
 }
 
 export interface BundleData {
@@ -1041,12 +1049,15 @@ export interface ComponentData {
   componentPath?: string;
   componentClass?: string;
   styles?: StylesData;
-  members?: MemberData[];
+  props?: PropData[];
   propsWillChange?: PropChangeData[];
   propsDidChange?: PropChangeData[];
+  states?: StateData[];
   listeners?: ListenerData[];
+  methods?: MethodData[];
   events?: EventData[];
-  hostElement?: string;
+  controllers?: ControllerData[];
+  hostElement?: HostElementData;
   host?: any;
   assetPaths?: string[];
   slot?: 'hasSlots'|'hasNamedSlots';
@@ -1063,20 +1074,19 @@ export interface StyleData {
   style?: string;
 }
 
-export interface MemberData {
+export interface PropData {
   name?: string;
   type?: 'boolean'|'number';
-  propInput?: boolean;
-  propState?: boolean;
-  state?: boolean;
-  elementRef?: boolean;
-  method?: boolean;
-  controller?: string;
+  stateful?: boolean;
 }
 
 export interface PropChangeData {
   name: string;
   method: string;
+}
+
+export interface StateData {
+  name: string;
 }
 
 export interface ListenerData {
@@ -1087,10 +1097,23 @@ export interface ListenerData {
   enabled?: boolean;
 }
 
+export interface MethodData {
+  name: string;
+}
+
 export interface EventData {
   event: string;
   method?: string;
   bubbles?: boolean;
   cancelable?: boolean;
   composed?: boolean;
+}
+
+export interface ControllerData {
+  name: string;
+  tag: string;
+}
+
+export interface HostElementData {
+  name: string;
 }

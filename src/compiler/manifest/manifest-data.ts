@@ -1,8 +1,8 @@
 import { AssetsMeta, BuildConfig, BuildContext, BuildResults, Bundle, BundleData,
   ComponentMeta, ComponentData, EventData, EventMeta, Manifest, ManifestData, ModuleFile, ListenerData,
-  ListenMeta, PropChangeData, PropChangeMeta, MemberData, StyleData, StyleMeta } from '../../util/interfaces';
-import { COLLECTION_MANIFEST_FILE_NAME, HAS_NAMED_SLOTS, HAS_SLOTS, MEMBER_ELEMENT_REF, MEMBER_METHOD,
-  MEMBER_PROP_INPUT, MEMBER_PROP_STATE, MEMBER_STATE, PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../util/constants';
+  ListenMeta, PropChangeData, PropChangeMeta, PropData, StyleData, StyleMeta } from '../../util/interfaces';
+import { COLLECTION_MANIFEST_FILE_NAME, HAS_NAMED_SLOTS, HAS_SLOTS, MEMBER_PROP, MEMBER_PROP_STATE,
+  MEMBER_METHOD, MEMBER_ELEMENT_REF, MEMBER_STATE, PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../util/constants';
 import { normalizePath } from '../util';
 
 
@@ -38,7 +38,11 @@ export function serializeAppManifest(config: BuildConfig, manifestDir: string, m
   // create the single manifest we're going to fill up with data
   const manifestData: ManifestData = {
     components: [],
-    bundles: []
+    bundles: [],
+    compiler: {
+      name: config.sys.compiler.name,
+      version: config.sys.compiler.version
+    }
   };
 
   // add component data for each of the manifest files
@@ -120,10 +124,14 @@ export function serializeComponent(config: BuildConfig, manifestDir: string, mod
   serializeComponentPath(config, manifestDir, compiledComponentAbsoluteFilePath, cmpData);
   serializeStyles(config, compiledComponentRelativeDirPath, cmpData, cmpMeta);
   serializeAssetsDir(config, compiledComponentRelativeDirPath, cmpData, cmpMeta);
-  serializeMembers(cmpData, cmpMeta);
+  serializeProps(cmpData, cmpMeta);
   serializePropsWillChange(cmpData, cmpMeta);
   serializePropsDidChange(cmpData, cmpMeta);
+  serializeStates(cmpData, cmpMeta);
   serializeListeners(cmpData, cmpMeta);
+  serializeMethods(cmpData, cmpMeta);
+  serializeControllerMember(cmpData, cmpMeta);
+  serializeHostElementMember(cmpData, cmpMeta);
   serializeEvents(cmpData, cmpMeta);
   serializeHost(cmpData, cmpMeta);
   serializeSlots(cmpData, cmpMeta);
@@ -145,10 +153,14 @@ export function parseComponent(config: BuildConfig, manifestDir: string, cmpData
   parseModuleJsFilePath(config, manifestDir, cmpData, moduleFile);
   parseStyles(config, manifestDir, cmpData, cmpMeta);
   parseAssetsDir(config, manifestDir, cmpData, cmpMeta);
-  parseMembers(cmpData, cmpMeta);
+  parseProps(cmpData, cmpMeta);
   parsePropsWillChange(cmpData, cmpMeta);
   parsePropsDidChange(cmpData, cmpMeta);
+  parseStates(cmpData, cmpMeta);
   parseListeners(cmpData, cmpMeta);
+  parseMethods(cmpData, cmpMeta);
+  parseControllerMember(cmpData, cmpMeta);
+  parseHostElementMember(cmpData, cmpMeta);
   parseEvents(cmpData, cmpMeta);
   parseHost(cmpData, cmpMeta);
   parseIsShadow(cmpData, cmpMeta);
@@ -307,89 +319,58 @@ function parseAssetsDir(config: BuildConfig, manifestDir: string, cmpData: Compo
 }
 
 
-function serializeMembers(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  if (!cmpMeta.membersMeta) {
-    return;
-  }
+function serializeProps(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (!cmpMeta.membersMeta) return;
 
-  const propNames = Object.keys(cmpMeta.membersMeta).sort();
-  if (!propNames.length) {
-    return;
-  }
+  Object.keys(cmpMeta.membersMeta).sort(nameSort).forEach(memberName => {
+    const member = cmpMeta.membersMeta[memberName];
 
-  cmpData.members = propNames.map(memberName => {
-    const memberMeta = cmpMeta.membersMeta[memberName];
+    if (member.memberType === MEMBER_PROP || member.memberType === MEMBER_PROP_STATE) {
+      cmpData.props = cmpData.props || [];
 
-    const memberData: MemberData = {
-      name: memberName
-    };
+      const propData: PropData = {
+        name: memberName
+      };
 
-    if (memberMeta.ctrlTag) {
-      memberData.controller = memberMeta.ctrlTag;
+      if (member.propType === TYPE_BOOLEAN) {
+        propData.type = 'boolean';
 
-    } else if (memberMeta.memberType === MEMBER_ELEMENT_REF) {
-      memberData.elementRef = true;
+      } else if (member.propType === TYPE_NUMBER) {
+        propData.type = 'number';
+      }
 
-    } else if (memberMeta.memberType === MEMBER_METHOD) {
-      memberData.method = true;
+      if (member.memberType === MEMBER_PROP_STATE) {
+        propData.stateful = true;
+      }
 
-    } else if (memberMeta.memberType === MEMBER_PROP_INPUT) {
-      memberData.propInput = true;
-
-    } else if (memberMeta.memberType === MEMBER_PROP_STATE) {
-      memberData.propState = true;
-
-    } else if (memberMeta.memberType === MEMBER_STATE) {
-      memberData.state = true;
+      cmpData.props.push(propData);
     }
-
-    if (memberMeta.propType === TYPE_BOOLEAN) {
-      memberData.type = 'boolean';
-
-    } else if (memberMeta.propType === TYPE_NUMBER) {
-      memberData.type = 'number';
-    }
-
-    return memberData;
   });
 }
 
-function parseMembers(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  const membersData = cmpData.members;
+function parseProps(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  const propsData = cmpData.props;
 
-  if (invalidArrayData(membersData)) {
+  if (invalidArrayData(propsData)) {
     return;
   }
 
-  cmpMeta.membersMeta = {};
+  cmpMeta.membersMeta = cmpMeta.membersMeta || {};
 
-  membersData.forEach(memberData => {
-    cmpMeta.membersMeta[memberData.name] = {};
+  propsData.forEach(propData => {
+    cmpMeta.membersMeta[propData.name] = {};
 
-    if (memberData.controller) {
-      cmpMeta.membersMeta[memberData.name].ctrlTag = memberData.controller;
-
-    } else if (memberData.elementRef) {
-      cmpMeta.membersMeta[memberData.name].memberType = MEMBER_ELEMENT_REF;
-
-    } else if (memberData.method) {
-      cmpMeta.membersMeta[memberData.name].memberType = MEMBER_METHOD;
-
-    } else if (memberData.propInput) {
-      cmpMeta.membersMeta[memberData.name].memberType = MEMBER_PROP_INPUT;
-
-    } else if (memberData.propState) {
-      cmpMeta.membersMeta[memberData.name].memberType = MEMBER_PROP_STATE;
-
-    } else if (memberData.state) {
-      cmpMeta.membersMeta[memberData.name].memberType = MEMBER_STATE;
+    if (propData.stateful) {
+      cmpMeta.membersMeta[propData.name].memberType = MEMBER_PROP_STATE;
+    } else {
+      cmpMeta.membersMeta[propData.name].memberType = MEMBER_PROP;
     }
 
-    if (memberData.type === 'boolean') {
-      cmpMeta.membersMeta[memberData.name].propType = TYPE_BOOLEAN;
+    if (propData.type === 'boolean') {
+      cmpMeta.membersMeta[propData.name].propType = TYPE_BOOLEAN;
 
-    } else if (memberData.type === 'number') {
-      cmpMeta.membersMeta[memberData.name].propType = TYPE_NUMBER;
+    } else if (propData.type === 'number') {
+      cmpMeta.membersMeta[propData.name].propType = TYPE_NUMBER;
     }
   });
 }
@@ -457,6 +438,38 @@ function parsePropsDidChange(cmpData: ComponentData, cmpMeta: ComponentMeta) {
 }
 
 
+function serializeStates(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (!cmpMeta.membersMeta) return;
+
+  Object.keys(cmpMeta.membersMeta).sort(nameSort).forEach(memberName => {
+    const member = cmpMeta.membersMeta[memberName];
+
+    if (member.memberType === MEMBER_STATE) {
+      cmpData.states = cmpData.states || [];
+
+      cmpData.states.push({
+        name: memberName
+      });
+    }
+  });
+}
+
+
+function parseStates(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (invalidArrayData(cmpData.states)) {
+    return;
+  }
+
+  cmpMeta.membersMeta = cmpMeta.membersMeta || {};
+
+  cmpData.states.forEach(stateData => {
+    cmpMeta.membersMeta[stateData.name] = {
+      memberType: MEMBER_STATE
+    };
+  });
+}
+
+
 function serializeListeners(cmpData: ComponentData, cmpMeta: ComponentMeta) {
   if (invalidArrayData(cmpMeta.listenersMeta)) {
     return;
@@ -503,6 +516,98 @@ function parseListeners(cmpData: ComponentData, cmpMeta: ComponentMeta) {
     };
     return listener;
   });
+}
+
+
+function serializeMethods(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (!cmpMeta.membersMeta) return;
+
+  Object.keys(cmpMeta.membersMeta).sort(nameSort).forEach(memberName => {
+    const member = cmpMeta.membersMeta[memberName];
+
+    if (member.memberType === MEMBER_METHOD) {
+      cmpData.methods = cmpData.methods || [];
+
+      cmpData.methods.push({
+        name: memberName
+      });
+    }
+  });
+}
+
+
+function parseMethods(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (invalidArrayData(cmpData.methods)) {
+    return;
+  }
+
+  cmpMeta.membersMeta = cmpMeta.membersMeta || {};
+
+  cmpData.methods.forEach(methodData => {
+    cmpMeta.membersMeta[methodData.name] = {
+      memberType: MEMBER_METHOD
+    };
+  });
+}
+
+
+function serializeControllerMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (!cmpMeta.membersMeta) return;
+
+  Object.keys(cmpMeta.membersMeta).forEach(memberName => {
+    const member = cmpMeta.membersMeta[memberName];
+
+    if (member.ctrlTag) {
+      cmpData.controllers = cmpData.controllers || [];
+      cmpData.controllers.push({
+        name: memberName,
+        tag: member.ctrlTag
+      });
+    }
+  });
+}
+
+
+function parseControllerMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (invalidArrayData(cmpData.controllers)) {
+    return;
+  }
+
+  cmpMeta.membersMeta = cmpMeta.membersMeta || {};
+
+  cmpData.controllers.forEach(methodData => {
+    cmpMeta.membersMeta[methodData.name] = {
+      ctrlTag: methodData.tag
+    };
+  });
+}
+
+
+function serializeHostElementMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (!cmpMeta.membersMeta) return;
+
+  Object.keys(cmpMeta.membersMeta).forEach(memberName => {
+    const member = cmpMeta.membersMeta[memberName];
+
+    if (member.memberType === MEMBER_ELEMENT_REF) {
+      cmpData.hostElement = {
+        name: memberName
+      };
+    }
+  });
+}
+
+
+function parseHostElementMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (!cmpData.hostElement) {
+    return;
+  }
+
+  cmpMeta.membersMeta = cmpMeta.membersMeta || {};
+
+  cmpMeta.membersMeta[cmpData.hostElement.name] = {
+    memberType: MEMBER_ELEMENT_REF
+  };
 }
 
 
@@ -701,4 +806,10 @@ export function parseGlobal(config: BuildConfig, manifestDir: string, manifestDa
 
 function invalidArrayData(arr: any[]) {
   return (!arr || !Array.isArray(arr) || arr.length === 0);
+}
+
+function nameSort(a: string, b: string) {
+  if (a.toLowerCase() < b.toLowerCase()) return -1;
+  if (a.toLowerCase() > b.toLowerCase()) return 1;
+  return 0;
 }

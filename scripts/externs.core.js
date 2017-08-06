@@ -13,6 +13,7 @@
  * Internal core singleton injected into app and component's scope
  */
 function addListener(){};
+function attr(){};
 function dom(){};
 function emit(){};
 function enableListener(){};

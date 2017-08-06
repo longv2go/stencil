@@ -36,7 +36,6 @@ export const TYPE_NUMBER = 2;
 /**
  * JS Property to Attribute Name Options
  */
-export const ATTR_DASH_CASE = 0;
 export const ATTR_LOWER_CASE = 1;
 
 

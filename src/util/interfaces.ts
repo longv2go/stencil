@@ -4,6 +4,7 @@ export { CssClassMap } from './jsx-interfaces';
 
 export interface CoreGlobal {
   addListener?: AddEventListenerApi;
+  attr?: number;
   dom?: DomControllerApi;
   emit?: (elm: Element, eventName: string, data?: EventEmitterData) => void;
   enableListener?: EventListenerEnable;
@@ -304,7 +305,6 @@ export interface BuildConfig {
   preamble?: string;
   hashedFileNameLength?: number;
   suppressTypeScriptErrors?: boolean;
-  attrCase?: number;
   watchIgnoredRegex?: RegExp;
   prerenderIndex?: HydrateOptions;
   _isValidated?: boolean;
@@ -469,7 +469,6 @@ export interface MemberMeta {
   memberType?: number;
   propType?: number;
   attribName?: string;
-  attribCase?: number;
   ctrlTag?: string;
 }
 

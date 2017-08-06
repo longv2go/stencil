@@ -1,6 +1,6 @@
 import { mockPlatform, mockDomApi } from '../../../test';
 import { ComponentMeta, ComponentInstance, PlatformApi } from '../../../util/interfaces';
-import { ATTR_DASH_CASE, TYPE_ANY, TYPE_BOOLEAN, MEMBER_PROP, TYPE_NUMBER } from '../../../util/constants';
+import { TYPE_ANY, TYPE_BOOLEAN, MEMBER_PROP, TYPE_NUMBER } from '../../../util/constants';
 import { initProxy } from '../proxy';
 
 
@@ -93,32 +93,27 @@ describe('instance change detection', () => {
       'num': {
         memberType: MEMBER_PROP,
         attribName: 'num',
-        propType: TYPE_NUMBER,
-        attribCase: ATTR_DASH_CASE
+        propType: TYPE_NUMBER
       },
       'str': {
         memberType: MEMBER_PROP,
         attribName: 'str',
-        propType: TYPE_ANY,
-        attribCase: ATTR_DASH_CASE
+        propType: TYPE_ANY
       },
       'bool': {
         memberType: MEMBER_PROP,
         attribName: 'bool',
-        propType: TYPE_BOOLEAN,
-        attribCase: ATTR_DASH_CASE
+        propType: TYPE_BOOLEAN
       },
       'arr': {
         memberType: MEMBER_PROP,
         attribName: 'arr',
-        propType: TYPE_ANY,
-        attribCase: ATTR_DASH_CASE
+        propType: TYPE_ANY
       },
       'obj': {
         memberType: MEMBER_PROP,
         attribName: 'obj',
-        propType: TYPE_ANY,
-        attribCase: ATTR_DASH_CASE
+        propType: TYPE_ANY
       }
     }
   };

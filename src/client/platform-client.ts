@@ -1,5 +1,6 @@
 import { addEventListener, enableEventListener } from '../core/instance/listeners';
 import { assignHostContentSlots, createVNodesFromSsr } from '../core/renderer/slot';
+import { ATTR_LOWER_CASE, SSR_VNODE_ID } from '../util/constants';
 import { ComponentMeta, ComponentRegistry, CoreGlobal, EventEmitterData,
   HostElement, AppGlobal, LoadComponentRegistry,
   ModuleCallbacks, PlatformApi } from '../util/interfaces';
@@ -11,7 +12,7 @@ import { getNowFunction } from './now';
 import { h, t } from '../core/renderer/h';
 import { initHostConstructor } from '../core/instance/init';
 import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
-import { SSR_VNODE_ID } from '../util/constants';
+import { toDashCase } from '../util/helpers';
 
 
 export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Window, doc: Document, publicPath: string): PlatformApi {
@@ -117,11 +118,18 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
     // add which attributes should be observed
     const observedAttributes: string[] = [];
 
+    // at this point the membersMeta only includes attributes which should
+    // be observed, it does not include all props yet, so it's safe to
+    // loop through all of the props (attrs) and observed them
     for (var propName in cmpMeta.membersMeta) {
-      if (cmpMeta.membersMeta[propName].attribName) {
-        // only observe attributes for the props that have attribute names
-        observedAttributes.push(cmpMeta.membersMeta[propName].attribName);
-      }
+      // initialize the actual attribute name used vs. the prop name
+      // for example, "myProp" would be "my-prop" as an attribute
+      // and these can be configured to be all lower case or dash case (default)
+      observedAttributes.push(
+        // dynamically generate the attribute name from the prop name
+        // also add it to our array of attributes we need to observe
+        cmpMeta.membersMeta[propName].attribName = Core.attr === ATTR_LOWER_CASE ? propName.toLowerCase() : toDashCase(propName)
+      );
     }
 
     HostElementConstructor.observedAttributes = observedAttributes;

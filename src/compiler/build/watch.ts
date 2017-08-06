@@ -234,7 +234,6 @@ function configFileReload(existingConfig: BuildConfig) {
   // not everything should be overwritten or merged
   // pick and choose what's ok to update
   existingConfig._isValidated = false;
-  existingConfig.attrCase = updatedConfig.attrCase;
   existingConfig.buildDir = updatedConfig.buildDir;
   existingConfig.bundles = updatedConfig.bundles;
   existingConfig.collectionDir = updatedConfig.collectionDir;

@@ -1,6 +1,6 @@
 import { mockPlatform, mockDomApi } from '../../../test';
 import { ComponentMeta, ComponentInstance, HostElement, PlatformApi } from '../../../util/interfaces';
-import { ATTR_DASH_CASE, MEMBER_PROP, MEMBER_PROP_STATE, TYPE_ANY } from '../../../util/constants';
+import { MEMBER_PROP, MEMBER_PROP_STATE, TYPE_ANY } from '../../../util/constants';
 import { initProxy } from '../proxy';
 
 
@@ -11,8 +11,7 @@ describe('instance prop', () => {
       membersMeta: {'prop': {
         memberType: MEMBER_PROP,
         attribName: 'prop',
-        propType: TYPE_ANY,
-        attribCase: ATTR_DASH_CASE
+        propType: TYPE_ANY
       }}
     };
     initProxy(plt, elm, instance, cmpMeta);
@@ -29,8 +28,7 @@ describe('instance prop', () => {
       membersMeta: {'prop': {
         memberType: MEMBER_PROP_STATE,
         attribName: 'prop',
-        propType: TYPE_ANY,
-        attribCase: ATTR_DASH_CASE
+        propType: TYPE_ANY
       }}
     };
     initProxy(plt, elm, instance, cmpMeta);
@@ -47,8 +45,7 @@ describe('instance prop', () => {
       membersMeta: {'prop': {
         memberType: MEMBER_PROP,
         attribName: 'prop',
-        propType: TYPE_ANY,
-        attribCase: ATTR_DASH_CASE
+        propType: TYPE_ANY
       }}
     };
     initProxy(plt, elm, instance, cmpMeta);

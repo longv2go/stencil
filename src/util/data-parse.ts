@@ -1,7 +1,7 @@
-import { ATTR_LOWER_CASE, TYPE_BOOLEAN, TYPE_NUMBER } from './constants';
+import { TYPE_BOOLEAN, TYPE_NUMBER } from './constants';
 import { ComponentMeta, ComponentRegistry, LoadComponentMeta,
   ComponentEventData, ComponentListenersData, ComponentMemberData, LoadComponentRegistry } from '../util/interfaces';
-import { isDef, toDashCase } from './helpers';
+import { isDef } from './helpers';
 
 
 export function parseComponentRegistry(cmpRegistryData: LoadComponentRegistry, registry: ComponentRegistry) {
@@ -24,6 +24,8 @@ export function parseComponentRegistry(cmpRegistryData: LoadComponentRegistry, r
   cmpMeta.styleIds = cmpRegistryData[2] || {};
 
   // parse member meta
+  // this data only includes props that are attributes that need to be observed
+  // it does not include all of the props yet
   parseMembersData(cmpMeta, cmpRegistryData[3]);
 
   if (cmpRegistryData[4]) {
@@ -59,7 +61,6 @@ function parseMembersData(cmpMeta: ComponentMeta, memberData: ComponentMemberDat
       var d = memberData[i];
       cmpMeta.membersMeta[d[0]] = {
         memberType: d[1],
-        attribName: (d[2] === ATTR_LOWER_CASE ? d[0].toLowerCase() : toDashCase(d[0])),
         propType: d[3],
         ctrlTag: d[4]
       };

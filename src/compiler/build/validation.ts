@@ -1,4 +1,3 @@
-import { ATTR_DASH_CASE, ATTR_LOWER_CASE } from '../../util/constants';
 import { BuildConfig, Bundle, DependentCollection, HydrateOptions } from '../../util/interfaces';
 import { normalizePath } from '../util';
 
@@ -145,8 +144,6 @@ export function validateBuildConfig(config: BuildConfig) {
 
   config.generateCollection = !!config.generateCollection;
 
-  config.attrCase = validateAttrCase(config.attrCase);
-
   config.collections = config.collections || [];
   config.collections = config.collections.map(validateDependentCollection);
 
@@ -266,27 +263,6 @@ export function validateComponentTag(tag: string, suffix: string) {
   }
 
   return tag;
-}
-
-
-export function validateAttrCase(attrCase: any) {
-  if (attrCase === ATTR_LOWER_CASE || attrCase === ATTR_DASH_CASE) {
-    // already using a valid attr case value
-    return attrCase;
-  }
-
-  if (typeof attrCase === 'string') {
-    if (attrCase.trim().toLowerCase() === 'dash') {
-      return ATTR_DASH_CASE;
-    }
-
-    if (attrCase.trim().toLowerCase() === 'lower') {
-      return ATTR_LOWER_CASE;
-    }
-  }
-
-  // default to use dash-case for attributes
-  return ATTR_DASH_CASE;
 }
 
 

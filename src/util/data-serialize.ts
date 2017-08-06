@@ -1,16 +1,16 @@
 import { Bundle, ComponentMeta, ComponentRegistry, EventMeta, ListenMeta, LoadComponentRegistry,
   MemberMeta, MembersMeta, ModuleFile, PropChangeMeta, StylesMeta } from './interfaces';
-import { ATTR_LOWER_CASE, ATTR_DASH_CASE, HAS_SLOTS, HAS_NAMED_SLOTS, MEMBER_ELEMENT_REF, MEMBER_METHOD,
+import { HAS_SLOTS, HAS_NAMED_SLOTS, MEMBER_ELEMENT_REF, MEMBER_METHOD,
   MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_STATE, TYPE_ANY, TYPE_BOOLEAN, TYPE_NUMBER } from '../util/constants';
 
 
-export function formatLoadComponentRegistry(cmpMeta: ComponentMeta, defaultAttrCase: number): LoadComponentRegistry {
+export function formatLoadComponentRegistry(cmpMeta: ComponentMeta): LoadComponentRegistry {
   // ensure we've got a standard order of the components
   const d: any[] = [
     cmpMeta.tagNameMeta.toUpperCase(),
     cmpMeta.moduleId,
     formatStyles(cmpMeta.stylesMeta),
-    formatObserveAttributeProps(cmpMeta.membersMeta, defaultAttrCase),
+    formatObserveAttributeProps(cmpMeta.membersMeta),
     formatListeners(cmpMeta.listenersMeta),
     formatSlot(cmpMeta.slotMeta),
     cmpMeta.loadPriority
@@ -46,7 +46,7 @@ function formatSlot(val: number) {
 }
 
 
-function formatObserveAttributeProps(membersMeta: MembersMeta, defaultAttrCase: number) {
+function formatObserveAttributeProps(membersMeta: MembersMeta) {
   if (!membersMeta) {
     return 0;
   }
@@ -66,19 +66,6 @@ function formatObserveAttributeProps(membersMeta: MembersMeta, defaultAttrCase: 
       memberName,
       memberMeta.memberType
     ];
-
-    if (memberMeta.attribCase === undefined) {
-      // if individual prop wasn't set with an option
-      // then use the config's default
-      memberMeta.attribCase = defaultAttrCase;
-    }
-
-    if (memberMeta.attribCase === ATTR_LOWER_CASE) {
-      d.push(ATTR_LOWER_CASE);
-
-    } else {
-      d.push(ATTR_DASH_CASE);
-    }
 
     if (memberMeta.propType === TYPE_BOOLEAN) {
       d.push(TYPE_BOOLEAN);
@@ -125,11 +112,11 @@ function formatListeners(listeners: ListenMeta[]) {
 }
 
 
-export function formatComponentRegistry(registry: ComponentRegistry, defaultAttrCase: number) {
+export function formatComponentRegistry(registry: ComponentRegistry) {
   // ensure we've got a standard order of the components
   return Object.keys(registry).sort().map(tag => {
     if (registry[tag]) {
-      return formatLoadComponentRegistry(registry[tag], defaultAttrCase);
+      return formatLoadComponentRegistry(registry[tag]);
     }
     return null;
   }).filter(c => c);
@@ -221,7 +208,6 @@ function formatMemberMeta(memberName: string, memberMeta: MemberMeta) {
 
   d.push(`"${memberName}"`);
   d.push(formatMemberType(memberMeta.memberType));
-  d.push(formatAttrCase(memberMeta.attribCase));
   d.push(formatPropType(memberMeta.propType));
   d.push(formatController(memberMeta.ctrlTag));
 
@@ -246,17 +232,6 @@ function formatMemberType(val: number) {
     return `/** state **/ ${MEMBER_STATE}`;
   }
   return `/** unknown ****/ 0`;
-}
-
-
-function formatAttrCase(val: number) {
-  if (val === undefined) {
-    return `0`;
-  }
-  if (val === ATTR_LOWER_CASE) {
-    return `/** lower case attr **/ ${ATTR_LOWER_CASE}`;
-  }
-  return `/** dash case attr ** ${ATTR_DASH_CASE}`;
 }
 
 

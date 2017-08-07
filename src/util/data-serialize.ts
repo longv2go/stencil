@@ -1,7 +1,8 @@
 import { Bundle, ComponentMeta, ComponentRegistry, EventMeta, ListenMeta, LoadComponentRegistry,
   MemberMeta, MembersMeta, ModuleFile, PropChangeMeta, StylesMeta } from './interfaces';
 import { HAS_SLOTS, HAS_NAMED_SLOTS, MEMBER_ELEMENT_REF, MEMBER_METHOD,
-  MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_STATE, TYPE_ANY, TYPE_BOOLEAN, TYPE_NUMBER } from '../util/constants';
+  MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_COMPONENT, MEMBER_PROP_GLOBAL,
+  MEMBER_STATE, TYPE_ANY, TYPE_BOOLEAN, TYPE_NUMBER } from '../util/constants';
 
 
 export function formatLoadComponentRegistry(cmpMeta: ComponentMeta): LoadComponentRegistry {
@@ -9,6 +10,7 @@ export function formatLoadComponentRegistry(cmpMeta: ComponentMeta): LoadCompone
   const d: any[] = [
     cmpMeta.tagNameMeta.toUpperCase(),
     cmpMeta.moduleId,
+    cmpMeta.controllerModuleIds,
     formatStyles(cmpMeta.stylesMeta),
     formatObserveAttributeProps(cmpMeta.membersMeta),
     formatListeners(cmpMeta.listenersMeta),
@@ -77,8 +79,8 @@ function formatObserveAttributeProps(membersMeta: MembersMeta) {
       d.push(TYPE_ANY);
     }
 
-    if (memberMeta.ctrlTag) {
-      d.push(memberMeta.ctrlTag);
+    if (memberMeta.ctrlId) {
+      d.push(memberMeta.ctrlId);
     }
 
     observeAttrs.push(d);
@@ -209,7 +211,7 @@ function formatMemberMeta(memberName: string, memberMeta: MemberMeta) {
   d.push(`"${memberName}"`);
   d.push(formatMemberType(memberMeta.memberType));
   d.push(formatPropType(memberMeta.propType));
-  d.push(formatController(memberMeta.ctrlTag));
+  d.push(formatController(memberMeta.ctrlId));
 
   return '\n  [ ' + trimFalsyDataStr(d).join(', ') + ' ]';
 }
@@ -230,6 +232,12 @@ function formatMemberType(val: number) {
   }
   if (val === MEMBER_STATE) {
     return `/** state **/ ${MEMBER_STATE}`;
+  }
+  if (val === MEMBER_PROP_COMPONENT) {
+    return `/** prop component **/ ${MEMBER_PROP_COMPONENT}`;
+  }
+  if (val === MEMBER_PROP_GLOBAL) {
+    return `/** prop global **/ ${MEMBER_PROP_GLOBAL}`;
   }
   return `/** unknown ****/ 0`;
 }

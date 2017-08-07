@@ -182,17 +182,11 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
         moduleCallbacks[moduleId] = [cb];
       }
 
-      // create the url we'll be requesting
-      const url = publicPath + moduleId + '.js';
+      // start the request for the component module
+      requestModule(moduleId);
 
-      if (!pendingModuleRequests[url]) {
-        // not already actively requesting this url
-        // remember that we're now actively requesting this url
-        pendingModuleRequests[url] = true;
-
-        // let's kick off the module request
-        jsonp(url);
-      }
+      // also kick off any requests for controllers this module will need
+      cmpMeta.controllerModuleIds.forEach(requestModule);
 
       // we also need to load the css file in the head
       // we've already figured out and set "mode" as a property to the element
@@ -211,7 +205,20 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
   }
 
 
-  function jsonp(url: string) {
+  function requestModule(moduleId: string) {
+    // create the url we'll be requesting
+    const url = publicPath + moduleId + '.js';
+
+    if (pendingModuleRequests[url]) {
+      // we're already actively requesting this url
+      // no need to do another request
+      return;
+    }
+
+    // let's kick off the module request
+    // remember that we're now actively requesting this url
+    pendingModuleRequests[url] = true;
+
     // create a sript element to add to the document.head
     var scriptElm = domApi.$createElement('script');
     scriptElm.charset = 'utf-8';

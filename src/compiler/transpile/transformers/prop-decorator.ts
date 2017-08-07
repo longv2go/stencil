@@ -1,6 +1,6 @@
 import { catchError } from '../../util';
 import { Diagnostic, ModuleFile, MemberMeta, PropOptions } from '../../../util/interfaces';
-import { MEMBER_PROP, MEMBER_PROP_STATE, TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
+import { MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_COMPONENT, MEMBER_PROP_GLOBAL, TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
 import * as ts from 'typescript';
 
 
@@ -11,7 +11,7 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
     let isProp = false;
     let propName: string = null;
     let propType: number = null;
-    let ctrlTag: string = null;
+    let ctrlId: string = null;
     let userPropOptions: PropOptions = null;
     let shouldObserveAttribute = false;
 
@@ -34,7 +34,8 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
         n.getChildAt(1).forEachChild(n => {
           if (n.kind === ts.SyntaxKind.StringLiteral) {
             // @Prop('ion-animation-ctrl') animationCtrl: Animation;
-            ctrlTag = n.getText().replace(/\'|\"|`/g, '').trim();
+            ctrlId = n.getText().replace(/\'|\"|`/g, '').trim();
+
             shouldObserveAttribute = false;
 
           } else if (n.kind === ts.SyntaxKind.ObjectLiteralExpression) {
@@ -115,8 +116,14 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
           propMeta.memberType = MEMBER_PROP_STATE;
         }
 
-      } else if (ctrlTag) {
-        propMeta.ctrlTag = ctrlTag;
+      } else if (ctrlId) {
+        propMeta.ctrlId = ctrlId;
+        if (ctrlId.indexOf('-') > -1) {
+          propMeta.memberType = MEMBER_PROP_COMPONENT;
+        } else {
+          propMeta.memberType = MEMBER_PROP_GLOBAL;
+        }
+
         shouldObserveAttribute = false;
       }
 

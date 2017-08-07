@@ -2,7 +2,8 @@ import { AssetsMeta, BuildConfig, BuildContext, BuildResults, Bundle, BundleData
   ComponentMeta, ComponentData, EventData, EventMeta, Manifest, ManifestData, ModuleFile, ListenerData,
   ListenMeta, PropChangeData, PropChangeMeta, PropData, StyleData, StyleMeta } from '../../util/interfaces';
 import { COLLECTION_MANIFEST_FILE_NAME, HAS_NAMED_SLOTS, HAS_SLOTS, MEMBER_PROP, MEMBER_PROP_STATE,
-  MEMBER_METHOD, MEMBER_ELEMENT_REF, MEMBER_STATE, PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../util/constants';
+  MEMBER_METHOD, MEMBER_PROP_COMPONENT, MEMBER_PROP_GLOBAL, MEMBER_ELEMENT_REF, MEMBER_STATE, PRIORITY_LOW,
+  TYPE_BOOLEAN, TYPE_NUMBER } from '../../util/constants';
 import { normalizePath } from '../util';
 
 
@@ -557,12 +558,23 @@ function serializeControllerMember(cmpData: ComponentData, cmpMeta: ComponentMet
   Object.keys(cmpMeta.membersMeta).forEach(memberName => {
     const member = cmpMeta.membersMeta[memberName];
 
-    if (member.ctrlTag) {
-      cmpData.controllers = cmpData.controllers || [];
-      cmpData.controllers.push({
-        name: memberName,
-        tag: member.ctrlTag
-      });
+    if (member.ctrlId) {
+      if (member.memberType === MEMBER_PROP_COMPONENT) {
+        cmpData.controllers = cmpData.controllers || [];
+
+        cmpData.controllers.push({
+          name: memberName,
+          controllerComponent: member.ctrlId
+        });
+
+      } else if (member.memberType === MEMBER_PROP_GLOBAL) {
+        cmpData.controllers = cmpData.controllers || [];
+
+        cmpData.controllers.push({
+          name: memberName,
+          controllerGlobal: member.ctrlId
+        });
+      }
     }
   });
 }
@@ -573,12 +585,23 @@ function parseControllerMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
     return;
   }
 
-  cmpMeta.membersMeta = cmpMeta.membersMeta || {};
-
   cmpData.controllers.forEach(methodData => {
-    cmpMeta.membersMeta[methodData.name] = {
-      ctrlTag: methodData.tag
-    };
+    if (methodData.controllerComponent) {
+      cmpMeta.membersMeta = cmpMeta.membersMeta || {};
+
+      cmpMeta.membersMeta[methodData.name] = {
+        memberType: MEMBER_PROP_COMPONENT,
+        ctrlId: methodData.controllerComponent
+      };
+
+    } else if (methodData.controllerGlobal) {
+      cmpMeta.membersMeta = cmpMeta.membersMeta || {};
+
+      cmpMeta.membersMeta[methodData.name] = {
+        memberType: MEMBER_PROP_GLOBAL,
+        ctrlId: methodData.controllerGlobal
+      };
+    }
   });
 }
 

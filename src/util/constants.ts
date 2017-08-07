@@ -13,9 +13,11 @@
  */
 export const MEMBER_PROP = 1;
 export const MEMBER_PROP_STATE = 2;
-export const MEMBER_STATE = 3;
-export const MEMBER_METHOD = 4;
-export const MEMBER_ELEMENT_REF = 5;
+export const MEMBER_PROP_COMPONENT = 3;
+export const MEMBER_PROP_GLOBAL = 4;
+export const MEMBER_STATE = 5;
+export const MEMBER_METHOD = 6;
+export const MEMBER_ELEMENT_REF = 7;
 
 
 /**

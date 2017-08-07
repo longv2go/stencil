@@ -1,8 +1,8 @@
 import { ComponentInstance, ComponentMeta, ComponentInternalValues,
   HostElement, PlatformApi, PropChangeMeta } from '../../util/interfaces';
 import { parsePropertyValue } from '../../util/data-parse';
-import { MEMBER_METHOD, MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_STATE,
-  MEMBER_ELEMENT_REF, PROP_CHANGE_METHOD_NAME, PROP_CHANGE_PROP_NAME } from '../../util/constants';
+import { MEMBER_METHOD, MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_COMPONENT, MEMBER_PROP_GLOBAL,
+  MEMBER_STATE, MEMBER_ELEMENT_REF, PROP_CHANGE_METHOD_NAME, PROP_CHANGE_PROP_NAME } from '../../util/constants';
 import { queueUpdate } from './update';
 
 
@@ -25,24 +25,47 @@ export function initProxy(plt: PlatformApi, elm: HostElement, instance: Componen
     for (var memberName in cmpMeta.membersMeta) {
       // add getters/setters for @Prop()s
       var memberMeta = cmpMeta.membersMeta[memberName];
-      initInstanceMember(
-        memberName,
-        memberMeta.memberType,
-        memberMeta.attribName,
-        memberMeta.propType,
-        values,
-        plt,
-        elm,
-        instance,
-        cmpMeta.propsWillChangeMeta,
-        cmpMeta.propsDidChangeMeta
-      );
+      var memberType = memberMeta.memberType;
+
+      if (memberType === MEMBER_PROP_GLOBAL) {
+        // @Prop('coreGlobal')
+        defineProperty(instance, memberName, Core[memberMeta.ctrlId]);
+
+      } else if (memberType === MEMBER_PROP_COMPONENT) {
+        // @Prop('ion-component-global')
+        defineProperty(elm, memberName, instance[memberName].bind(instance));
+
+      } else if (memberType === MEMBER_METHOD) {
+        // add a value getter on the dom's element instance
+        // pointed at the instance's method
+        defineProperty(elm, memberName, instance[memberName].bind(instance));
+
+      } else if (memberType === MEMBER_ELEMENT_REF) {
+        // add a getter to the element reference using
+        // the member name the component meta provided
+        defineProperty(instance, memberName, elm);
+
+      } else {
+        // @Prop and @State
+        initProp(
+          memberName,
+          memberType,
+          memberMeta.attribName,
+          memberMeta.propType,
+          values,
+          plt,
+          elm,
+          instance,
+          cmpMeta.propsWillChangeMeta,
+          cmpMeta.propsDidChangeMeta
+        );
+      }
     }
   }
 }
 
 
-function initInstanceMember(
+function initProp(
   memberName: string,
   memberType: number,
   attribName: string,
@@ -55,7 +78,12 @@ function initInstanceMember(
   propDidChangeMeta: PropChangeMeta[]
 ) {
 
-  if (memberType === MEMBER_PROP || memberType === MEMBER_PROP_STATE) {
+  if (memberType === MEMBER_STATE) {
+    // @State() property, so copy the value directly from the instance
+    // before we create getters/setters on this same property name
+    internalValues[memberName] = (<any>instance)[memberName];
+
+  } else {
     // @Prop() property, so check initial value from the proxy element and instance
     // before we create getters/setters on this same property name
     // we do this for @Prop(state: true) also
@@ -72,30 +100,6 @@ function initInstanceMember(
       // looks like we've got an initial value on the instance already
       internalValues[memberName] = (<any>instance)[memberName];
     }
-
-  } else if (memberType === MEMBER_STATE) {
-    // @State() property, so copy the value directly from the instance
-    // before we create getters/setters on this same property name
-    internalValues[memberName] = (<any>instance)[memberName];
-
-  } else if (memberType === MEMBER_METHOD) {
-    // add a value getter on the dom's element instance
-    // pointed at the instance's method
-    Object.defineProperty(elm, memberName, {
-      configurable: true,
-      value: (<any>instance)[memberName].bind(instance)
-    });
-    return;
-
-  } else if (memberType === MEMBER_ELEMENT_REF) {
-    // add a getter to the element reference using
-    // the member name the component meta provided
-    Object.defineProperty(instance, memberName, {
-      get: function() {
-        return elm;
-      }
-    });
-    return;
   }
 
   let i = 0;
@@ -131,6 +135,14 @@ function initInstanceMember(
   }
 
   function setValue(newVal: any) {
+    if (MEMBER_PROP) {
+      // TODO: remove this in prod mode!
+      // this is not a stateful prop
+      // so do not update the instance or host element
+      console.warn(`@Prop() "${memberName}" on "${elm.tagName.toLowerCase()}" cannot be modified.`);
+      return;
+    }
+
     // check our new property value against our internal value
     const oldVal = internalValues[memberName];
 
@@ -163,33 +175,27 @@ function initInstanceMember(
     // dom's element instance
     // only place getters/setters on element for "@Prop"s
     // "@State" getters/setters should not be assigned to the element
-    Object.defineProperty(elm, memberName, {
-      configurable: true,
-      get: getValue,
-      set: setValue
-    });
-  }
-
-  // user's component class instance
-  const instancePropDesc: PropertyDescriptor = {
-    configurable: true,
-    get: getValue
-  };
-
-  if (memberType === MEMBER_STATE || memberType === MEMBER_PROP_STATE) {
-    // this is a "@State" property, or it's a @Prop(state:true) that can keep state
-    // for props it's mainly used for props on inputs like "checked"
-    instancePropDesc.set = setValue;
-
-  } else if (true /* TODO! */) {
-    // dev mode warning only
-    instancePropDesc.set = function invalidSetValue() {
-      // this is not a stateful prop
-      // so do not update the instance or host element
-      console.warn(`@Prop() "${memberName}" on "${elm.tagName.toLowerCase()}" cannot be modified.`);
-    };
+    defineProperty(elm, memberName, 0, getValue, setValue);
   }
 
   // define on component class instance
-  Object.defineProperty(instance, memberName, instancePropDesc);
+  defineProperty(instance, memberName, 0, getValue, setValue);
+}
+
+
+function defineProperty(obj: any, propertyKey: string, value: any, getter?: any, setter?: any) {
+  // minification shortcut
+  const descriptor: PropertyDescriptor = {
+    configurable: true
+  };
+  if (value) {
+    descriptor.value = value;
+  }
+  if (getter) {
+    descriptor.get = getter;
+  }
+  if (setter) {
+    descriptor.set = setter;
+  }
+  Object.defineProperty(obj, propertyKey, descriptor);
 }

@@ -12,6 +12,7 @@ export interface CoreGlobal {
   isClient?: boolean;
   isServer?: boolean;
   mode?: string;
+  [global: string]: any;
 }
 
 
@@ -80,31 +81,36 @@ export interface LoadComponentRegistry {
   [1]: string;
 
   /**
+   * controller module ids
+   */
+  [2]: string[];
+
+  /**
    * map of the mode styles and css bundle ids
    */
-  [2]: {
+  [3]: {
     [modeName: string]: string
   };
 
   /**
    * members
    */
-  [3]: ComponentMemberData[];
+  [4]: ComponentMemberData[];
 
   /**
    * listeners
    */
-  [4]: ComponentListenersData[];
+  [5]: ComponentListenersData[];
 
   /**
    * slot
    */
-  [5]: number;
+  [6]: number;
 
   /**
    * load priority
    */
-  [6]: number;
+  [7]: number;
 }
 
 
@@ -120,19 +126,14 @@ export interface ComponentMemberData {
   [1]: number;
 
   /**
-   * attrib case
+   * prop type
    */
   [2]: number;
 
   /**
-   * prop type
+   * controller id
    */
-  [3]: number;
-
-  /**
-   * controller tag
-   */
-  [4]: string;
+  [3]: string;
 }
 
 
@@ -455,6 +456,7 @@ export interface PropDecorator {
 
 
 export interface PropOptions {
+  config?: string;
   type?: string;
   state?: boolean;
 }
@@ -469,7 +471,7 @@ export interface MemberMeta {
   memberType?: number;
   propType?: number;
   attribName?: string;
-  ctrlTag?: string;
+  ctrlId?: string;
 }
 
 
@@ -549,6 +551,7 @@ export interface ComponentMeta {
   // "Meta" suffix to ensure property renaming
   tagNameMeta?: string;
   moduleId?: string;
+  controllerModuleIds?: string[];
   styleIds?: {[modeName: string]: string };
   stylesMeta?: StylesMeta;
   membersMeta?: MembersMeta;
@@ -1110,7 +1113,8 @@ export interface EventData {
 
 export interface ControllerData {
   name: string;
-  tag: string;
+  controllerComponent?: string;
+  controllerGlobal?: string;
 }
 
 export interface HostElementData {

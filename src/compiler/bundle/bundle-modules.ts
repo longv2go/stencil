@@ -88,12 +88,8 @@ function generateLoadComponentModules(config: BuildConfig, ctx: BuildContext, ap
 
     } else {
       // create module id from list of component tags in this file
-      moduleResults.bundles[bundleId] = userBundle.components.sort().join('.').toLowerCase();
-
-      if (moduleResults.bundles[bundleId].length > 50) {
-        // can get a lil too long, so let's simmer down
-        moduleResults.bundles[bundleId] = moduleResults.bundles[bundleId].substr(0, 50);
-      }
+      // can get a lil too long, so let's simmer down
+      moduleResults.bundles[bundleId] = userBundle.components[0].toLowerCase();
     }
 
     // replace the known bundle id template with the newly created bundle id

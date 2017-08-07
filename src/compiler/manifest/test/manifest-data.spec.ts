@@ -1,7 +1,9 @@
 import { BuildConfig, ComponentMeta, Manifest, ManifestData, ModuleFile } from '../../../util/interfaces';
 import { mockStencilSystem } from '../../../test';
 import { parseBundles, parseComponent, parseGlobal, serializeBundles, serializeComponent, serializeAppGlobal } from '../manifest-data';
-import { HAS_NAMED_SLOTS, HAS_SLOTS, MEMBER_ELEMENT_REF, MEMBER_METHOD, MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_STATE, PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../../util/constants';
+import { HAS_NAMED_SLOTS, HAS_SLOTS, MEMBER_ELEMENT_REF, MEMBER_METHOD, MEMBER_PROP,
+  MEMBER_PROP_STATE, MEMBER_CTRL_COMPONENT, MEMBER_CTRL_GLOBAL, MEMBER_STATE,
+  PRIORITY_LOW, TYPE_BOOLEAN, TYPE_NUMBER } from '../../../util/constants';
 
 
 describe('manifest-data serialize/parse', () => {
@@ -223,15 +225,26 @@ describe('manifest-data serialize/parse', () => {
     expect(b.cmpMeta.propsWillChangeMeta[1][1]).toBe('methodB');
   });
 
-  it('membersMeta ctrl', () => {
+  it('membersMeta controller global', () => {
     a.membersMeta = {
-      'ctrl': { ctrlTag: 'ion-config' }
+      'ctrl': { memberType: MEMBER_CTRL_GLOBAL, ctrlId: 'config' }
     };
     const cmpData = serializeComponent(config, manifestDir, moduleFile);
     b = parseComponent(config, manifestDir, cmpData);
 
-    expect(b.cmpMeta.membersMeta.ctrl.memberType).toBeUndefined();
-    expect(b.cmpMeta.membersMeta.ctrl.ctrlTag).toBe('ion-config');
+    expect(b.cmpMeta.membersMeta.ctrl.memberType).toBe(MEMBER_CTRL_GLOBAL);
+    expect(b.cmpMeta.membersMeta.ctrl.ctrlId).toBe('config');
+  });
+
+  it('membersMeta controller component', () => {
+    a.membersMeta = {
+      'ctrl': { memberType: MEMBER_CTRL_COMPONENT, ctrlId: 'ion-animation' }
+    };
+    const cmpData = serializeComponent(config, manifestDir, moduleFile);
+    b = parseComponent(config, manifestDir, cmpData);
+
+    expect(b.cmpMeta.membersMeta.ctrl.memberType).toBe(MEMBER_CTRL_COMPONENT);
+    expect(b.cmpMeta.membersMeta.ctrl.ctrlId).toBe('ion-animation');
   });
 
   it('membersMeta el', () => {

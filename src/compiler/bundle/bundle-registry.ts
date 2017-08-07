@@ -53,5 +53,27 @@ export function generateComponentRegistry(manifest: Manifest, styleResults: Styl
     });
   });
 
+  Object.keys(registry).forEach(componentTag => {
+    const cmpMeta = registry[componentTag];
+
+    cmpMeta.controllerModuleIds = [];
+
+    if (cmpMeta.membersMeta) {
+      const memberNames = Object.keys(cmpMeta.membersMeta);
+      memberNames.forEach(memberName => {
+        const member = cmpMeta.membersMeta[memberName];
+
+        if (member.ctrlId) {
+          console.log('member.ctrlTag', member.ctrlId)
+          const ctrlCmpMeta = registry[member.ctrlId.toUpperCase()];
+          if (ctrlCmpMeta) {
+            console.log('ctrlCmpMeta', ctrlCmpMeta)
+            cmpMeta.controllerModuleIds.push(ctrlCmpMeta.moduleId);
+          }
+        }
+      });
+    }
+  });
+
   return registry;
 }

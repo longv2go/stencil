@@ -11,33 +11,35 @@ export function parseComponentRegistry(cmpRegistryData: LoadComponentRegistry, r
     membersMeta: {
       // every component defaults to always have
       // the mode and color properties
-      // but only observe the color attribute
-      // mode cannot change after the component was created
       'mode': {},
-      'color': { attribName: 'color' }
+      'color': {}
     }
   };
 
+  // this comonent's module id
   cmpMeta.moduleId = cmpRegistryData[1];
 
+  // array of all the controller module ids this component uses
+  cmpMeta.controllerModuleIds = cmpRegistryData[2];
+
   // map of the modes w/ bundle id and style data
-  cmpMeta.styleIds = cmpRegistryData[2] || {};
+  cmpMeta.styleIds = cmpRegistryData[3] || {};
 
   // parse member meta
   // this data only includes props that are attributes that need to be observed
   // it does not include all of the props yet
-  parseMembersData(cmpMeta, cmpRegistryData[3]);
+  parseMembersData(cmpMeta, cmpRegistryData[4]);
 
-  if (cmpRegistryData[4]) {
+  if (cmpRegistryData[5]) {
     // parse listener meta
-    cmpMeta.listenersMeta = cmpRegistryData[4].map(parseListenerData);
+    cmpMeta.listenersMeta = cmpRegistryData[5].map(parseListenerData);
   }
 
   // slot
-  cmpMeta.slotMeta = cmpRegistryData[5];
+  cmpMeta.slotMeta = cmpRegistryData[6];
 
   // bundle load priority
-  cmpMeta.loadPriority = cmpRegistryData[6];
+  cmpMeta.loadPriority = cmpRegistryData[7];
 
   return registry[cmpMeta.tagNameMeta] = cmpMeta;
 }
@@ -61,8 +63,8 @@ function parseMembersData(cmpMeta: ComponentMeta, memberData: ComponentMemberDat
       var d = memberData[i];
       cmpMeta.membersMeta[d[0]] = {
         memberType: d[1],
-        propType: d[3],
-        ctrlTag: d[4]
+        propType: d[2],
+        ctrlId: d[3]
       };
     }
   }

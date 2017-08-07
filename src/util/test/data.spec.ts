@@ -280,17 +280,26 @@ describe('data serialize/parse', () => {
       expect(cmpMeta.membersMeta.notAnAttributPropery).toBeUndefined();
     });
 
-    it('should set number prop', () => {
+    it('should set any type prop', () => {
       cmpMeta.membersMeta = {
-        'num': { memberType: MEMBER_PROP, attribName: 'num', propType: TYPE_NUMBER },
         'str': { memberType: MEMBER_PROP, attribName: 'str' },
       };
 
       const format = formatLoadComponentRegistry(cmpMeta);
       cmpMeta = parseComponentRegistry(format, {});
 
-      expect(cmpMeta.membersMeta.num.propType).toEqual(TYPE_NUMBER);
       expect(cmpMeta.membersMeta.str.propType).toBeUndefined();
+    });
+
+    it('should set number prop', () => {
+      cmpMeta.membersMeta = {
+        'num': { memberType: MEMBER_PROP, attribName: 'num', propType: TYPE_NUMBER }
+      };
+
+      const format = formatLoadComponentRegistry(cmpMeta);
+      cmpMeta = parseComponentRegistry(format, {});
+
+      expect(cmpMeta.membersMeta.num.propType).toEqual(TYPE_NUMBER);
     });
 
     it('should set boolean prop', () => {
@@ -310,7 +319,7 @@ describe('data serialize/parse', () => {
       const format = formatLoadComponentRegistry(cmpMeta);
       cmpMeta = parseComponentRegistry(format, {});
 
-      expect(cmpMeta.membersMeta.color.attribName).toEqual('color');
+      expect(cmpMeta.membersMeta.color).toBeDefined();
       expect(cmpMeta.membersMeta.mode).toBeDefined();
     });
 

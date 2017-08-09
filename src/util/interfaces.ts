@@ -5,6 +5,7 @@ export { CssClassMap } from './jsx-interfaces';
 export interface CoreGlobal {
   addListener?: AddEventListenerApi;
   attr?: number;
+  controllers?: {[ctrlKey: string]: any};
   dom?: DomControllerApi;
   emit?: (elm: Element, eventName: string, data?: EventEmitterData) => void;
   enableListener?: EventListenerEnable;

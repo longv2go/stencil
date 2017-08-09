@@ -1,6 +1,6 @@
 import { catchError } from '../../util';
 import { Diagnostic, ModuleFile, MemberMeta, PropOptions } from '../../../util/interfaces';
-import { MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_COMPONENT, MEMBER_PROP_GLOBAL, TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
+import { MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_GLOBAL, TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
 import * as ts from 'typescript';
 
 
@@ -118,9 +118,7 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
 
       } else if (ctrlId) {
         propMeta.ctrlId = ctrlId;
-        if (ctrlId.indexOf('-') > -1) {
-          propMeta.memberType = MEMBER_PROP_COMPONENT;
-        } else {
+        if (ctrlId.indexOf('-') === -1) {
           propMeta.memberType = MEMBER_PROP_GLOBAL;
         }
 

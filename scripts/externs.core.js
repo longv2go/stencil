@@ -14,6 +14,7 @@
  */
 function addListener(){};
 function attr(){};
+function controllers(){};
 function dom(){};
 function emit(){};
 function enableListener(){};

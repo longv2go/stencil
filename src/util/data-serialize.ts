@@ -1,7 +1,7 @@
 import { Bundle, ComponentMeta, ComponentRegistry, EventMeta, ListenMeta, LoadComponentRegistry,
   MemberMeta, MembersMeta, ModuleFile, PropChangeMeta, StylesMeta } from './interfaces';
 import { HAS_SLOTS, HAS_NAMED_SLOTS, MEMBER_ELEMENT_REF, MEMBER_METHOD,
-  MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_COMPONENT, MEMBER_PROP_GLOBAL,
+  MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_GLOBAL,
   MEMBER_STATE, TYPE_ANY, TYPE_BOOLEAN, TYPE_NUMBER } from '../util/constants';
 
 
@@ -232,9 +232,6 @@ function formatMemberType(val: number) {
   }
   if (val === MEMBER_STATE) {
     return `/** state **/ ${MEMBER_STATE}`;
-  }
-  if (val === MEMBER_PROP_COMPONENT) {
-    return `/** prop component **/ ${MEMBER_PROP_COMPONENT}`;
   }
   if (val === MEMBER_PROP_GLOBAL) {
     return `/** prop global **/ ${MEMBER_PROP_GLOBAL}`;

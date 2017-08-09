@@ -33,9 +33,10 @@ export function createPlatformServer(
   // initialize Core global object
   const Core: CoreGlobal = {};
   Core.addListener = noop;
+  Core.controllers = {};
+  Core.dom = createDomControllerServer();
   Core.enableListener = noop;
   Core.emit = noop;
-  Core.dom = createDomControllerServer();
   Core.isClient = false;
   Core.isServer = true;
 

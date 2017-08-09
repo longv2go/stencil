@@ -2,7 +2,7 @@ import { AssetsMeta, BuildConfig, BuildContext, BuildResults, Bundle, BundleData
   ComponentMeta, ComponentData, EventData, EventMeta, Manifest, ManifestData, ModuleFile, ListenerData,
   ListenMeta, PropChangeData, PropChangeMeta, PropData, StyleData, StyleMeta } from '../../util/interfaces';
 import { COLLECTION_MANIFEST_FILE_NAME, HAS_NAMED_SLOTS, HAS_SLOTS, MEMBER_PROP, MEMBER_PROP_STATE,
-  MEMBER_METHOD, MEMBER_PROP_COMPONENT, MEMBER_PROP_GLOBAL, MEMBER_ELEMENT_REF, MEMBER_STATE, PRIORITY_LOW,
+  MEMBER_METHOD, MEMBER_PROP_GLOBAL, MEMBER_ELEMENT_REF, MEMBER_STATE, PRIORITY_LOW,
   TYPE_BOOLEAN, TYPE_NUMBER } from '../../util/constants';
 import { normalizePath } from '../util';
 
@@ -559,15 +559,7 @@ function serializeControllerMember(cmpData: ComponentData, cmpMeta: ComponentMet
     const member = cmpMeta.membersMeta[memberName];
 
     if (member.ctrlId) {
-      if (member.memberType === MEMBER_PROP_COMPONENT) {
-        cmpData.controllers = cmpData.controllers || [];
-
-        cmpData.controllers.push({
-          name: memberName,
-          controllerComponent: member.ctrlId
-        });
-
-      } else if (member.memberType === MEMBER_PROP_GLOBAL) {
+      if (member.memberType === MEMBER_PROP_GLOBAL) {
         cmpData.controllers = cmpData.controllers || [];
 
         cmpData.controllers.push({
@@ -586,15 +578,7 @@ function parseControllerMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
   }
 
   cmpData.controllers.forEach(methodData => {
-    if (methodData.controllerComponent) {
-      cmpMeta.membersMeta = cmpMeta.membersMeta || {};
-
-      cmpMeta.membersMeta[methodData.name] = {
-        memberType: MEMBER_PROP_COMPONENT,
-        ctrlId: methodData.controllerComponent
-      };
-
-    } else if (methodData.controllerGlobal) {
+    if (methodData.controllerGlobal) {
       cmpMeta.membersMeta = cmpMeta.membersMeta || {};
 
       cmpMeta.membersMeta[methodData.name] = {

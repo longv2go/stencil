@@ -33,6 +33,8 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
     return addEventListener(plt, elm, eventName, cb, opts.capture, opts.passive);
   };
 
+  Core.controllers = {};
+
   Core.enableListener = function enableListener(instance, eventName, enabled, attachTo) {
     enableEventListener(plt, instance, eventName, enabled, attachTo);
   };

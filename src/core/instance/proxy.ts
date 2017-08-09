@@ -1,7 +1,7 @@
 import { ComponentInstance, ComponentMeta, ComponentInternalValues,
   HostElement, PlatformApi, PropChangeMeta } from '../../util/interfaces';
 import { parsePropertyValue } from '../../util/data-parse';
-import { MEMBER_METHOD, MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_COMPONENT, MEMBER_PROP_GLOBAL,
+import { MEMBER_METHOD, MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_GLOBAL,
   MEMBER_STATE, MEMBER_ELEMENT_REF, PROP_CHANGE_METHOD_NAME, PROP_CHANGE_PROP_NAME } from '../../util/constants';
 import { queueUpdate } from './update';
 
@@ -30,10 +30,6 @@ export function initProxy(plt: PlatformApi, elm: HostElement, instance: Componen
       if (memberType === MEMBER_PROP_GLOBAL) {
         // @Prop('coreGlobal')
         defineProperty(instance, memberName, Core[memberMeta.ctrlId]);
-
-      } else if (memberType === MEMBER_PROP_COMPONENT) {
-        // @Prop('ion-component-global')
-        defineProperty(elm, memberName, instance[memberName].bind(instance));
 
       } else if (memberType === MEMBER_METHOD) {
         // add a value getter on the dom's element instance

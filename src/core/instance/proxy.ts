@@ -132,14 +132,6 @@ function initProp(
   }
 
   function setValue(newVal: any) {
-    if (MEMBER_PROP) {
-      // TODO: remove this in prod mode!
-      // this is not a stateful prop
-      // so do not update the instance or host element
-      console.warn(`@Prop() "${memberName}" on "${elm.tagName.toLowerCase()}" cannot be modified.`);
-      return;
-    }
-
     // check our new property value against our internal value
     const oldVal = internalValues[memberName];
 
@@ -169,14 +161,27 @@ function initProp(
   }
 
   if (memberType === MEMBER_PROP || memberType === MEMBER_PROP_STATE) {
-    // dom's element instance
-    // only place getters/setters on element for "@Prop"s
-    // "@State" getters/setters should not be assigned to the element
+    // @Prop() and @Prop({ state: true })
+    // have both getters and setters on the DOM element
+    // @State() getters and setters should not be assigned to the element
     defineProperty(elm, memberName, 0, getValue, setValue);
   }
 
-  // define on component class instance
-  defineProperty(instance, memberName, 0, getValue, setValue);
+  if (memberType === MEMBER_PROP_STATE || memberType === MEMBER_STATE) {
+    // @Prop({ state: true }) and @State()
+    // have both getters and setters on the instance
+    defineProperty(instance, memberName, 0, getValue, setValue);
+
+  } else if (memberType === MEMBER_PROP) {
+    // @Prop() only has getters, but not setters on the instance
+    defineProperty(instance, memberName, 0, getValue, function invalidSetValue() {
+      // this is not a stateful @Prop()
+      // so do not update the instance or host element
+      // TODO: remove this warning in prod mode
+      console.warn(`@Prop() "${memberName}" on "${elm.tagName.toLowerCase()}" cannot be modified.`);
+    });
+  }
+
 }
 
 

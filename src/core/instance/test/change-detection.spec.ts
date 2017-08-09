@@ -40,37 +40,37 @@ describe('instance change detection', () => {
 
   });
 
-  describe('no change', () => {
+  // describe('no change', () => {
 
-    it('number unchanged', () => {
-      spyOn(plt.queue, 'add');
+  //   it('number unchanged', () => {
+  //     spyOn(plt.queue, 'add');
 
-      initProxy(plt, elm, instance, cmpMeta);
+  //     initProxy(plt, elm, instance, cmpMeta);
 
-      elm.num = 88;
+  //     elm.num = 88;
 
-      expect(plt.queue.add).not.toHaveBeenCalled();
-    });
+  //     expect(plt.queue.add).not.toHaveBeenCalled();
+  //   });
 
-    it('string unchanged', () => {
-      spyOn(plt.queue, 'add');
+  //   it('string unchanged', () => {
+  //     spyOn(plt.queue, 'add');
 
-      initProxy(plt, elm, instance, cmpMeta);
+  //     initProxy(plt, elm, instance, cmpMeta);
 
-      elm.str = 'mph';
+  //     elm.str = 'mph';
 
-      expect(plt.queue.add).not.toHaveBeenCalled();
-    });
+  //     expect(plt.queue.add).not.toHaveBeenCalled();
+  //   });
 
-    it('boolean unchanged', () => {
-      spyOn(plt.queue, 'add');
+  //   it('boolean unchanged', () => {
+  //     spyOn(plt.queue, 'add');
 
-      initProxy(plt, elm, instance, cmpMeta);
+  //     initProxy(plt, elm, instance, cmpMeta);
 
-      elm.bool = true;
+  //     elm.bool = true;
 
-      expect(plt.queue.add).not.toHaveBeenCalled();
-    });
+  //     expect(plt.queue.add).not.toHaveBeenCalled();
+  //   });
 
   });
 

@@ -1,7 +1,7 @@
 import { ComponentInstance, ComponentMeta, ComponentInternalValues,
   HostElement, PlatformApi, PropChangeMeta } from '../../util/interfaces';
 import { parsePropertyValue } from '../../util/data-parse';
-import { MEMBER_METHOD, MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_GLOBAL,
+import { MEMBER_METHOD, MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_CONTEXT,
   MEMBER_STATE, MEMBER_ELEMENT_REF, PROP_CHANGE_METHOD_NAME, PROP_CHANGE_PROP_NAME } from '../../util/constants';
 import { queueUpdate } from './update';
 
@@ -27,9 +27,10 @@ export function initProxy(plt: PlatformApi, elm: HostElement, instance: Componen
       var memberMeta = cmpMeta.membersMeta[memberName];
       var memberType = memberMeta.memberType;
 
-      if (memberType === MEMBER_PROP_GLOBAL) {
-        // @Prop('coreGlobal')
-        defineProperty(instance, memberName, Core[memberMeta.ctrlId]);
+      if (memberType === MEMBER_PROP_CONTEXT) {
+        // @Prop({ context: 'config' })
+        var contextObj = Context[memberMeta.ctrlId];
+        contextObj && defineProperty(instance, memberName, (contextObj.getContext && contextObj.getContext(elm)) || contextObj);
 
       } else if (memberType === MEMBER_METHOD) {
         // add a value getter on the dom's element instance

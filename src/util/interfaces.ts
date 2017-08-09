@@ -2,10 +2,9 @@ import { CssClassMap } from './jsx-interfaces';
 export { CssClassMap } from './jsx-interfaces';
 
 
-export interface CoreGlobal {
+export interface CoreContext {
   addListener?: AddEventListenerApi;
   attr?: number;
-  controllers?: {[ctrlKey: string]: any};
   dom?: DomControllerApi;
   emit?: (elm: Element, eventName: string, data?: EventEmitterData) => void;
   enableListener?: EventListenerEnable;
@@ -13,7 +12,7 @@ export interface CoreGlobal {
   isClient?: boolean;
   isServer?: boolean;
   mode?: string;
-  [global: string]: any;
+  [contextId: string]: any;
 }
 
 
@@ -24,7 +23,7 @@ export interface AppGlobal {
 
 
 export interface AddEventListenerApi {
-  (elm: HTMLElement|HTMLDocument|Window, eventName: string, cb: EventListenerCallback, opts?: ListenOptions): Function;
+  (elm: Element|Document|Window, eventName: string, cb: EventListenerCallback, opts?: ListenOptions): Function;
 }
 
 
@@ -425,7 +424,7 @@ export interface LoggerTimeSpan {
 
 
 export interface ModulesImporterFn {
-  (importer: any, h: Function, t: Function, Core: CoreGlobal, pubicPath: string): void;
+  (importer: any, h: Function, t: Function, Core: CoreContext, pubicPath: string): void;
 }
 
 
@@ -452,13 +451,13 @@ export interface ModeStyles {
 
 
 export interface PropDecorator {
-  (opts?: PropOptions|string): any;
+  (opts?: PropOptions): any;
 }
 
 
 export interface PropOptions {
-  config?: string;
-  type?: string;
+  context?: string;
+  controller?: string;
   state?: boolean;
 }
 
@@ -1016,7 +1015,7 @@ declare global {
   // these must be "var" variables
   // so that they could be re-declared by
   // other collections, do not use "const" or "let"
-  var Core: CoreGlobal;
+  var Context: CoreContext;
   var publicPath: string;
   var appNamespace: string;
   var h: Hyperscript;
@@ -1059,7 +1058,7 @@ export interface ComponentData {
   listeners?: ListenerData[];
   methods?: MethodData[];
   events?: EventData[];
-  controllers?: ControllerData[];
+  context?: ControllerData[];
   hostElement?: HostElementData;
   host?: any;
   assetPaths?: string[];
@@ -1115,7 +1114,7 @@ export interface EventData {
 export interface ControllerData {
   name: string;
   controllerComponent?: string;
-  controllerGlobal?: string;
+  context?: string;
 }
 
 export interface HostElementData {

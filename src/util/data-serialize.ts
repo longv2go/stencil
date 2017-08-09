@@ -1,7 +1,7 @@
 import { Bundle, ComponentMeta, ComponentRegistry, EventMeta, ListenMeta, LoadComponentRegistry,
   MemberMeta, MembersMeta, ModuleFile, PropChangeMeta, StylesMeta } from './interfaces';
 import { HAS_SLOTS, HAS_NAMED_SLOTS, MEMBER_ELEMENT_REF, MEMBER_METHOD,
-  MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_GLOBAL,
+  MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_CONTEXT,
   MEMBER_STATE, TYPE_ANY, TYPE_BOOLEAN, TYPE_NUMBER } from '../util/constants';
 
 
@@ -211,7 +211,7 @@ function formatMemberMeta(memberName: string, memberMeta: MemberMeta) {
   d.push(`"${memberName}"`);
   d.push(formatMemberType(memberMeta.memberType));
   d.push(formatPropType(memberMeta.propType));
-  d.push(formatController(memberMeta.ctrlId));
+  d.push(formatPropContext(memberMeta.ctrlId));
 
   return '\n  [ ' + trimFalsyDataStr(d).join(', ') + ' ]';
 }
@@ -233,8 +233,8 @@ function formatMemberType(val: number) {
   if (val === MEMBER_STATE) {
     return `/** state **/ ${MEMBER_STATE}`;
   }
-  if (val === MEMBER_PROP_GLOBAL) {
-    return `/** prop global **/ ${MEMBER_PROP_GLOBAL}`;
+  if (val === MEMBER_PROP_CONTEXT) {
+    return `/** prop global **/ ${MEMBER_PROP_CONTEXT}`;
   }
   return `/** unknown ****/ 0`;
 }
@@ -251,11 +251,11 @@ function formatPropType(val: number) {
 }
 
 
-function formatController(val: string) {
+function formatPropContext(val: string) {
   if (val === undefined) {
     return `0`;
   }
-  return `/** controller ***/ "${val}"`;
+  return `/** context ***/ "${val}"`;
 }
 
 

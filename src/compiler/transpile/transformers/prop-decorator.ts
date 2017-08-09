@@ -1,6 +1,6 @@
 import { catchError } from '../../util';
 import { Diagnostic, ModuleFile, MemberMeta, PropOptions } from '../../../util/interfaces';
-import { MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_GLOBAL, TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
+import { MEMBER_PROP, MEMBER_PROP_STATE, MEMBER_PROP_CONTEXT, TYPE_NUMBER, TYPE_BOOLEAN } from '../../../util/constants';
 import * as ts from 'typescript';
 
 
@@ -11,7 +11,6 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
     let isProp = false;
     let propName: string = null;
     let propType: number = null;
-    let ctrlId: string = null;
     let userPropOptions: PropOptions = null;
     let shouldObserveAttribute = false;
 
@@ -32,13 +31,7 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
         if (!isProp) return;
 
         n.getChildAt(1).forEachChild(n => {
-          if (n.kind === ts.SyntaxKind.StringLiteral) {
-            // @Prop('ion-animation-ctrl') animationCtrl: Animation;
-            ctrlId = n.getText().replace(/\'|\"|`/g, '').trim();
-
-            shouldObserveAttribute = false;
-
-          } else if (n.kind === ts.SyntaxKind.ObjectLiteralExpression) {
+          if (n.kind === ts.SyntaxKind.ObjectLiteralExpression) {
             try {
               const fnStr = `return ${n.getText()};`;
               userPropOptions = Object.assign(userPropOptions || {}, new Function(fnStr)());
@@ -96,33 +89,14 @@ export function getPropDecoratorMeta(moduleFile: ModuleFile, diagnostics: Diagno
       }
 
       if (userPropOptions) {
-        if (typeof userPropOptions.type === 'string') {
-          userPropOptions.type = userPropOptions.type.toLowerCase().trim();
-
-          if (userPropOptions.type === 'boolean') {
-            propMeta.propType = TYPE_BOOLEAN;
-            shouldObserveAttribute = true;
-
-          } else if (userPropOptions.type === 'number') {
-            propMeta.propType = TYPE_NUMBER;
-            shouldObserveAttribute = true;
-
-          } else if (userPropOptions.type === 'string') {
-            shouldObserveAttribute = true;
-          }
+        if (typeof userPropOptions.context === 'string') {
+          propMeta.memberType = MEMBER_PROP_CONTEXT;
+          propMeta.ctrlId = userPropOptions.context;
         }
 
         if (typeof userPropOptions.state === 'boolean') {
           propMeta.memberType = MEMBER_PROP_STATE;
         }
-
-      } else if (ctrlId) {
-        propMeta.ctrlId = ctrlId;
-        if (ctrlId.indexOf('-') === -1) {
-          propMeta.memberType = MEMBER_PROP_GLOBAL;
-        }
-
-        shouldObserveAttribute = false;
       }
 
       if (shouldObserveAttribute) {

@@ -1,7 +1,7 @@
 import { addEventListener, enableEventListener } from '../core/instance/listeners';
 import { assignHostContentSlots, createVNodesFromSsr } from '../core/renderer/slot';
 import { ATTR_LOWER_CASE, SSR_VNODE_ID } from '../util/constants';
-import { ComponentMeta, ComponentRegistry, CoreGlobal, EventEmitterData,
+import { ComponentMeta, ComponentRegistry, CoreContext, EventEmitterData,
   HostElement, AppGlobal, LoadComponentRegistry,
   ModuleCallbacks, PlatformApi } from '../util/interfaces';
 import { createDomControllerClient } from './dom-controller-client';
@@ -15,7 +15,7 @@ import { parseComponentMeta, parseComponentRegistry } from '../util/data-parse';
 import { toDashCase } from '../util/helpers';
 
 
-export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Window, doc: Document, publicPath: string): PlatformApi {
+export function createPlatformClient(Context: CoreContext, App: AppGlobal, win: Window, doc: Document, publicPath: string): PlatformApi {
   const registry: ComponentRegistry = { 'HTML': {} };
   const moduleImports: {[tag: string]: any} = {};
   const moduleCallbacks: ModuleCallbacks = {};
@@ -27,27 +27,25 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
   const now = getNowFunction(win);
 
   // initialize Core global object
-  Core.dom = createDomControllerClient(win, now);
+  Context.dom = createDomControllerClient(win, now);
 
-  Core.addListener = function addListener(elm, eventName, cb, opts) {
-    return addEventListener(plt, elm, eventName, cb, opts.capture, opts.passive);
+  Context.addListener = function addListener(elm, eventName, cb, opts) {
+    return addEventListener(plt, elm, eventName, cb, opts && opts.capture, opts && opts.passive);
   };
 
-  Core.controllers = {};
-
-  Core.enableListener = function enableListener(instance, eventName, enabled, attachTo) {
+  Context.enableListener = function enableListener(instance, eventName, enabled, attachTo) {
     enableEventListener(plt, instance, eventName, enabled, attachTo);
   };
 
-  Core.emit = function emitEvent(elm: Element, eventName: string, data: EventEmitterData) {
+  Context.emit = function emitEvent(elm: Element, eventName: string, data: EventEmitterData) {
     elm.dispatchEvent(new WindowCustomEvent(
-      Core.eventNameFn ? Core.eventNameFn(eventName) : eventName,
+      Context.eventNameFn ? Context.eventNameFn(eventName) : eventName,
       data
     ));
   };
 
-  Core.isClient = true;
-  Core.isServer = false;
+  Context.isClient = true;
+  Context.isServer = false;
 
 
   // create the platform api which is used throughout common core code
@@ -56,9 +54,9 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
     defineComponent,
     getComponentMeta,
     loadBundle,
-    queue: createQueueClient(Core.dom, now),
+    queue: createQueueClient(Context.dom, now),
     connectHostElement,
-    emitEvent: Core.emit,
+    emitEvent: Context.emit,
     getEventOptions,
     onError
   };
@@ -94,7 +92,7 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
       // looks like mode wasn't set as a property directly yet
       // first check if there's an attribute
       // next check the app's global
-      elm.mode = domApi.$getAttribute(elm, 'mode') || Core.mode;
+      elm.mode = domApi.$getAttribute(elm, 'mode') || Context.mode;
     }
 
     // host element has been connected to the DOM
@@ -130,7 +128,7 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
       observedAttributes.push(
         // dynamically generate the attribute name from the prop name
         // also add it to our array of attributes we need to observe
-        cmpMeta.membersMeta[propName].attribName = Core.attr === ATTR_LOWER_CASE ? propName.toLowerCase() : toDashCase(propName)
+        cmpMeta.membersMeta[propName].attribName = Context.attr === ATTR_LOWER_CASE ? propName.toLowerCase() : toDashCase(propName)
       );
     }
 
@@ -146,7 +144,7 @@ export function createPlatformClient(Core: CoreGlobal, App: AppGlobal, win: Wind
 
     // import component function
     // inject globals
-    importFn(moduleImports, h, t, Core, publicPath);
+    importFn(moduleImports, h, t, Context, publicPath);
 
     for (var i = 2; i < args.length; i++) {
       // parse the external component data into internal component meta data

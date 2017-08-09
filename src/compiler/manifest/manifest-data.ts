@@ -2,7 +2,7 @@ import { AssetsMeta, BuildConfig, BuildContext, BuildResults, Bundle, BundleData
   ComponentMeta, ComponentData, EventData, EventMeta, Manifest, ManifestData, ModuleFile, ListenerData,
   ListenMeta, PropChangeData, PropChangeMeta, PropData, StyleData, StyleMeta } from '../../util/interfaces';
 import { COLLECTION_MANIFEST_FILE_NAME, HAS_NAMED_SLOTS, HAS_SLOTS, MEMBER_PROP, MEMBER_PROP_STATE,
-  MEMBER_METHOD, MEMBER_PROP_GLOBAL, MEMBER_ELEMENT_REF, MEMBER_STATE, PRIORITY_LOW,
+  MEMBER_METHOD, MEMBER_PROP_CONTEXT, MEMBER_ELEMENT_REF, MEMBER_STATE, PRIORITY_LOW,
   TYPE_BOOLEAN, TYPE_NUMBER } from '../../util/constants';
 import { normalizePath } from '../util';
 
@@ -131,7 +131,7 @@ export function serializeComponent(config: BuildConfig, manifestDir: string, mod
   serializeStates(cmpData, cmpMeta);
   serializeListeners(cmpData, cmpMeta);
   serializeMethods(cmpData, cmpMeta);
-  serializeControllerMember(cmpData, cmpMeta);
+  serializeContextMember(cmpData, cmpMeta);
   serializeHostElementMember(cmpData, cmpMeta);
   serializeEvents(cmpData, cmpMeta);
   serializeHost(cmpData, cmpMeta);
@@ -160,7 +160,7 @@ export function parseComponent(config: BuildConfig, manifestDir: string, cmpData
   parseStates(cmpData, cmpMeta);
   parseListeners(cmpData, cmpMeta);
   parseMethods(cmpData, cmpMeta);
-  parseControllerMember(cmpData, cmpMeta);
+  parseContextMember(cmpData, cmpMeta);
   parseHostElementMember(cmpData, cmpMeta);
   parseEvents(cmpData, cmpMeta);
   parseHost(cmpData, cmpMeta);
@@ -552,19 +552,19 @@ function parseMethods(cmpData: ComponentData, cmpMeta: ComponentMeta) {
 }
 
 
-function serializeControllerMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+function serializeContextMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
   if (!cmpMeta.membersMeta) return;
 
   Object.keys(cmpMeta.membersMeta).forEach(memberName => {
     const member = cmpMeta.membersMeta[memberName];
 
     if (member.ctrlId) {
-      if (member.memberType === MEMBER_PROP_GLOBAL) {
-        cmpData.controllers = cmpData.controllers || [];
+      if (member.memberType === MEMBER_PROP_CONTEXT) {
+        cmpData.context = cmpData.context || [];
 
-        cmpData.controllers.push({
+        cmpData.context.push({
           name: memberName,
-          controllerGlobal: member.ctrlId
+          context: member.ctrlId
         });
       }
     }
@@ -572,18 +572,18 @@ function serializeControllerMember(cmpData: ComponentData, cmpMeta: ComponentMet
 }
 
 
-function parseControllerMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
-  if (invalidArrayData(cmpData.controllers)) {
+function parseContextMember(cmpData: ComponentData, cmpMeta: ComponentMeta) {
+  if (invalidArrayData(cmpData.context)) {
     return;
   }
 
-  cmpData.controllers.forEach(methodData => {
-    if (methodData.controllerGlobal) {
+  cmpData.context.forEach(methodData => {
+    if (methodData.context) {
       cmpMeta.membersMeta = cmpMeta.membersMeta || {};
 
       cmpMeta.membersMeta[methodData.name] = {
-        memberType: MEMBER_PROP_GLOBAL,
-        ctrlId: methodData.controllerGlobal
+        memberType: MEMBER_PROP_CONTEXT,
+        ctrlId: methodData.context
       };
     }
   });

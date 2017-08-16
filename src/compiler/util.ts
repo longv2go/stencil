@@ -2,7 +2,7 @@ import { BANNER } from '../util/constants';
 import { BuildConfig, BuildContext, Diagnostic, FilesMap, StencilSystem } from '../util/interfaces';
 
 
-export function getBuildContext(ctx: BuildContext) {
+export function getBuildContext(ctx?: BuildContext) {
   // create the build context if it doesn't exist
   ctx = ctx || {};
 

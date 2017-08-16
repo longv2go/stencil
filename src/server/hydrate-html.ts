@@ -67,6 +67,9 @@ export function hydrateHtml(config: BuildConfig, ctx: BuildContext, registry: Co
         // optimize this document!!
         optimizeHtml(config, ctx, doc, stylesMap, opts, hydrateResults.diagnostics);
 
+        // gather up all of the <a> tag information in the doc
+        collectAnchors(doc, hydrateResults);
+
         // serialize this dom back into a string
         hydrateResults.html = dom.serialize();
 
@@ -161,6 +164,22 @@ export function connectElement(plt: PlatformApi, elm: HostElement, connectedInfo
 }
 
 
+function collectAnchors(doc: Document, hydrateResults: HydrateResults) {
+  const anchorElements = doc.querySelectorAll('a');
+
+  for (var i = 0; i < anchorElements.length; i++) {
+    var attrs: any = {};
+    var anchorAttrs = anchorElements[i].attributes;
+
+    for (var j = 0; j < anchorAttrs.length; j++) {
+      attrs[anchorAttrs[j].nodeName.toLowerCase()] = anchorAttrs[j].nodeValue;
+    }
+
+    hydrateResults.anchors.push(attrs);
+  }
+}
+
+
 function normalizeDirection(doc: Document, opts: HydrateOptions) {
   let dir = doc.body.getAttribute('dir');
   if (dir) {
@@ -218,3 +237,4 @@ function normalizeLanguage(doc: Document, opts: HydrateOptions) {
 export interface ConnectedInfo {
   elementCount: number;
 }
+

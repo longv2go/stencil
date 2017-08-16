@@ -9,7 +9,7 @@ module.exports = function help() {
 
     This command line tool allows you to build stencil collections and applications.
 
-  ${chalk.bold('Usage:')}
+  ${chalk.bold('Build:')}
 
     ${p} ${chalk.green('stencil build [--dev] [--watch] [--debug]')}
 
@@ -19,6 +19,10 @@ module.exports = function help() {
     ${chalk.green('--watch')} ................ Execute a build in watch mode.
     ${chalk.green('--debug')} ................ Set the log level to debug.
     ${chalk.green('--config')} ............... Stencil config file.
+
+  ${chalk.bold('Prerender:')}
+
+    ${p} ${chalk.green('stencil prerender')}
 
   ${chalk.bold('Examples:')}
 

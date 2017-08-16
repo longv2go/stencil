@@ -1,5 +1,5 @@
 import { BuildConfig, BuildResults, Diagnostic } from '../../util/interfaces';
-import { buildIndexHtml } from './index-html';
+import { prerenderIndexHtml } from '../prerender/prerender-index-html';
 import { bundle } from '../bundle/bundle';
 import { catchError, getBuildContext, hasError, resetBuildContext } from '../util';
 import { cleanDiagnostics } from '../../util/logger/logger-util';
@@ -68,7 +68,7 @@ export function build(config: BuildConfig, context?: any) {
 
   }).then(() => {
     // prerender index.html
-    return buildIndexHtml(config, ctx);
+    return prerenderIndexHtml(config, ctx);
 
   }).then(() => {
     // write all the files and copy asset files
@@ -116,7 +116,7 @@ export function build(config: BuildConfig, context?: any) {
 }
 
 
-function isConfigValid(config: BuildConfig, diagnostics: Diagnostic[]) {
+export function isConfigValid(config: BuildConfig, diagnostics: Diagnostic[]) {
   try {
     // validate the build config
     validateBuildConfig(config);

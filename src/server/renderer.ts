@@ -5,6 +5,7 @@ import { getRegistryJsonFilePath } from '../compiler/app/generate-app-files';
 import { hydrateHtml } from './hydrate-html';
 import { parseComponentRegistry } from '../util/data-parse';
 import { validateBuildConfig } from '../compiler/build/validation';
+import * as Url from 'url';
 
 
 export function createRenderer(config: BuildConfig, registry?: ComponentRegistry, ctx?: BuildContext) {
@@ -29,7 +30,8 @@ export function createRenderer(config: BuildConfig, registry?: ComponentRegistry
     const hydrateResults: HydrateResults = {
       diagnostics: [],
       html: opts.html,
-      styles: null
+      styles: null,
+      anchors: []
     };
 
     // only create a promise if the last argument
@@ -45,6 +47,7 @@ export function createRenderer(config: BuildConfig, registry?: ComponentRegistry
     try {
       // validate the hydrate options and add any missing info
       validateHydrateOptions(opts);
+      hydrateResults.url = opts.url;
 
       // kick off hydrated, which is an async opertion
       hydrateHtml(config, ctx, registry, opts, hydrateResults, callback);
@@ -120,6 +123,16 @@ function validateHydrateOptions(opts: HydrateOptions) {
     if (!opts.userAgent) opts.userAgent = req.get('user-agent');
     if (!opts.cookie) opts.cookie = req.get('cookie');
   }
+
+  if (!opts.url) {
+    opts.url = '/';
+  }
+
+  const urlObj = Url.parse(opts.url);
+  if (!urlObj.protocol) urlObj.protocol = 'https:';
+  if (!urlObj.hostname) urlObj.hostname = 'prerender.stenciljs.com';
+
+  opts.url = Url.format(urlObj);
 }
 
 

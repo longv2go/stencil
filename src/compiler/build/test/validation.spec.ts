@@ -9,6 +9,11 @@ describe('validation', () => {
 
   describe('validateBuildConfig', () => {
 
+    it('should default prerenderIndex.maxConcurrent', () => {
+      validateBuildConfig(config);
+      expect(config.prerender.maxConcurrent).toBe(4);
+    });
+
     it('should default prerenderIndex.include', () => {
       validateBuildConfig(config);
       expect(config.prerender.include[0].url).toBe('/');

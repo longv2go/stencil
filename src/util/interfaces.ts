@@ -317,13 +317,27 @@ export interface RenderOptions {
 
 export interface PrerenderConfig extends RenderOptions {
   crawl?: boolean;
-  include?: PrerenderConfigUrl[];
+  include?: PrerenderUrl[];
   prerenderDir?: string;
+  maxConcurrent?: number;
+  userAgent?: string;
+  cookie?: string;
+  dir?: string;
+  lang?: string;
+  host?: string;
 }
 
 
-export interface PrerenderConfigUrl {
+export interface PrerenderUrl {
   url: string;
+  status?: PrerenderStatus;
+}
+
+
+export enum PrerenderStatus {
+  pending = 1,
+  processing = 2,
+  complete = 3
 }
 
 
@@ -348,7 +362,7 @@ export interface BuildResults {
   files: string[];
   diagnostics: Diagnostic[];
   manifest: ManifestData;
-  changedFiles: string[];
+  changedFiles?: string[];
 }
 
 
@@ -393,6 +407,8 @@ export interface BuildContext {
   registry?: ComponentRegistry;
   manifest?: Manifest;
   onFinish?: (buildResults: BuildResults) => void;
+
+  prerenderUrlQueue?: PrerenderUrl[];
 }
 
 
@@ -1012,8 +1028,15 @@ export interface FSWatcher {
 
 export interface HydrateResults {
   diagnostics: Diagnostic[];
+  url?: string;
   html?: string;
   styles?: string;
+  anchors?: HydrateAnchor[];
+}
+
+
+export interface HydrateAnchor {
+  [attrName: string]: string;
 }
 
 

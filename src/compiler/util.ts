@@ -104,19 +104,6 @@ export function writeFiles(sys: StencilSystem, rootDir: string, filesToWrite: Fi
 }
 
 
-export function emptyDir(sys: StencilSystem, dir: string) {
-  return new Promise((resolve, reject) => {
-    sys.rmDir(dir, err => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-
 function writeToDisk(sys: StencilSystem, filesToWrite: FilesMap): Promise<any> {
   // assumes directories to be saved in already exit
   return new Promise((resolve, reject) => {

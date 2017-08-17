@@ -1,6 +1,6 @@
 import { BuildConfig, BuildResults } from '../../util/interfaces';
 import { bundle } from '../bundle/bundle';
-import { catchError, emptyDir, getBuildContext, hasError, resetBuildContext } from '../util';
+import { catchError, getBuildContext, hasError, resetBuildContext } from '../util';
 import { cleanDiagnostics } from '../../util/logger/logger-util';
 import { compileSrcDir } from '../build/compile';
 import { generateAppFiles } from '../app/generate-app-files';
@@ -101,12 +101,10 @@ export function prerender(config: BuildConfig) {
 
 
 function copyWWW(config: BuildConfig) {
+  const prerenderDir = config.prerender.prerenderDir;
+  const wwwDir = config.sys.path.dirname(config.indexHtmlBuild);
 
-
-  return emptyDir(config.sys, config.prerender.prerenderDir).then(() => {
-    return new Promise(resolve => {
-      const wwwDir = config.sys.path.dirname(config.indexHtmlBuild);
-      config.sys.copyDir(wwwDir, config.prerender.prerenderDir, resolve);
-    });
+  return config.sys.emptyDir(prerenderDir).then(() => {
+    return config.sys.copy(wwwDir, prerenderDir);
   });
 }

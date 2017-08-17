@@ -11,6 +11,7 @@ export interface CoreContext {
   eventNameFn?: (eventName: string) => string;
   isClient?: boolean;
   isServer?: boolean;
+  isPrerender?: boolean;
   mode?: string;
   [contextId: string]: any;
 }
@@ -355,6 +356,7 @@ export interface HydrateOptions extends RenderOptions {
   cookie?: string;
   dir?: string;
   lang?: string;
+  isPrerender?: boolean;
 }
 
 
@@ -930,7 +932,7 @@ export interface PrintLine {
 
 
 export interface StencilSystem {
-  copyDir?(src: string, dest: string, callback: (err: any) => void): void;
+  copy?(src: string, dest: string): Promise<void>;
   compiler?: {
     name: string;
     version: string;
@@ -941,6 +943,8 @@ export interface StencilSystem {
     destroy(): void;
     getDiagnostics(): Diagnostic[];
   };
+  emptyDir?(dir: string): Promise<void>;
+  ensureDir?(dir: string): Promise<void>;
   fs?: {
     access(path: string, callback: (err: any) => void): void;
     accessSync(path: string | Buffer, mode?: number): void
@@ -977,7 +981,7 @@ export interface StencilSystem {
     resolve(...pathSegments: any[]): string;
     sep: string;
   };
-  rmDir?(path: string, callback: (err: any) => void): void;
+  remove?(path: string): Promise<void>;
   rollup?: {
     rollup: {
       (config: { entry: string; plugins?: any[]; treeshake?: boolean; onwarn?: Function; }): Promise<{

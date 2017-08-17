@@ -27,7 +27,8 @@ export function mockPlatform() {
     'App',
     win,
     appBuildDir,
-    diagnostics
+    diagnostics,
+    false
   );
   plt.isClient = true;
 
@@ -86,14 +87,26 @@ export function mockStencilSystem() {
       version: 'test'
     },
 
-    copyDir: function mockCopyDir(src: string, dest: string, cb: Function) {
+    copy: function mockCopyDir(src: string, dest: string) {
       src; dest;
-      process.nextTick(() => {
-        cb(null);
+      return new Promise(resolve => {
+        resolve();
       });
     },
 
     createDom: mockCreateDom,
+
+    emptyDir: function() {
+      return new Promise(resolve => {
+        resolve();
+      });
+    },
+
+    ensureDir: function() {
+      return new Promise(resolve => {
+        resolve();
+      });
+    },
 
     generateContentHash: function mockGenerateContentHash(content: string, length: number) {
       var crypto = require('crypto');
@@ -115,10 +128,10 @@ export function mockStencilSystem() {
 
     path: path,
 
-    rmDir: function mockRmDir(path, cb) {
+    remove: function mockRmDir(path) {
       path;
-      process.nextTick(() => {
-        cb(null);
+      return new Promise(resolve => {
+        resolve();
       });
     },
 

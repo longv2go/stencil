@@ -26,7 +26,7 @@ describe('validation', () => {
 
     it('should default prerenderIndex.prerenderDir', () => {
       validateBuildConfig(config);
-      expect(config.prerender.prerenderDir).toBe(`dist/prerender`);
+      expect(config.prerender.prerenderDir).toBeDefined();
     });
 
     it('should default prerenderIndex.inlineStyles', () => {

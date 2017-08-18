@@ -1,4 +1,4 @@
-import { BuildConfig, BuildContext, HydrateResults, PrerenderStatus, PrerenderUrl } from '../../util/interfaces';
+import { BuildConfig, BuildContext, HydrateResults, PrerenderStatus } from '../../util/interfaces';
 import { buildError, catchError, hasError, readFile } from '../util';
 import { prerenderUrl } from './prerender-url';
 import * as Url from 'url';
@@ -41,6 +41,7 @@ export function prerenderApp(config: BuildConfig, ctx: BuildContext) {
 
 
 function drainPrerenderQueue(config: BuildConfig, ctx: BuildContext, indexSrcHtml: string, resolve: Function) {
+
   for (var i = 0; i < config.prerender.maxConcurrent; i++) {
     var activelyProcessingCount = ctx.prerenderUrlQueue.filter(p => p.status === PrerenderStatus.processing).length;
 
@@ -49,21 +50,7 @@ function drainPrerenderQueue(config: BuildConfig, ctx: BuildContext, indexSrcHtm
       return;
     }
 
-    var p = ctx.prerenderUrlQueue.find(p => p.status === PrerenderStatus.pending);
-    if (p) {
-      // we've got a url that's pending
-      // well guess what, it's go time
-      p.status = PrerenderStatus.processing;
-
-      runNextPrerenderUrl(config, ctx, indexSrcHtml, p).then(p => {
-        // finished with this one, onto the next
-        p.status = PrerenderStatus.complete;
-
-        // let's try to drain the queue again and let this
-        // next call figure out if we're actually done or not
-        drainPrerenderQueue(config, ctx, indexSrcHtml, resolve);
-      });
-    }
+    runNextPrerenderUrl(config, ctx, indexSrcHtml, resolve);
   }
 
   var remaining = ctx.prerenderUrlQueue.filter(p => {
@@ -79,41 +66,69 @@ function drainPrerenderQueue(config: BuildConfig, ctx: BuildContext, indexSrcHtm
 }
 
 
-function runNextPrerenderUrl(config: BuildConfig, ctx: BuildContext, indexSrcHtml: string, p: PrerenderUrl) {
-  return prerenderUrl(config, ctx, indexSrcHtml, p).then(results => {
+function runNextPrerenderUrl(config: BuildConfig, ctx: BuildContext, indexSrcHtml: string, resolve: Function) {
+  const p = ctx.prerenderUrlQueue.find(p => p.status === PrerenderStatus.pending);
+  if (!p) return;
+
+  // we've got a url that's pending
+  // well guess what, it's go time
+  p.status = PrerenderStatus.processing;
+
+  prerenderUrl(config, ctx, indexSrcHtml, p).then(results => {
     // awesome!!
-    postPrerenderUrl(config, ctx, p, results);
+
+    // merge any diagnostics we just got from this
+    ctx.diagnostics = ctx.diagnostics.concat(results.diagnostics);
+
+    crawlAnchorsForNextUrls(config, ctx, results);
+
+    writePrerenderDest(config, results);
 
   }).catch(err => {
     // darn, idk, bad news
     catchError(ctx.diagnostics, err);
 
   }).then(() => {
-    return p;
+    p.status = PrerenderStatus.complete;
+
+    // let's try to drain the queue again and let this
+    // next call figure out if we're actually done or not
+    drainPrerenderQueue(config, ctx, indexSrcHtml, resolve);
   });
 }
 
 
-function postPrerenderUrl(config: BuildConfig, ctx: BuildContext, p: PrerenderUrl, results: HydrateResults) {
-  // merge any diagnostics we just got from this
-  ctx.diagnostics = ctx.diagnostics.concat(results.diagnostics);
+function writePrerenderDest(config: BuildConfig, results: HydrateResults) {
+  const parsedUrl = Url.parse(results.url);
 
-  if (results.anchors && results.anchors.length) {
-    results.anchors.forEach(anchor => {
-      const url = normalizePrerenderUrl(config, results.url, anchor.href);
+  const dir = config.sys.path.join(
+    config.prerender.prerenderDir,
+    parsedUrl.pathname
+  );
 
-      if (url) {
-        ctx.prerenderUrlQueue.push({
-          url: url,
-          status: PrerenderStatus.pending
-        });
-      }
+  const filePath = config.sys.path.join(
+    dir,
+    `index.html`
+  );
+
+  return config.sys.ensureDir(dir).then(() => {
+    return new Promise((resolve, reject) => {
+      config.sys.fs.writeFile(filePath, results.html, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
     });
-  }
+  });
+}
 
-  ctx.filesToWrite;
-  config;
-  console.log('p.url', p.url);
+
+function crawlAnchorsForNextUrls(config: BuildConfig, ctx: BuildContext, results: HydrateResults) {
+  results.anchors && results.anchors.forEach(anchor => {
+    addUrlToProcess(config, results.url, ctx, anchor.href);
+  });
 }
 
 
@@ -121,18 +136,20 @@ function normalizePrerenderUrl(config: BuildConfig, windowLocationHref: string, 
   try {
     if (typeof url !== 'string') return null;
 
-    url = url.trim();
+    const parsedUrl = Url.parse(url);
 
-    if (url === '') return null;
-    if (url.charAt(0) === '#') return null;
-    if (url.charAt(0) === '?') return null;
-    if (url.charAt(0) === '&') return null;
-    if (url.charAt(0) === '=') return null;
+    // don't bother for basically empty <a> tags
+    // or urls that are not on the same domain
+    if (!parsedUrl.pathname || parsedUrl.protocol || parsedUrl.auth || parsedUrl.hostname || parsedUrl.port) return null;
 
-    const urlObj = Url.parse(url);
+    // clear out any querystrings and hashes
+    parsedUrl.search = null;
+    parsedUrl.hash = null;
 
-    if (urlObj.protocol || urlObj.auth || urlObj.hostname || urlObj.port) return null;
+    // convert it back to a nice in pretty url
+    url = Url.format(parsedUrl);
 
+    // resolve it against the base window location url
     url = Url.resolve(windowLocationHref, url);
 
   } catch (e) {
@@ -144,19 +161,24 @@ function normalizePrerenderUrl(config: BuildConfig, windowLocationHref: string, 
 }
 
 
+function addUrlToProcess(config: BuildConfig, windowLocationHref: string, ctx: BuildContext, url: string) {
+  url = normalizePrerenderUrl(config, windowLocationHref, url);
+
+  if (!url || ctx.prerenderUrlQueue.some(p => p.url === url)) return;
+
+  ctx.prerenderUrlQueue.push({
+    url: url,
+    status: PrerenderStatus.pending
+  });
+}
+
+
 function getUrlsToPrerender(config: BuildConfig, windowLocationHref: string, ctx: BuildContext) {
   ctx.prerenderUrlQueue = [];
 
   if (!config.prerender.include) return;
 
   config.prerender.include.forEach(prerenderUrl => {
-    prerenderUrl.url = normalizePrerenderUrl(config, windowLocationHref, prerenderUrl.url);
-
-    if (!prerenderUrl.url) return;
-
-    ctx.prerenderUrlQueue.push({
-      url: prerenderUrl.url,
-      status: PrerenderStatus.pending
-    });
+    addUrlToProcess(config, windowLocationHref, ctx, prerenderUrl.url);
   });
 }

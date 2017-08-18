@@ -17,6 +17,7 @@ export function prerenderUrl(config: BuildConfig, ctx: BuildContext, indexSrcHtm
     // create the hydrate options from the prerender config
     const hydrateOpts: HydrateOptions = Object.assign({}, config.prerender);
     hydrateOpts.url = prerenderUrl.url;
+    hydrateOpts.isPrerender = true;
 
     // set the input html which we just read from the src index html file
     hydrateOpts.html = indexSrcHtml;

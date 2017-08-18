@@ -5,7 +5,6 @@ import { getRegistryJsonFilePath } from '../compiler/app/generate-app-files';
 import { hydrateHtml } from './hydrate-html';
 import { parseComponentRegistry } from '../util/data-parse';
 import { validateBuildConfig } from '../compiler/build/validation';
-import * as Url from 'url';
 
 
 export function createRenderer(config: BuildConfig, registry?: ComponentRegistry, ctx?: BuildContext) {
@@ -46,7 +45,7 @@ export function createRenderer(config: BuildConfig, registry?: ComponentRegistry
 
     try {
       // validate the hydrate options and add any missing info
-      validateHydrateOptions(opts);
+      validateHydrateOptions(config, opts);
       hydrateResults.url = opts.url;
 
       // kick off hydrated, which is an async opertion
@@ -112,7 +111,7 @@ function registerComponents(config: BuildConfig) {
 }
 
 
-function validateHydrateOptions(opts: HydrateOptions) {
+function validateHydrateOptions(config: BuildConfig, opts: HydrateOptions) {
   const req = opts.req;
 
   if (req && typeof req.get === 'function') {
@@ -128,11 +127,11 @@ function validateHydrateOptions(opts: HydrateOptions) {
     opts.url = '/';
   }
 
-  const urlObj = Url.parse(opts.url);
+  const urlObj = config.sys.url.parse(opts.url);
   if (!urlObj.protocol) urlObj.protocol = 'https:';
   if (!urlObj.hostname) urlObj.hostname = 'prerender.stenciljs.com';
 
-  opts.url = Url.format(urlObj);
+  opts.url = config.sys.url.format(urlObj);
 }
 
 

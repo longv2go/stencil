@@ -243,4 +243,6 @@ module.exports = Object.defineProperties({
 
   typescript: { get: function() { return require('typescript'); } },
 
+  url: { get: function() { return require('url'); } },
+
 });

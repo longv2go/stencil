@@ -313,6 +313,7 @@ export interface RenderOptions {
   inlineStyles?: boolean;
   removeUnusedStyles?: boolean;
   inlineLoaderScript?: boolean;
+  canonicalLink?: boolean;
 }
 
 
@@ -1015,11 +1016,32 @@ export interface StencilSystem {
     ): void;
   };
   typescript?: any;
+  url?: {
+    parse(urlStr: string, parseQueryString?: boolean, slashesDenoteHost?: boolean): Url;
+    format(url: Url): string;
+    resolve(from: string, to: string): string;
+  };
   vm?: {
     createContext(sandbox?: any): any;
     runInContext(code: string, contextifiedSandbox: any, options?: any): any;
   };
   watch?(paths: string | string[], opts?: any): FSWatcher;
+}
+
+
+export interface Url {
+  href?: string;
+  protocol?: string;
+  auth?: string;
+  hostname?: string;
+  port?: string;
+  host?: string;
+  pathname?: string;
+  search?: string;
+  query?: string | any;
+  slashes?: boolean;
+  hash?: string;
+  path?: string;
 }
 
 

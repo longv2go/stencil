@@ -1,7 +1,6 @@
 import { BuildConfig, BuildContext, HydrateResults, PrerenderStatus } from '../../util/interfaces';
 import { buildError, catchError, hasError, readFile } from '../util';
 import { prerenderUrl } from './prerender-url';
-import * as Url from 'url';
 
 
 export function prerenderApp(config: BuildConfig, ctx: BuildContext) {
@@ -99,7 +98,7 @@ function runNextPrerenderUrl(config: BuildConfig, ctx: BuildContext, indexSrcHtm
 
 
 function writePrerenderDest(config: BuildConfig, results: HydrateResults) {
-  const parsedUrl = Url.parse(results.url);
+  const parsedUrl = config.sys.url.parse(results.url);
 
   const dir = config.sys.path.join(
     config.prerender.prerenderDir,
@@ -136,7 +135,7 @@ function normalizePrerenderUrl(config: BuildConfig, windowLocationHref: string, 
   try {
     if (typeof url !== 'string') return null;
 
-    const parsedUrl = Url.parse(url);
+    const parsedUrl = config.sys.url.parse(url);
 
     // don't bother for basically empty <a> tags
     // or urls that are not on the same domain
@@ -147,10 +146,10 @@ function normalizePrerenderUrl(config: BuildConfig, windowLocationHref: string, 
     parsedUrl.hash = null;
 
     // convert it back to a nice in pretty url
-    url = Url.format(parsedUrl);
+    url = config.sys.url.format(parsedUrl);
 
     // resolve it against the base window location url
-    url = Url.resolve(windowLocationHref, url);
+    url = config.sys.url.resolve(windowLocationHref, url);
 
   } catch (e) {
     config.logger.error(`url: ${e}`);

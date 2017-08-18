@@ -66,7 +66,7 @@ export function hydrateHtml(config: BuildConfig, ctx: BuildContext, registry: Co
     if (rootElm) {
       try {
         // optimize this document!!
-        optimizeHtml(config, ctx, doc, stylesMap, opts, hydrateResults.diagnostics);
+        optimizeHtml(config, ctx, doc, stylesMap, opts, hydrateResults);
 
         // gather up all of the <a> tag information in the doc
         collectAnchors(doc, hydrateResults);

@@ -5,6 +5,14 @@ import { mockStencilSystem } from '../../../test';
 
 
 describe('build-project-files', () => {
+  let mockStencilContent = `('__STENCIL__APP__')`;
+  let config: BuildConfig;
+
+  beforeEach(() => {
+    config = {
+      sys: mockStencilSystem()
+    };
+  });
 
   describe('inject project', () => {
 
@@ -14,7 +22,7 @@ describe('build-project-files', () => {
       const publicPath = getAppPublicPath(config);
       const appCoreFileName = 'myapp.core.js';
       const appCorePolyfilledFileName = 'myapp.core.pf.js';
-      const componentRegistry: LoadComponentRegistry[] = [];
+      const componentRegistry: LoadComponentRegistry[] = [['my-app', 'MyApp.Module', {Mode1: 'something', Mode2: 'Something Else'}, [], [], 42, 73]];
 
       const projectLoader = injectAppIntoLoader(
         config,
@@ -25,14 +33,9 @@ describe('build-project-files', () => {
         mockStencilContent
       );
 
-      expect(projectLoader).toBe(`("MyApp","build/myapp/myapp.core.js","build/myapp/myapp.core.pf.js",[])`);
+      expect(projectLoader).toBe(`("MyApp","build/myapp/myapp.core.js","build/myapp/myapp.core.pf.js",[["my-app","MyApp.Module",{"Mode1":"something","Mode2":"Something Else"},[],[],42,73]])`);
     });
 
   });
-
-  var mockStencilContent = `('__STENCIL__APP__')`;
-  var config: BuildConfig = {
-    sys: mockStencilSystem()
-  };
 
 });

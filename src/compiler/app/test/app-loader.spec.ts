@@ -17,25 +17,35 @@ describe('build-project-files', () => {
   describe('inject project', () => {
 
     it('should set the loader arguments', () => {
-      config.namespace = 'MyApp';
-      config.publicPath = 'build/';
-      const publicPath = getAppPublicPath(config);
-      const appCoreFileName = 'myapp.core.js';
-      const appCorePolyfilledFileName = 'myapp.core.pf.js';
-      const componentRegistry: LoadComponentRegistry[] = [['my-app', 'MyApp.Module', {Mode1: 'something', Mode2: 'Something Else'}, [], [], 42, 73]];
-
-      const projectLoader = injectAppIntoLoader(
-        config,
-        appCoreFileName,
-        appCorePolyfilledFileName,
-        publicPath,
-        componentRegistry,
-        mockStencilContent
-      );
-
+      const projectLoader = callInjectAppIntoLoader({ componentRegistry: [['my-app', 'MyApp.Module', { Mode1: 'something', Mode2: 'Something Else' }, [], [], 42, 73]] });
       expect(projectLoader).toBe(`("MyApp","build/myapp/myapp.core.js","build/myapp/myapp.core.pf.js",[["my-app","MyApp.Module",{"Mode1":"something","Mode2":"Something Else"},[],[],42,73]])`);
     });
 
+    it('only replaces the magic string', () => {
+      mockStencilContent = `(This is bogus text'__STENCIL__APP__'yeah, me too)`;
+      const projectLoader = callInjectAppIntoLoader({});
+      expect(projectLoader).toBe(`(This is bogus text"MyApp","build/myapp/myapp.core.js","build/myapp/myapp.core.pf.js",[]yeah, me too)`);
+    });
+
   });
+
+  function callInjectAppIntoLoader(params: {
+    namespace?: string,
+    publicPath?: string,
+    coreFileName?: string,
+    corePolyfillFileName?: string,
+    componentRegistry?: Array<LoadComponentRegistry>
+  }) {
+    config.namespace = params.namespace || 'MyApp';
+    config.publicPath = params.publicPath || 'build/';
+    return injectAppIntoLoader(
+      config,
+      params.coreFileName || 'myapp.core.js',
+      params.corePolyfillFileName || 'myapp.core.pf.js',
+      getAppPublicPath(config),
+      params.componentRegistry || [],
+      mockStencilContent
+    );
+  }
 
 });

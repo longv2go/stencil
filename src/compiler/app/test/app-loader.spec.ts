@@ -1,15 +1,17 @@
 import { injectAppIntoLoader } from '../app-loader';
 import { getAppPublicPath } from '../app-core';
 import { BuildConfig, LoadComponentRegistry } from '../../../util/interfaces';
-import { mockStencilSystem } from '../../../test';
+import { mockLogger, mockStencilSystem } from '../../../test';
 
 
 describe('build-project-files', () => {
-  let mockStencilContent = `('__STENCIL__APP__')`;
+  let mockStencilContent: string;
   let config: BuildConfig;
 
   beforeEach(() => {
+    mockStencilContent = `('__STENCIL__APP__')`;
     config = {
+      logger: mockLogger(),
       sys: mockStencilSystem()
     };
   });
@@ -34,23 +36,61 @@ describe('build-project-files', () => {
     });
 
     describe('with minifyJs true', () => {
-      it('calls the minify routine', () => {
+      beforeEach(() => {
         config.minifyJs = true;
+      });
+
+      it('calls the minify routine', () => {
         callInjectAppIntoLoader();
         expect(mockMinify.mock.calls.length).toEqual(1);
       });
 
       it('returns minified output', () => {
-
+        mockMinify.mockReturnValue({
+          diagnostics: [],
+          output: 'a'
+        });
+        const projectLoader = callInjectAppIntoLoader();
+        expect(projectLoader).toEqual('a');
       });
 
       describe('with diagnostic messages', () => {
         it('logs the messages', () => {
-
+          const errorMock = jest.fn();
+          const warnMock = jest.fn();
+          config.logger.error = errorMock;
+          config.logger.warn = warnMock;
+          mockMinify.mockReturnValue({
+            diagnostics: [{
+              level: 'error',
+              messageText: 'no workie workie'
+            }, {
+              level: 'warn',
+              messageText: 'meh'
+            }, {
+              level: 'error',
+              messageText: 'nope'
+            }],
+            output: 'b'
+          });
+          callInjectAppIntoLoader();
+          expect(errorMock.mock.calls.length).toEqual(2);
+          expect(warnMock.mock.calls.length).toEqual(1);
+          expect(errorMock.mock.calls[0][0]).toEqual('no workie workie');
+          expect(errorMock.mock.calls[1][0]).toEqual('nope');
+          expect(warnMock.mock.calls[0][0]).toEqual('meh');
         });
 
         it('returns the non-minified data', () => {
-
+          mockMinify.mockReturnValue({
+            diagnostics: [{
+              level: 'error',
+              messageText: 'no workie workie'
+            }],
+            output: 'b'
+          });
+          const projectLoader = callInjectAppIntoLoader();
+          expect(projectLoader).toBe(`("MyApp","build/myapp/myapp.core.js","build/myapp/myapp.core.pf.js",[])`);
         });
       });
     });

@@ -43,6 +43,7 @@ describe('build-project-files', () => {
       it('calls the minify routine', () => {
         callInjectAppIntoLoader();
         expect(mockMinify.mock.calls.length).toEqual(1);
+        expect(mockMinify.mock.calls[0][0]).toEqual(`("MyApp","build/myapp/myapp.core.js","build/myapp/myapp.core.pf.js",[])`);
       });
 
       it('returns minified output', () => {
